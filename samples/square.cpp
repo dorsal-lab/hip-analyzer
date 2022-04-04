@@ -78,7 +78,7 @@ int main(int argc, char* argv[]) {
     printf("info: check result\n");
     for (size_t i = 0; i < N; i++) {
         if (C_h[i] != A_h[i] * A_h[i]) {
-            throw std::runtime_error();
+            throw std::runtime_error("");
         }
     }
     printf("PASSED!\n");
