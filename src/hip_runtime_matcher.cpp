@@ -16,8 +16,7 @@ StatementMatcher function_call_matcher = callExpr().bind("funcall");
 class FunctionPrinter : public MatchFinder::MatchCallback {
   public:
     virtual void run(const MatchFinder::MatchResult& Result) {
-        if (const ForStmt* FS =
-                Result.Nodes.getNodeAs<clang::ForStmt>("funcall"))
+        if (const auto* FS = Result.Nodes.getNodeAs<clang::CallExpr>("funcall"))
             FS->dump();
     }
 };

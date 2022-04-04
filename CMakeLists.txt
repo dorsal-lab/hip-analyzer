@@ -28,6 +28,7 @@ link_directories(BEFORE ${ROCM_LLVM}/lib)
 add_executable(hip-analyzer
     src/main.cpp
     src/flop_counter.cpp
+    src/hip_runtime_matcher.cpp
 )
 
 target_link_libraries(hip-analyzer

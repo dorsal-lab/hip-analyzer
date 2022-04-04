@@ -11,6 +11,9 @@
 
 #include "llvm/Support/CommandLine.h"
 
+#include "callbacks.h"
+#include "matchers.h"
+
 static llvm::cl::OptionCategory llvmClCategory("HipAnalyzer options");
 
 static llvm::cl::extrahelp
@@ -31,7 +34,11 @@ int main(int argc, const char** argv) {
     clang::tooling::ClangTool tool(options_parser.getCompilations(),
                                    options_parser.getSourcePathList());
 
-    return tool.run(
-        clang::tooling::newFrontendActionFactory<clang::SyntaxOnlyAction>()
-            .get());
+    clang::ast_matchers::MatchFinder finder;
+
+    auto printer = hip::makeFunPrinter();
+
+    finder.addMatcher(hip::function_call_matcher, printer.get());
+
+    return tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
 }
