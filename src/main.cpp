@@ -4,6 +4,7 @@
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */
 
+#include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/Tooling/CommonOptionsParser.h"
 #include "clang/Tooling/Tooling.h"
