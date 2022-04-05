@@ -10,6 +10,7 @@
 
 namespace hip {
 
-extern clang::ast_matchers::StatementMatcher function_call_matcher;
+extern clang::ast_matchers::StatementMatcher function_call_matcher,
+    geometry_matcher;
 
 }

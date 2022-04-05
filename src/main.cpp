@@ -39,6 +39,7 @@ int main(int argc, const char** argv) {
     auto printer = hip::makeFunPrinter();
 
     finder.addMatcher(hip::function_call_matcher, printer.get());
+    finder.addMatcher(hip::geometry_matcher, printer.get());
 
     return tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
 }
