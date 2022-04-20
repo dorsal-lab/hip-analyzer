@@ -32,6 +32,16 @@ class KernelFinder : public MatchFinder::MatchCallback {
                                      clang::CFG::BuildOptions());
             auto lang_opt = Result.Context->getLangOpts();
             cfg->dump(lang_opt, true);
+
+            // Print First elements
+            for (auto block : *cfg.get()) {
+                auto first = block->front();
+                auto first_statement = first.getAs<clang::CFGStmt>();
+
+                if (first_statement.hasValue()) {
+                    first_statement->getStmt()->dump();
+                }
+            }
         }
         // TODO : store function decl
     }
