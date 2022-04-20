@@ -44,8 +44,8 @@ StatementMatcher function_call_matcher =
 
 StatementMatcher geometry_matcher =
     memberExpr(
-        hasDeclaration(decl(hasAncestor(cxxRecordDecl(hasName(threadIdx))))))
-        .bind(threadIdx);
+        hasDeclaration(decl(hasAncestor(cxxRecordDecl(hasName(threadIdx_t))))))
+        .bind(threadIdx_t);
 
 class FunctionPrinter : public MatchFinder::MatchCallback {
   public:
@@ -53,13 +53,15 @@ class FunctionPrinter : public MatchFinder::MatchCallback {
 
         // ThreadIdx
         if (const auto* FS =
-                Result.Nodes.getNodeAs<clang::CallExpr>(hipThreadIdx))
+                Result.Nodes.getNodeAs<clang::CallExpr>(hipThreadIdx)) {
             FS->dump();
+        }
 
         if (const auto* FS =
-                Result.Nodes.getNodeAs<clang::MemberExpr>(geometry))
+                Result.Nodes.getNodeAs<clang::MemberExpr>(geometry)) {
             FS->dump();
-    } // namespace hip
+        }
+    }
 };
 
 std::unique_ptr<MatchFinder::MatchCallback> makeFunPrinter() {

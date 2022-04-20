@@ -18,4 +18,7 @@ namespace hip {
 std::unique_ptr<clang::ast_matchers::MatchFinder::MatchCallback>
 makeFunPrinter();
 
+std::unique_ptr<clang::ast_matchers::MatchFinder::MatchCallback>
+makeCfgPrinter(const std::string& name);
+
 } // namespace hip

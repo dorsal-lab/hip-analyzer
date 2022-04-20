@@ -36,10 +36,16 @@ int main(int argc, const char** argv) {
 
     clang::ast_matchers::MatchFinder finder;
 
+    /*
     auto printer = hip::makeFunPrinter();
 
     finder.addMatcher(hip::function_call_matcher, printer.get());
     finder.addMatcher(hip::geometry_matcher, printer.get());
+    */
+    auto printer = hip::makeCfgPrinter("matrixSquare"); // redundant ?
+    auto matcher = hip::cfgMatcher("matrixSquare");
+
+    finder.addMatcher(matcher, printer.get());
 
     return tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
 }
