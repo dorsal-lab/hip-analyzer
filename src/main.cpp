@@ -20,6 +20,9 @@ static llvm::cl::extrahelp
     CommonHelp(clang::tooling::CommonOptionsParser::HelpMessage);
 
 static llvm::cl::extrahelp MoreHelp("\nTODO: Extra help\n");
+static llvm::cl::opt<std::string>
+    kernel_name("k", llvm::cl::desc("Specify kernel name"),
+                llvm::cl::value_desc("kernel"), llvm::cl::Required);
 
 int main(int argc, const char** argv) {
     auto parser =
@@ -42,8 +45,8 @@ int main(int argc, const char** argv) {
     finder.addMatcher(hip::function_call_matcher, printer.get());
     finder.addMatcher(hip::geometry_matcher, printer.get());
     */
-    auto printer = hip::makeCfgPrinter("matrixSquare"); // redundant ?
-    auto matcher = hip::cfgMatcher("matrixSquare");
+    auto printer = hip::makeCfgPrinter(kernel_name.getValue()); // redundant ?
+    auto matcher = hip::cfgMatcher(kernel_name.getValue());
 
     finder.addMatcher(matcher, printer.get());
 
