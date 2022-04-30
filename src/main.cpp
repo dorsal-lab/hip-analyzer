@@ -48,11 +48,19 @@ int main(int argc, const char** argv) {
     finder.addMatcher(hip::function_call_matcher, printer.get());
     finder.addMatcher(hip::geometry_matcher, printer.get());
     */
-    auto printer = hip::makeCfgPrinter(kernel_name.getValue(),
-                                       output_file.getValue()); // redundant ?
-    auto matcher = hip::cfgMatcher(kernel_name.getValue());
+
+    // Instrument blocks
+    auto printer =
+        hip::makeCfgInstrumenter(kernel_name.getValue(),
+                                 output_file.getValue()); // redundant ?
+    auto matcher = hip::kernelMatcher(kernel_name.getValue());
 
     finder.addMatcher(matcher, printer.get());
 
-    return tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
+    auto err = 0;
+    err |= tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
+
+    // Add instrumentation arguments and local variables
+
+    return err;
 }

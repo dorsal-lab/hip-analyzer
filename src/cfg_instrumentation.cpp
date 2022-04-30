@@ -30,13 +30,13 @@ std::string generateBlockCode(unsigned int id) {
     return ss.str();
 }
 
-/** \class KernelFinder
- * \brief AST Matcher callback to fetch the function text
+/** \class KernelCfgInstrumenter
+ * \brief AST Matcher callback to instrument CFG blocks. To be run first
  */
-class KernelFinder : public MatchFinder::MatchCallback {
+class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
   public:
-    KernelFinder(const std::string& kernel_name,
-                 const std::string& output_filename)
+    KernelCfgInstrumenter(const std::string& kernel_name,
+                          const std::string& output_filename)
         : name(kernel_name), output_file(output_filename, error_code) {}
 
     virtual void run(const MatchFinder::MatchResult& Result) {
@@ -121,15 +121,38 @@ class KernelFinder : public MatchFinder::MatchCallback {
     llvm::raw_fd_ostream output_file;
 };
 
+/** \class KernelBaseInstrumenter
+ * \brief AST Matcher callback to add instrumentation basics (extra params &
+ * local variables)
+ */
+class KernelBaseInstrumenter : public MatchFinder::MatchCallback {
+  public:
+    KernelBaseInstrumenter(const std::string& kernel_name)
+        : name(kernel_name) {}
+
+    virtual void run(const MatchFinder::MatchResult& Result) {}
+
+  private:
+    std::string name;
+};
+
+/** \brief AST matchers
+ */
 clang::ast_matchers::DeclarationMatcher
-cfgMatcher(const std::string& kernel_name) {
-    // Lifetime problem, todoooo
+kernelMatcher(const std::string& kernel_name) {
     return functionDecl(hasName(kernel_name)).bind(kernel_name);
 }
 
+/** \brief MatchCallbacks
+ */
 std::unique_ptr<MatchFinder::MatchCallback>
-makeCfgPrinter(const std::string& name, const std::string& output_file) {
-    return std::make_unique<KernelFinder>(name, output_file);
+makeCfgInstrumenter(const std::string& kernel, const std::string& output_file) {
+    return std::make_unique<KernelCfgInstrumenter>(kernel, output_file);
+}
+
+std::unique_ptr<MatchFinder::MatchCallback>
+makeBaseInstrumenter(const std::string& kernel) {
+    return std::make_unique<KernelBaseInstrumenter>(kernel);
 }
 
 } // namespace hip

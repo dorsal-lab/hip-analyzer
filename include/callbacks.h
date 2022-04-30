@@ -19,6 +19,6 @@ std::unique_ptr<clang::ast_matchers::MatchFinder::MatchCallback>
 makeFunPrinter();
 
 std::unique_ptr<clang::ast_matchers::MatchFinder::MatchCallback>
-makeCfgPrinter(const std::string& name, const std::string& output_file);
+makeCfgInstrumenter(const std::string& name, const std::string& output_file);
 
 } // namespace hip

@@ -23,6 +23,6 @@ extern clang::ast_matchers::StatementMatcher function_call_matcher,
  * name)
  */
 clang::ast_matchers::DeclarationMatcher
-cfgMatcher(const std::string& kernel_name);
+kernelMatcher(const std::string& kernel_name);
 
 } // namespace hip
