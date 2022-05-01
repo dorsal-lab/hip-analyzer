@@ -50,11 +50,13 @@ int main(int argc, const char** argv) {
     finder.addMatcher(hip::geometry_matcher, printer.get());
     */
 
-    // Instrument blocks
+    // Kernel matcher
+    auto matcher = hip::kernelMatcher(kernel_name.getValue());
+
+    // Instrument basic blocks
     auto instrumenter =
         hip::makeCfgInstrumenter(kernel_name.getValue(),
                                  output_file.getValue()); // redundant ?
-    auto matcher = hip::kernelMatcher(kernel_name.getValue());
 
     finder.addMatcher(matcher, instrumenter.get());
 
@@ -67,7 +69,8 @@ int main(int argc, const char** argv) {
                                          options_parser.getSourcePathList());*/
     clang::ast_matchers::MatchFinder param_finder;
 
-    auto param_instrumenter = hip::makeBaseInstrumenter(kernel_name.getValue());
+    auto param_instrumenter = hip::makeBaseInstrumenter(kernel_name.getValue(),
+                                                        output_file.getValue());
     param_finder.addMatcher(matcher, param_instrumenter.get());
 
     err |=

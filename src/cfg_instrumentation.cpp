@@ -30,6 +30,12 @@ std::string generateBlockCode(unsigned int id) {
     return ss.str();
 }
 
+std::string generateInstrumentationParms() {
+    std::stringstream ss;
+    ss << "/* Extra params */";
+    return ss.str();
+}
+
 /** \class KernelCfgInstrumenter
  * \brief AST Matcher callback to instrument CFG blocks. To be run first
  */
@@ -127,8 +133,9 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
  */
 class KernelBaseInstrumenter : public MatchFinder::MatchCallback {
   public:
-    KernelBaseInstrumenter(const std::string& kernel_name)
-        : name(kernel_name) {}
+    KernelBaseInstrumenter(const std::string& kernel_name,
+                           const std::string& output_filename)
+        : name(kernel_name), output_file(output_filename, error_code) {}
 
     virtual void run(const MatchFinder::MatchResult& Result) {
         auto lang_opt = Result.Context->getLangOpts();
@@ -144,24 +151,34 @@ class KernelBaseInstrumenter : public MatchFinder::MatchCallback {
 
             last_param->dump();
 
+            // Get insertion location
             auto begin_loc = last_param->getBeginLoc();
-            /*
-            auto rep_loc = clang::Lexer::getLocForEndOfToken(
-                begin_loc, 1, *Result.SourceManager, lang_opt);*/
-
             auto end_loc = clang::Lexer::findNextToken(
                                begin_loc, *Result.SourceManager, lang_opt)
                                .getValue()
                                .getEndLoc();
 
             end_loc.dump(*Result.SourceManager);
+
+            // Generate extra code
+            clang::tooling::Replacement rep(*Result.SourceManager, end_loc, 0,
+                                            generateInstrumentationParms());
+
+            // Commit to file
+            rep.apply(rewriter);
+
+            rewriter.getEditBuffer(Result.SourceManager->getMainFileID())
+                .write(output_file);
+            output_file.close();
         }
     }
 
   private:
+    // TODO : Error handling
+    std::error_code error_code;
     std::string name;
     clang::Rewriter rewriter;
-    // llvm::raw_fd_ostream output_file;
+    llvm::raw_fd_ostream output_file;
 };
 
 /** \brief AST matchers
@@ -179,8 +196,9 @@ makeCfgInstrumenter(const std::string& kernel, const std::string& output_file) {
 }
 
 std::unique_ptr<MatchFinder::MatchCallback>
-makeBaseInstrumenter(const std::string& kernel) {
-    return std::make_unique<KernelBaseInstrumenter>(kernel);
+makeBaseInstrumenter(const std::string& kernel,
+                     const std::string& output_file) {
+    return std::make_unique<KernelBaseInstrumenter>(kernel, output_file);
 }
 
 } // namespace hip
