@@ -130,10 +130,22 @@ class KernelBaseInstrumenter : public MatchFinder::MatchCallback {
     KernelBaseInstrumenter(const std::string& kernel_name)
         : name(kernel_name) {}
 
-    virtual void run(const MatchFinder::MatchResult& Result) {}
+    virtual void run(const MatchFinder::MatchResult& Result) {
+        auto lang_opt = Result.Context->getLangOpts();
+
+        clang::tooling::Replacements reps;
+        rewriter.setSourceMgr(*Result.SourceManager, lang_opt);
+
+        if (const auto* match =
+                Result.Nodes.getNodeAs<clang::FunctionDecl>(name)) {
+            match->dump();
+        }
+    }
 
   private:
     std::string name;
+    clang::Rewriter rewriter;
+    // llvm::raw_fd_ostream output_file;
 };
 
 /** \brief AST matchers

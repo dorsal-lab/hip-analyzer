@@ -6,6 +6,7 @@
 
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Frontend/FrontendActions.h"
+#include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Tooling/CommonOptionsParser.h"
 #include "clang/Tooling/Tooling.h"
 
@@ -50,17 +51,29 @@ int main(int argc, const char** argv) {
     */
 
     // Instrument blocks
-    auto printer =
+    auto instrumenter =
         hip::makeCfgInstrumenter(kernel_name.getValue(),
                                  output_file.getValue()); // redundant ?
     auto matcher = hip::kernelMatcher(kernel_name.getValue());
 
-    finder.addMatcher(matcher, printer.get());
+    finder.addMatcher(matcher, instrumenter.get());
 
     auto err = 0;
     err |= tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
 
     // Add instrumentation arguments and local variables
+
+    /*clang::tooling::ClangTool param_tool(options_parser.getCompilations(),
+                                         options_parser.getSourcePathList());*/
+    clang::ast_matchers::MatchFinder param_finder;
+
+    auto param_instrumenter = hip::makeBaseInstrumenter(kernel_name.getValue());
+    param_finder.addMatcher(matcher, param_instrumenter.get());
+
+    err |=
+        tool.run(clang::tooling::newFrontendActionFactory(&param_finder).get());
+
+    // Commit results
 
     return err;
 }
