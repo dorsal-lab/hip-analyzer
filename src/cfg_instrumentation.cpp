@@ -139,6 +139,22 @@ class KernelBaseInstrumenter : public MatchFinder::MatchCallback {
         if (const auto* match =
                 Result.Nodes.getNodeAs<clang::FunctionDecl>(name)) {
             match->dump();
+
+            auto last_param = match->parameters().back();
+
+            last_param->dump();
+
+            auto begin_loc = last_param->getBeginLoc();
+            /*
+            auto rep_loc = clang::Lexer::getLocForEndOfToken(
+                begin_loc, 1, *Result.SourceManager, lang_opt);*/
+
+            auto end_loc = clang::Lexer::findNextToken(
+                               begin_loc, *Result.SourceManager, lang_opt)
+                               .getValue()
+                               .getEndLoc();
+
+            end_loc.dump(*Result.SourceManager);
         }
     }
 
