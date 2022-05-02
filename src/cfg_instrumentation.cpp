@@ -27,9 +27,12 @@ namespace hip {
 /** \brief Code generation
  */
 
-std::string generateBlockCode(unsigned int id) {
+std::string generateBlockCode(unsigned int id, unsigned int count) {
     std::stringstream ss;
-    ss << "/* BB " << id << " */" << '\n';
+    ss << "/* BB " << id << " (" << count << ") */" << '\n';
+
+    ss << "_bb_counters[" << count << "][threadIdx.x] += 1;\n";
+
     return ss.str();
 }
 
@@ -39,13 +42,31 @@ std::string generateInstrumentationParms() {
     return ss.str();
 }
 
-std::string generateInstrumentationLocals() {
+std::string generateInstrumentationLocals(unsigned int bb_count) {
     std::stringstream ss;
 
     // The opening brace needs to be added to the code, in order to get "inside"
     // the kernel body. I agree that this feels like a kind of hack, but adding
     // an offset to a SourceLocation sounds tedious
-    ss << "{\n/* Instrumentation locals */";
+    ss << "{\n/* Instrumentation locals */\n";
+
+    ss << "__shared__ uint32_t _bb_counters[" << bb_count << "][64];\n"
+       << "unsigned int _bb_count = " << bb_count << ";\n";
+
+    // TODO : init counters to 0
+
+    return ss.str();
+}
+
+std::string generateInstrumentationCommit(unsigned int bb_count) {
+    std::stringstream ss;
+
+    ss << "/* Finalize instrumentation */\n";
+
+    ss << "   int id = threadIdx.x;\n"
+          "for (auto i = 0u; i < _bb_count; ++i) {\n"
+          "printf(\" %d %d : %d\\n \", id, i, _bb_counters[i][threadIdx.x]);"
+          "}\n";
 
     return ss.str();
 }
@@ -109,24 +130,10 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
 
             if (error) {
                 throw std::runtime_error(
-                    "Could not insert instrumentation locals");
+                    "Could not insert instrumentation extra parameters");
             }
 
-            /** \brief Instrumentation locals & initializations
-             */
-
-            auto body_loc = match->getBody()->getBeginLoc();
-            body_loc.dump(*Result.SourceManager);
-
-            // See generateInstrumentationLocals for the explaination regarding
-            // the 1 offset
-            error = reps.add({*Result.SourceManager, body_loc, 1,
-                              generateInstrumentationLocals()});
-
-            if (error) {
-                throw std::runtime_error(
-                    "Could not insert instrumentation params");
-            }
+            auto bb_count = 0u;
 
             // Print First elements
             for (auto block : *cfg.get()) {
@@ -153,9 +160,9 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                     stmt->dumpColor();
 
                     // Create replacement
-                    clang::tooling::Replacement rep(*Result.SourceManager,
-                                                    stmt->getBeginLoc(), 0,
-                                                    generateBlockCode(id));
+                    clang::tooling::Replacement rep(
+                        *Result.SourceManager, stmt->getBeginLoc(), 0,
+                        generateBlockCode(id, bb_count));
 
                     std::cout << rep.toString();
                     auto error = reps.add(rep);
@@ -163,9 +170,44 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                         throw std::runtime_error(
                             "Incompatible edit encountered");
                     }
+
+                    bb_count++;
                 }
             }
-            // Check if replacements need to be applied
+
+            /** \brief Instrumentation locals & initializations
+             */
+
+            auto body_loc = match->getBody()->getBeginLoc();
+            body_loc.dump(*Result.SourceManager);
+
+            // See generateInstrumentationLocals for the explaination regarding
+            // the 1 offset
+            error = reps.add({*Result.SourceManager, body_loc, 1,
+                              generateInstrumentationLocals(bb_count)});
+
+            if (error) {
+                throw std::runtime_error(
+                    "Could not insert instrumentation locals");
+            }
+
+            /** \brief Instrumentation commit
+             */
+
+            auto body_end_loc = match->getBody()->getEndLoc();
+            body_end_loc.dump(*Result.SourceManager);
+
+            // See generateInstrumentationLocals for the explaination regarding
+            // the 1 offset
+            error = reps.add({*Result.SourceManager, body_end_loc, 0,
+                              generateInstrumentationCommit(bb_count)});
+
+            if (error) {
+                throw std::runtime_error(
+                    "Could not insert instrumentation commit block");
+            }
+
+            // Commit replacements
 
             applyReps(reps, rewriter);
             // rewriter.overwriteChangedFiles(); // Rewrites the input file
