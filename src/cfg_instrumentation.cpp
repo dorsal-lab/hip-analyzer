@@ -24,6 +24,9 @@ using namespace clang::ast_matchers;
 
 namespace hip {
 
+/** \brief Code generation
+ */
+
 std::string generateBlockCode(unsigned int id) {
     std::stringstream ss;
     ss << "/* BB " << id << " */" << '\n';
@@ -35,6 +38,26 @@ std::string generateInstrumentationParms() {
     ss << "/* Extra params */";
     return ss.str();
 }
+
+std::string generateInstrumentationLocals() {
+    std::stringstream ss;
+    ss << "/* Instrumentation locals */";
+    return ss.str();
+}
+
+/** \brief Utils
+ */
+
+void applyReps(clang::tooling::Replacements& reps, clang::Rewriter& rewriter) {
+    if (!reps.empty()) {
+        for (auto rep : reps) {
+            rep.apply(rewriter);
+        }
+    }
+}
+
+/** \brief Match callbacks
+ */
 
 /** \class KernelCfgInstrumenter
  * \brief AST Matcher callback to instrument CFG blocks. To be run first
@@ -102,16 +125,12 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
             }
             // Check if replacements need to be applied
 
-            if (!reps.empty()) {
-                for (auto rep : reps) {
-                    rep.apply(rewriter);
-                }
-                // rewriter.overwriteChangedFiles(); // Rewrites the input file
+            applyReps(reps, rewriter);
+            // rewriter.overwriteChangedFiles(); // Rewrites the input file
 
-                rewriter.getEditBuffer(Result.SourceManager->getMainFileID())
-                    .write(output_file);
-                output_file.close();
-            }
+            rewriter.getEditBuffer(Result.SourceManager->getMainFileID())
+                .write(output_file);
+            output_file.close();
 
             // kernel = match;
         }
@@ -147,6 +166,9 @@ class KernelBaseInstrumenter : public MatchFinder::MatchCallback {
                 Result.Nodes.getNodeAs<clang::FunctionDecl>(name)) {
             match->dump();
 
+            /** \brief Extra parameters instrumentation
+             */
+
             auto last_param = match->parameters().back();
 
             last_param->dump();
@@ -161,11 +183,21 @@ class KernelBaseInstrumenter : public MatchFinder::MatchCallback {
             end_loc.dump(*Result.SourceManager);
 
             // Generate extra code
-            clang::tooling::Replacement rep(*Result.SourceManager, end_loc, 0,
-                                            generateInstrumentationParms());
+            reps.add({*Result.SourceManager, end_loc, 0,
+                      generateInstrumentationLocals()});
+
+            /** \brief Instrumentation locals
+             */
+
+            auto body_loc = match->getBody()->getBeginLoc();
+            body_loc.dump(*Result.SourceManager);
+
+            reps.add({*Result.SourceManager, body_loc, 0,
+                      generateInstrumentationParms()});
 
             // Commit to file
-            rep.apply(rewriter);
+
+            applyReps(reps, rewriter);
 
             rewriter.getEditBuffer(Result.SourceManager->getMainFileID())
                 .write(output_file);
