@@ -41,7 +41,12 @@ std::string generateInstrumentationParms() {
 
 std::string generateInstrumentationLocals() {
     std::stringstream ss;
-    ss << "/* Instrumentation locals */";
+
+    // The opening brace needs to be added to the code, in order to get "inside"
+    // the kernel body. I agree that this feels like a kind of hack, but adding
+    // an offset to a SourceLocation sounds tedious
+    ss << "{/* Instrumentation locals */";
+
     return ss.str();
 }
 
@@ -116,8 +121,8 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                                                     generateBlockCode(id));
 
                     std::cout << rep.toString();
-                    auto err = reps.add(rep);
-                    if (err) {
+                    auto error = reps.add(rep);
+                    if (error) {
                         throw std::runtime_error(
                             "Incompatible edit encountered");
                     }
@@ -183,8 +188,13 @@ class KernelBaseInstrumenter : public MatchFinder::MatchCallback {
             end_loc.dump(*Result.SourceManager);
 
             // Generate extra code
-            reps.add({*Result.SourceManager, end_loc, 0,
-                      generateInstrumentationLocals()});
+            auto error = reps.add({*Result.SourceManager, end_loc, 0,
+                                   generateInstrumentationParms()});
+
+            if (error) {
+                throw std::runtime_error(
+                    "Could not insert instrumentation locals");
+            }
 
             /** \brief Instrumentation locals
              */
@@ -192,8 +202,15 @@ class KernelBaseInstrumenter : public MatchFinder::MatchCallback {
             auto body_loc = match->getBody()->getBeginLoc();
             body_loc.dump(*Result.SourceManager);
 
-            reps.add({*Result.SourceManager, body_loc, 0,
-                      generateInstrumentationParms()});
+            // See generateInstrumentationLocals for the explaination regarding
+            // the 1 offset
+            error = reps.add({*Result.SourceManager, body_loc, 1,
+                              generateInstrumentationLocals()});
+
+            if (error) {
+                throw std::runtime_error(
+                    "Could not insert instrumentation params");
+            }
 
             // Commit to file
 
