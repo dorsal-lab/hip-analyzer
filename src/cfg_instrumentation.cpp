@@ -45,7 +45,7 @@ std::string generateInstrumentationLocals() {
     // The opening brace needs to be added to the code, in order to get "inside"
     // the kernel body. I agree that this feels like a kind of hack, but adding
     // an offset to a SourceLocation sounds tedious
-    ss << "{/* Instrumentation locals */";
+    ss << "{\n/* Instrumentation locals */";
 
     return ss.str();
 }
@@ -87,9 +87,46 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                                      clang::CFG::BuildOptions());
             cfg->dump(lang_opt, true);
 
-            // Add replacement for counter declaration
+            /** \brief Extra parameters instrumentation
+             */
 
-            // Add replacement for counter initialization
+            auto last_param = match->parameters().back();
+
+            last_param->dump();
+
+            // Get insertion location
+            auto begin_loc = last_param->getBeginLoc();
+            auto end_loc = clang::Lexer::findNextToken(
+                               begin_loc, *Result.SourceManager, lang_opt)
+                               .getValue()
+                               .getEndLoc();
+
+            end_loc.dump(*Result.SourceManager);
+
+            // Generate extra code
+            auto error = reps.add({*Result.SourceManager, end_loc, 0,
+                                   generateInstrumentationParms()});
+
+            if (error) {
+                throw std::runtime_error(
+                    "Could not insert instrumentation locals");
+            }
+
+            /** \brief Instrumentation locals & initializations
+             */
+
+            auto body_loc = match->getBody()->getBeginLoc();
+            body_loc.dump(*Result.SourceManager);
+
+            // See generateInstrumentationLocals for the explaination regarding
+            // the 1 offset
+            error = reps.add({*Result.SourceManager, body_loc, 1,
+                              generateInstrumentationLocals()});
+
+            if (error) {
+                throw std::runtime_error(
+                    "Could not insert instrumentation params");
+            }
 
             // Print First elements
             for (auto block : *cfg.get()) {
@@ -151,85 +188,6 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
     llvm::raw_fd_ostream output_file;
 };
 
-/** \class KernelBaseInstrumenter
- * \brief AST Matcher callback to add instrumentation basics (extra params &
- * local variables)
- */
-class KernelBaseInstrumenter : public MatchFinder::MatchCallback {
-  public:
-    KernelBaseInstrumenter(const std::string& kernel_name,
-                           const std::string& output_filename)
-        : name(kernel_name), output_file(output_filename, error_code) {}
-
-    virtual void run(const MatchFinder::MatchResult& Result) {
-        auto lang_opt = Result.Context->getLangOpts();
-
-        clang::tooling::Replacements reps;
-        rewriter.setSourceMgr(*Result.SourceManager, lang_opt);
-
-        if (const auto* match =
-                Result.Nodes.getNodeAs<clang::FunctionDecl>(name)) {
-            match->dump();
-
-            /** \brief Extra parameters instrumentation
-             */
-
-            auto last_param = match->parameters().back();
-
-            last_param->dump();
-
-            // Get insertion location
-            auto begin_loc = last_param->getBeginLoc();
-            auto end_loc = clang::Lexer::findNextToken(
-                               begin_loc, *Result.SourceManager, lang_opt)
-                               .getValue()
-                               .getEndLoc();
-
-            end_loc.dump(*Result.SourceManager);
-
-            // Generate extra code
-            auto error = reps.add({*Result.SourceManager, end_loc, 0,
-                                   generateInstrumentationParms()});
-
-            if (error) {
-                throw std::runtime_error(
-                    "Could not insert instrumentation locals");
-            }
-
-            /** \brief Instrumentation locals
-             */
-
-            auto body_loc = match->getBody()->getBeginLoc();
-            body_loc.dump(*Result.SourceManager);
-
-            // See generateInstrumentationLocals for the explaination regarding
-            // the 1 offset
-            error = reps.add({*Result.SourceManager, body_loc, 1,
-                              generateInstrumentationLocals()});
-
-            if (error) {
-                throw std::runtime_error(
-                    "Could not insert instrumentation params");
-            }
-
-            // Commit to file
-
-            applyReps(reps, rewriter);
-
-            rewriter.getEditBuffer(Result.SourceManager->getMainFileID())
-                .write(output_file);
-            output_file.close();
-        }
-    }
-
-  private:
-    // TODO : Error handling
-    std::error_code error_code;
-    std::string name;
-    clang::Rewriter rewriter;
-    llvm::raw_fd_ostream output_file;
-};
-
 /** \brief AST matchers
  */
 clang::ast_matchers::DeclarationMatcher
@@ -242,12 +200,6 @@ kernelMatcher(const std::string& kernel_name) {
 std::unique_ptr<MatchFinder::MatchCallback>
 makeCfgInstrumenter(const std::string& kernel, const std::string& output_file) {
     return std::make_unique<KernelCfgInstrumenter>(kernel, output_file);
-}
-
-std::unique_ptr<MatchFinder::MatchCallback>
-makeBaseInstrumenter(const std::string& kernel,
-                     const std::string& output_file) {
-    return std::make_unique<KernelBaseInstrumenter>(kernel, output_file);
 }
 
 } // namespace hip

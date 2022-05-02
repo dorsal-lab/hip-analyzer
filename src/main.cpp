@@ -63,20 +63,5 @@ int main(int argc, const char** argv) {
     auto err = 0;
     err |= tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
 
-    // Add instrumentation arguments and local variables
-
-    /*clang::tooling::ClangTool param_tool(options_parser.getCompilations(),
-                                         options_parser.getSourcePathList());*/
-    clang::ast_matchers::MatchFinder param_finder;
-
-    auto param_instrumenter = hip::makeBaseInstrumenter(kernel_name.getValue(),
-                                                        output_file.getValue());
-    param_finder.addMatcher(matcher, param_instrumenter.get());
-
-    err |=
-        tool.run(clang::tooling::newFrontendActionFactory(&param_finder).get());
-
-    // Commit results
-
     return err;
 }
