@@ -56,17 +56,13 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
         if (const auto* match =
                 Result.Nodes.getNodeAs<clang::FunctionDecl>(name)) {
             match->dump();
-            auto body = match->getBody();
-            auto cfg = CFG::buildCFG(match, body, Result.Context,
-                                     clang::CFG::BuildOptions());
-            cfg->dump(lang_opt, true);
 
             /** \brief Extra parameters instrumentation
              */
 
             auto last_param = match->parameters().back();
 
-            last_param->dump();
+            // last_param->dump();
 
             // Get insertion location
             auto begin_loc = last_param->getBeginLoc();
@@ -88,6 +84,12 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
             }
 
             // Print First elements
+
+            auto body = match->getBody();
+            auto cfg = CFG::buildCFG(match, body, Result.Context,
+                                     clang::CFG::BuildOptions());
+            cfg->dump(lang_opt, true);
+
             for (auto block : *cfg.get()) {
                 auto id = block->getBlockID();
 
@@ -131,7 +133,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
              */
 
             auto body_loc = match->getBody()->getBeginLoc();
-            body_loc.dump(source_manager);
+            // body_loc.dump(source_manager);
 
             error = reps.add({source_manager, body_loc.getLocWithOffset(1), 0,
                               instr_generator.generateInstrumentationLocals()});
@@ -145,7 +147,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
              */
 
             auto body_end_loc = match->getBody()->getEndLoc();
-            body_end_loc.dump(source_manager);
+            // body_end_loc.dump(source_manager);
 
             // See generateInstrumentationLocals for the explaination regarding
             // the 1 offset
@@ -155,6 +157,20 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
             if (error) {
                 throw std::runtime_error(
                     "Could not insert instrumentation commit block");
+            }
+
+            // Add runtime includes
+            // match->getSourceRange().dump(source_manager);
+            auto file_begin_loc = source_manager.getLocForStartOfFile(
+                source_manager.getMainFileID());
+            file_begin_loc.dump(source_manager);
+
+            error = reps.add({source_manager, file_begin_loc, 0,
+                              instr_generator.generateIncludes()});
+
+            if (error) {
+                throw std::runtime_error(
+                    "Could not insert instrumentation includes");
             }
 
         } else if (const auto* match =

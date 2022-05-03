@@ -28,6 +28,10 @@ struct InstrGenerator {
      */
     std::string generateBlockCode(unsigned int id) const;
 
+    /** \brief  Additional includes for the runtime
+     */
+    std::string generateIncludes() const;
+
     /** \brief  Additional parameters for the instrumented kernel
      */
     std::string generateInstrumentationParms() const;

@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(hip-analyzer)
 
+find_package(hip)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_FLAGS "-fno-rtti")
 
@@ -25,6 +27,8 @@ link_directories(BEFORE ${ROCM_LLVM}/lib)
 
 # ----- Targets definitions ----- #
 
+# Main tool
+
 add_executable(hip-analyzer
     src/main.cpp
     src/flop_counter.cpp
@@ -40,4 +44,14 @@ target_link_libraries(hip-analyzer
     clangASTMatchers
     clangBasic
     clangSerialization
+)
+
+# Instrumentation library
+
+add_library(hip_instrumentation
+    src/hip_instrumentation.cpp
+)
+
+target_link_libraries(hip_instrumentation
+    hip::host
 )

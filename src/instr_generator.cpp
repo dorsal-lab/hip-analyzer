@@ -49,6 +49,10 @@ std::string InstrGenerator::generateBlockCode(unsigned int id) const {
     return ss.str();
 }
 
+std::string InstrGenerator::generateIncludes() const {
+    return "#include \"hip_instrumentation.hpp\"\n";
+}
+
 std::string InstrGenerator::generateInstrumentationParms() const {
     std::stringstream ss;
     ss << "/* Extra params */";
