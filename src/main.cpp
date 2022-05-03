@@ -51,14 +51,19 @@ int main(int argc, const char** argv) {
     */
 
     // Kernel matcher
-    auto matcher = hip::kernelMatcher(kernel_name.getValue());
+    auto kernel_matcher = hip::kernelMatcher(kernel_name.getValue());
+    auto kernel_call_matcher = hip::kernelCallMatcher(kernel_name.getValue());
 
     // Instrument basic blocks
-    auto instrumenter =
+    auto kernel_instrumenter =
         hip::makeCfgInstrumenter(kernel_name.getValue(),
                                  output_file.getValue()); // redundant ?
 
-    finder.addMatcher(matcher, instrumenter.get());
+    auto kernel_call_instrumenter = hip::makeCudaCallInstrumenter(
+        kernel_name.getValue(), output_file.getValue());
+
+    finder.addMatcher(kernel_matcher, kernel_instrumenter.get());
+    finder.addMatcher(kernel_call_matcher, kernel_call_instrumenter.get());
 
     auto err = 0;
     err |= tool.run(clang::tooling::newFrontendActionFactory(&finder).get());

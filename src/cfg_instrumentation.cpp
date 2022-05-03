@@ -53,6 +53,8 @@ std::string generateInstrumentationLocals(unsigned int bb_count) {
     ss << "__shared__ uint32_t _bb_counters[" << bb_count << "][64];\n"
        << "unsigned int _bb_count = " << bb_count << ";\n";
 
+    // TODO (maybe) : Lexer::getIndentationForLine
+
     // TODO : init counters to 0
 
     return ss.str();
@@ -63,6 +65,7 @@ std::string generateInstrumentationCommit(unsigned int bb_count) {
 
     ss << "/* Finalize instrumentation */\n";
 
+    // Print output
     ss << "   int id = threadIdx.x;\n"
           "for (auto i = 0u; i < _bb_count; ++i) {\n"
           "printf(\" %d %d : %d\\n \", id, i, _bb_counters[i][threadIdx.x]);"
@@ -230,6 +233,48 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
     llvm::raw_fd_ostream output_file;
 };
 
+/** \class KernelCallInstrumenter
+ * \brief AST Matcher for cuda kernel call
+ */
+class KernelCallInstrumenter : public MatchFinder::MatchCallback {
+  public:
+    KernelCallInstrumenter(const std::string& kernel_name,
+                           const std::string& output_filename)
+        : name(kernel_name), output_file(output_filename, error_code) {}
+
+    virtual void run(const MatchFinder::MatchResult& Result) {
+        auto lang_opt = Result.Context->getLangOpts();
+
+        clang::tooling::Replacements reps;
+        rewriter.setSourceMgr(*Result.SourceManager, lang_opt);
+
+        if (const auto* match =
+                Result.Nodes.getNodeAs<clang::CUDAKernelCallExpr>(name)) {
+            match->dump();
+            /*
+                        auto last_arg = match->arguments().back();
+                        last_arg->dump();
+
+                        last_arg->getLocEnd().dump(*Result.SourceManager);
+            */
+            match->getEndLoc().dump(*Result.SourceManager);
+
+            match->getRParenLoc().dump(*Result.SourceManager);
+
+            clang::Lexer::getLocForEndOfToken(match->getEndLoc(), 0,
+                                              *Result.SourceManager, lang_opt)
+                .dump(*Result.SourceManager);
+        }
+    }
+
+  private:
+    std::error_code error_code;
+    const std::string name;
+    clang::FunctionDecl* kernel = nullptr;
+    clang::Rewriter rewriter;
+    llvm::raw_fd_ostream output_file;
+};
+
 /** \brief AST matchers
  */
 clang::ast_matchers::DeclarationMatcher
@@ -237,11 +282,23 @@ kernelMatcher(const std::string& kernel_name) {
     return functionDecl(hasName(kernel_name)).bind(kernel_name);
 }
 
+clang::ast_matchers::StatementMatcher
+kernelCallMatcher(const std::string& kernel_name) {
+    return cudaKernelCallExpr(callee(functionDecl(hasName(kernel_name))))
+        .bind(kernel_name);
+}
+
 /** \brief MatchCallbacks
  */
 std::unique_ptr<MatchFinder::MatchCallback>
 makeCfgInstrumenter(const std::string& kernel, const std::string& output_file) {
     return std::make_unique<KernelCfgInstrumenter>(kernel, output_file);
+}
+
+std::unique_ptr<MatchFinder::MatchCallback>
+makeCudaCallInstrumenter(const std::string& kernel,
+                         const std::string& output_file) {
+    return std::make_unique<KernelCallInstrumenter>(kernel, output_file);
 }
 
 } // namespace hip

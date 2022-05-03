@@ -25,4 +25,9 @@ extern clang::ast_matchers::StatementMatcher function_call_matcher,
 clang::ast_matchers::DeclarationMatcher
 kernelMatcher(const std::string& kernel_name);
 
+// Kernel launch matchers
+
+clang::ast_matchers::StatementMatcher
+kernelCallMatcher(const std::string& kernel_name);
+
 } // namespace hip
