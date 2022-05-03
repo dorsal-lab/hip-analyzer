@@ -1,8 +1,10 @@
 /** \file cfg_instrumentation.cpp
- * \brief
+ * \brief Kernel CFG Instrumentation
  *
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */
+
+#include "instr_generator.h"
 
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
@@ -12,94 +14,15 @@
 
 #include "clang/Lex/Lexer.h"
 
+#include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
-
-// Temporary
-#include <iostream>
 
 using namespace clang;
 using namespace clang::ast_matchers;
 
 namespace hip {
-
-/** \brief Code generation
- */
-
-std::string generateBlockCode(unsigned int id, unsigned int count) {
-    std::stringstream ss;
-    ss << "/* BB " << id << " (" << count << ") */" << '\n';
-
-    ss << "_bb_counters[" << count << "][threadIdx.x] += 1;\n";
-
-    return ss.str();
-}
-
-std::string generateInstrumentationParms() {
-    std::stringstream ss;
-    ss << "/* Extra params */";
-    return ss.str();
-}
-
-std::string generateInstrumentationLocals(unsigned int bb_count) {
-    std::stringstream ss;
-
-    // The opening brace needs to be added to the code, in order to get "inside"
-    // the kernel body. I agree that this feels like a kind of hack, but adding
-    // an offset to a SourceLocation sounds tedious
-    ss << "{\n/* Instrumentation locals */\n";
-
-    ss << "__shared__ uint32_t _bb_counters[" << bb_count << "][64];\n"
-       << "unsigned int _bb_count = " << bb_count << ";\n";
-
-    // TODO (maybe) : Lexer::getIndentationForLine
-
-    // TODO : init counters to 0
-
-    return ss.str();
-}
-
-std::string generateInstrumentationCommit(unsigned int bb_count) {
-    std::stringstream ss;
-
-    ss << "/* Finalize instrumentation */\n";
-
-    // Print output
-    ss << "   int id = threadIdx.x;\n"
-          "for (auto i = 0u; i < _bb_count; ++i) {\n"
-          "    printf(\" %d %d : %d\\n \", id, i, "
-          "_bb_counters[i][threadIdx.x]);"
-          "}\n";
-
-    return ss.str();
-}
-
-std::string generateInstrumentationInit(unsigned int bb_count) {
-    std::stringstream ss;
-
-    // Probably best to link a library etc;
-
-    ss << "/* Instrumentation variables, hipMalloc, etc. */\n\n";
-
-    return ss.str();
-}
-
-std::string generateInstrumentationLaunchParms(unsigned int bb_count) {
-    std::stringstream ss;
-
-    ss << "/* Extra parameters for kernel launch ( " << bb_count << " )*/";
-
-    return ss.str();
-}
-
-std::string generateInstrumentationFinalize(unsigned int bb_count) {
-    std::stringstream ss;
-
-    ss << "\n\n/* Finalize instrumentation : copy back data */\n";
-
-    return ss.str();
-}
 
 /** \brief Utils
  */
@@ -155,8 +78,9 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
             end_loc.dump(source_manager);
 
             // Generate extra code
-            auto error = reps.add(
-                {source_manager, end_loc, 0, generateInstrumentationParms()});
+            auto error =
+                reps.add({source_manager, end_loc, 0,
+                          instr_generator.generateInstrumentationParms()});
 
             if (error) {
                 throw std::runtime_error(
@@ -190,7 +114,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                     // Create replacement
                     clang::tooling::Replacement rep(
                         source_manager, stmt->getBeginLoc(), 0,
-                        generateBlockCode(id, bb_count));
+                        instr_generator.generateBlockCode(id));
 
                     std::cout << rep.toString();
                     auto error = reps.add(rep);
@@ -199,7 +123,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                             "Incompatible edit encountered");
                     }
 
-                    bb_count++;
+                    instr_generator.bb_count++;
                 }
             }
 
@@ -212,7 +136,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
             // See generateInstrumentationLocals for the explaination regarding
             // the 1 offset
             error = reps.add({source_manager, body_loc, 1,
-                              generateInstrumentationLocals(bb_count)});
+                              instr_generator.generateInstrumentationLocals()});
 
             if (error) {
                 throw std::runtime_error(
@@ -228,7 +152,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
             // See generateInstrumentationLocals for the explaination regarding
             // the 1 offset
             error = reps.add({source_manager, body_end_loc, 0,
-                              generateInstrumentationCommit(bb_count)});
+                              instr_generator.generateInstrumentationCommit()});
 
             if (error) {
                 throw std::runtime_error(
@@ -240,23 +164,29 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                            name)) {
             match->dump();
 
-            auto error = reps.add({source_manager, match->getBeginLoc(), 0,
-                                   generateInstrumentationInit(bb_count)});
+            // For now, only the CUDA-style kernel launch is supported (like
+            // kernel<<<...>>>) as parsing macros (which hipLaunchKernelGGL is)
+            // with Clang is a bit of a pain. I hate C macros.
+
+            auto error =
+                reps.add({source_manager, match->getBeginLoc(), 0,
+                          instr_generator.generateInstrumentationInit()});
             if (error) {
                 throw std::runtime_error(
                     "Could not insert instrumentation var initializations");
             }
 
-            error = reps.add({source_manager, match->getEndLoc(), 0,
-                              generateInstrumentationLaunchParms(bb_count)});
+            error = reps.add(
+                {source_manager, match->getEndLoc(), 0,
+                 instr_generator.generateInstrumentationLaunchParms()});
             if (error) {
                 throw std::runtime_error(
                     "Could not insert instrumentation launch params");
             }
 
-            error = reps.add({source_manager,
-                              match->getEndLoc().getLocWithOffset(2), 0,
-                              generateInstrumentationFinalize(bb_count)});
+            error = reps.add(
+                {source_manager, match->getEndLoc().getLocWithOffset(2), 0,
+                 instr_generator.generateInstrumentationFinalize()});
             if (error) {
                 throw std::runtime_error(
                     "Could not insert instrumentation finalize");
@@ -282,7 +212,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
     clang::Rewriter rewriter;
     llvm::raw_fd_ostream output_file;
 
-    unsigned int bb_count = 0u;
+    hip::InstrGenerator instr_generator;
 };
 
 /** \class KernelCallInstrumenter

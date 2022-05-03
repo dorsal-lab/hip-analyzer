@@ -30,6 +30,7 @@ add_executable(hip-analyzer
     src/flop_counter.cpp
     src/hip_runtime_matcher.cpp
     src/cfg_instrumentation.cpp
+    src/instr_generator.cpp
 )
 
 target_link_libraries(hip-analyzer
