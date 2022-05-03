@@ -68,8 +68,35 @@ std::string generateInstrumentationCommit(unsigned int bb_count) {
     // Print output
     ss << "   int id = threadIdx.x;\n"
           "for (auto i = 0u; i < _bb_count; ++i) {\n"
-          "printf(\" %d %d : %d\\n \", id, i, _bb_counters[i][threadIdx.x]);"
+          "    printf(\" %d %d : %d\\n \", id, i, "
+          "_bb_counters[i][threadIdx.x]);"
           "}\n";
+
+    return ss.str();
+}
+
+std::string generateInstrumentationInit(unsigned int bb_count) {
+    std::stringstream ss;
+
+    // Probably best to link a library etc;
+
+    ss << "/* Instrumentation variables, hipMalloc, etc. */\n\n";
+
+    return ss.str();
+}
+
+std::string generateInstrumentationLaunchParms(unsigned int bb_count) {
+    std::stringstream ss;
+
+    ss << "/* Extra parameters for kernel launch ( " << bb_count << " )*/";
+
+    return ss.str();
+}
+
+std::string generateInstrumentationFinalize(unsigned int bb_count) {
+    std::stringstream ss;
+
+    ss << "\n\n/* Finalize instrumentation : copy back data */\n";
 
     return ss.str();
 }
@@ -101,7 +128,6 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
         auto lang_opt = Result.Context->getLangOpts();
         auto& source_manager = *Result.SourceManager;
 
-        clang::tooling::Replacements reps;
         rewriter.setSourceMgr(*Result.SourceManager, lang_opt);
 
         if (const auto* match =
@@ -136,8 +162,6 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                 throw std::runtime_error(
                     "Could not insert instrumentation extra parameters");
             }
-
-            auto bb_count = 0u;
 
             // Print First elements
             for (auto block : *cfg.get()) {
@@ -211,7 +235,35 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                     "Could not insert instrumentation commit block");
             }
 
-            // Commit replacements
+        } else if (const auto* match =
+                       Result.Nodes.getNodeAs<clang::CUDAKernelCallExpr>(
+                           name)) {
+            match->dump();
+
+            auto error = reps.add({source_manager, match->getBeginLoc(), 0,
+                                   generateInstrumentationInit(bb_count)});
+            if (error) {
+                throw std::runtime_error(
+                    "Could not insert instrumentation var initializations");
+            }
+
+            error = reps.add({source_manager, match->getEndLoc(), 0,
+                              generateInstrumentationLaunchParms(bb_count)});
+            if (error) {
+                throw std::runtime_error(
+                    "Could not insert instrumentation launch params");
+            }
+
+            error = reps.add({source_manager,
+                              match->getEndLoc().getLocWithOffset(2), 0,
+                              generateInstrumentationFinalize(bb_count)});
+            if (error) {
+                throw std::runtime_error(
+                    "Could not insert instrumentation finalize");
+            }
+
+            // This line is (probably!) launched after the first block, so the
+            // kernel instrumentation is already performed
 
             applyReps(reps, rewriter);
             // rewriter.overwriteChangedFiles(); // Rewrites the input file
@@ -219,19 +271,18 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
             rewriter.getEditBuffer(source_manager.getMainFileID())
                 .write(output_file);
             output_file.close();
-
-            // kernel = match;
         }
     }
-
-    clang::FunctionDecl* getKernel() { return kernel; }
 
   private:
     std::error_code error_code;
     const std::string name;
-    clang::FunctionDecl* kernel = nullptr;
+
+    clang::tooling::Replacements reps;
     clang::Rewriter rewriter;
     llvm::raw_fd_ostream output_file;
+
+    unsigned int bb_count = 0u;
 };
 
 /** \class KernelCallInstrumenter

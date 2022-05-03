@@ -59,11 +59,11 @@ int main(int argc, const char** argv) {
         hip::makeCfgInstrumenter(kernel_name.getValue(),
                                  output_file.getValue()); // redundant ?
 
-    auto kernel_call_instrumenter = hip::makeCudaCallInstrumenter(
-        kernel_name.getValue(), output_file.getValue());
+    /* auto kernel_call_instrumenter = hip::makeCudaCallInstrumenter(
+        kernel_name.getValue(), output_file.getValue()); */
 
     finder.addMatcher(kernel_matcher, kernel_instrumenter.get());
-    finder.addMatcher(kernel_call_matcher, kernel_call_instrumenter.get());
+    finder.addMatcher(kernel_call_matcher, kernel_instrumenter.get());
 
     auto err = 0;
     err |= tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
