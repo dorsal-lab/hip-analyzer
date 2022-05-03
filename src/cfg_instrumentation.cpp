@@ -99,6 +99,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
 
     virtual void run(const MatchFinder::MatchResult& Result) {
         auto lang_opt = Result.Context->getLangOpts();
+        auto& source_manager = *Result.SourceManager;
 
         clang::tooling::Replacements reps;
         rewriter.setSourceMgr(*Result.SourceManager, lang_opt);
@@ -120,16 +121,16 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
 
             // Get insertion location
             auto begin_loc = last_param->getBeginLoc();
-            auto end_loc = clang::Lexer::findNextToken(
-                               begin_loc, *Result.SourceManager, lang_opt)
-                               .getValue()
-                               .getEndLoc();
+            auto end_loc =
+                clang::Lexer::findNextToken(begin_loc, source_manager, lang_opt)
+                    .getValue()
+                    .getEndLoc();
 
-            end_loc.dump(*Result.SourceManager);
+            end_loc.dump(source_manager);
 
             // Generate extra code
-            auto error = reps.add({*Result.SourceManager, end_loc, 0,
-                                   generateInstrumentationParms()});
+            auto error = reps.add(
+                {source_manager, end_loc, 0, generateInstrumentationParms()});
 
             if (error) {
                 throw std::runtime_error(
@@ -150,7 +151,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                 if (first_statement.hasValue()) {
                     auto stmt = first_statement->getStmt();
                     auto begin_loc = stmt->getBeginLoc();
-                    begin_loc.dump(*Result.SourceManager);
+                    begin_loc.dump(source_manager);
 
                     // Unused, might cause issues when entering a conditional
                     // block
@@ -164,7 +165,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
 
                     // Create replacement
                     clang::tooling::Replacement rep(
-                        *Result.SourceManager, stmt->getBeginLoc(), 0,
+                        source_manager, stmt->getBeginLoc(), 0,
                         generateBlockCode(id, bb_count));
 
                     std::cout << rep.toString();
@@ -182,11 +183,11 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
              */
 
             auto body_loc = match->getBody()->getBeginLoc();
-            body_loc.dump(*Result.SourceManager);
+            body_loc.dump(source_manager);
 
             // See generateInstrumentationLocals for the explaination regarding
             // the 1 offset
-            error = reps.add({*Result.SourceManager, body_loc, 1,
+            error = reps.add({source_manager, body_loc, 1,
                               generateInstrumentationLocals(bb_count)});
 
             if (error) {
@@ -198,11 +199,11 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
              */
 
             auto body_end_loc = match->getBody()->getEndLoc();
-            body_end_loc.dump(*Result.SourceManager);
+            body_end_loc.dump(source_manager);
 
             // See generateInstrumentationLocals for the explaination regarding
             // the 1 offset
-            error = reps.add({*Result.SourceManager, body_end_loc, 0,
+            error = reps.add({source_manager, body_end_loc, 0,
                               generateInstrumentationCommit(bb_count)});
 
             if (error) {
@@ -215,7 +216,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
             applyReps(reps, rewriter);
             // rewriter.overwriteChangedFiles(); // Rewrites the input file
 
-            rewriter.getEditBuffer(Result.SourceManager->getMainFileID())
+            rewriter.getEditBuffer(source_manager.getMainFileID())
                 .write(output_file);
             output_file.close();
 
@@ -244,9 +245,10 @@ class KernelCallInstrumenter : public MatchFinder::MatchCallback {
 
     virtual void run(const MatchFinder::MatchResult& Result) {
         auto lang_opt = Result.Context->getLangOpts();
+        auto& source_manager = *Result.SourceManager;
 
         clang::tooling::Replacements reps;
-        rewriter.setSourceMgr(*Result.SourceManager, lang_opt);
+        rewriter.setSourceMgr(source_manager, lang_opt);
 
         if (const auto* match =
                 Result.Nodes.getNodeAs<clang::CUDAKernelCallExpr>(name)) {
@@ -257,13 +259,13 @@ class KernelCallInstrumenter : public MatchFinder::MatchCallback {
 
                         last_arg->getLocEnd().dump(*Result.SourceManager);
             */
-            match->getEndLoc().dump(*Result.SourceManager);
+            match->getEndLoc().dump(source_manager);
 
-            match->getRParenLoc().dump(*Result.SourceManager);
+            match->getRParenLoc().dump(source_manager);
 
             clang::Lexer::getLocForEndOfToken(match->getEndLoc(), 0,
-                                              *Result.SourceManager, lang_opt)
-                .dump(*Result.SourceManager);
+                                              source_manager, lang_opt)
+                .dump(source_manager);
         }
     }
 
