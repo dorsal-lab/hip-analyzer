@@ -67,6 +67,8 @@ struct InstrGenerator {
     /** \brief Geometry expressions
      */
     std::string threads, blocks;
+
+    std::string kernel_name;
 };
 
 } // namespace hip

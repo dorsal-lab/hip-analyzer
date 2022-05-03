@@ -32,11 +32,19 @@ constexpr auto save_register =
 Instrumenter::Instrumenter(KernelInfo& ki)
     : kernel_info(ki), host_counters(ki.instr_size, 0u) {}
 
-void* Instrumenter::allocDevice() {
+void* Instrumenter::toDevice() {
     void* data_device;
     hip::check(hipMalloc(&data_device, kernel_info.instr_size));
 
+    hip::check(hipMemcpy(data_device, host_counters.data(),
+                         kernel_info.instr_size, hipMemcpyHostToDevice));
+
     return data_device;
+}
+
+void Instrumenter::fromDevice(void* device_ptr) {
+    hip::check(hipMemcpy(host_counters.data(), device_ptr,
+                         kernel_info.instr_size, hipMemcpyDeviceToHost));
 }
 
 } // namespace hip

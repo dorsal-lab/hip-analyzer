@@ -45,7 +45,9 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
   public:
     KernelCfgInstrumenter(const std::string& kernel_name,
                           const std::string& output_filename)
-        : name(kernel_name), output_file(output_filename, error_code) {}
+        : name(kernel_name), output_file(output_filename, error_code) {
+        instr_generator.kernel_name = kernel_name;
+    }
 
     virtual void run(const MatchFinder::MatchResult& Result) {
         auto lang_opt = Result.Context->getLangOpts();

@@ -55,7 +55,8 @@ std::string InstrGenerator::generateIncludes() const {
 
 std::string InstrGenerator::generateInstrumentationParms() const {
     std::stringstream ss;
-    ss << "/* Extra params */";
+    ss << ",/* Extra params */ uint32_t* _instr_ptr";
+
     return ss.str();
 }
 
@@ -92,9 +93,16 @@ std::string InstrGenerator::generateInstrumentationCommit() const {
 std::string InstrGenerator::generateInstrumentationInit() const {
     std::stringstream ss;
 
-    // Probably best to link a library etc;
-
     ss << "/* Instrumentation variables, hipMalloc, etc. */\n\n";
+
+    ss << "hip::KernelInfo _" << kernel_name << "_info(" << bb_count << ", "
+       << blocks << ", " << threads << ");\n";
+
+    ss << "hip::Instrumenter _" << kernel_name << "_instr(_" << kernel_name
+       << "_info);\n";
+
+    ss << "auto _" << kernel_name << "_ptr = _" << kernel_name
+       << "_instr.toDevice();\n\n";
 
     return ss.str();
 }
@@ -102,7 +110,8 @@ std::string InstrGenerator::generateInstrumentationInit() const {
 std::string InstrGenerator::generateInstrumentationLaunchParms() const {
     std::stringstream ss;
 
-    ss << "/* Extra parameters for kernel launch ( " << bb_count << " )*/";
+    ss << ",/* Extra parameters for kernel launch ( " << bb_count
+       << " )*/ (uint32_t*) _" << kernel_name << "_ptr";
 
     return ss.str();
 }
@@ -111,6 +120,9 @@ std::string InstrGenerator::generateInstrumentationFinalize() const {
     std::stringstream ss;
 
     ss << "\n\n/* Finalize instrumentation : copy back data */\n";
+
+    ss << "_" << kernel_name << "_instr.fromDevice(_" << kernel_name
+       << "_ptr);\n";
 
     return ss.str();
 }

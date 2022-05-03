@@ -31,7 +31,7 @@ class Instrumenter {
   public:
     Instrumenter(KernelInfo& kernel_info);
 
-    void* allocDevice();
+    void* toDevice();
 
     void fromDevice(void* device_ptr);
 
