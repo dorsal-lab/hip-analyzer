@@ -6,9 +6,39 @@
 
 #include "instr_generator.h"
 
+#include "clang/AST/ExprCXX.h"
+#include "clang/Lex/Lexer.h"
+
 #include <sstream>
 
 namespace hip {
+
+std::string getExprText(const clang::Expr* expr,
+                        const clang::SourceManager& sm) {
+    // TODO : This is unsafe if the expression is not a functional cast. To be
+    // investigated
+    auto cast = static_cast<const clang::CXXFunctionalCastExpr*>(expr);
+    auto begin_loc = cast->getBeginLoc();
+    auto end_loc = cast->getEndLoc().getLocWithOffset(1);
+
+    return clang::Lexer::getSourceText(
+               clang::CharSourceRange::getCharRange({begin_loc, end_loc}), sm,
+               clang::LangOptions())
+        .str();
+}
+
+void InstrGenerator::setGeometry(const clang::CallExpr& kernel_call,
+                                 const clang::SourceManager& source_manager) {
+    auto thread_expr = kernel_call.getArg(0);
+    thread_expr->dump();
+
+    threads_expr = getExprText(thread_expr, source_manager);
+
+    auto blocks_expr = kernel_call.getArg(1);
+    blocks_expr->dump();
+
+    blocks_expr = getExprText(blocks_expr, source_manager);
+}
 
 std::string InstrGenerator::generateBlockCode(unsigned int id) const {
     std::stringstream ss;

@@ -168,6 +168,12 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
             // kernel<<<...>>>) as parsing macros (which hipLaunchKernelGGL is)
             // with Clang is a bit of a pain. I hate C macros.
 
+            // Set kernel geometry
+
+            instr_generator.setGeometry(*match->getConfig(), source_manager);
+
+            // Generate code
+
             auto error =
                 reps.add({source_manager, match->getBeginLoc(), 0,
                           instr_generator.generateInstrumentationInit()});

@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "clang/AST/Expr.h"
+#include "clang/Basic/SourceManager.h"
+
 #include <string>
 
 namespace hip {
@@ -15,6 +18,9 @@ namespace hip {
  * kernel (number of basic blocks, launch geometry, ...)
  */
 struct InstrGenerator {
+
+    void setGeometry(const clang::CallExpr& kernel_call,
+                     const clang::SourceManager& source_manager);
 
     // ----- Device-side instrumentation ----- //
 
