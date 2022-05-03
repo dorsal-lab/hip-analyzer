@@ -62,7 +62,7 @@ struct InstrGenerator {
 
     /** \brief Geometry expressions
      */
-    std::string threads_expr, block_expr;
+    std::string threads, blocks;
 };
 
 } // namespace hip

@@ -29,15 +29,15 @@ std::string getExprText(const clang::Expr* expr,
 
 void InstrGenerator::setGeometry(const clang::CallExpr& kernel_call,
                                  const clang::SourceManager& source_manager) {
-    auto thread_expr = kernel_call.getArg(0);
-    thread_expr->dump();
-
-    threads_expr = getExprText(thread_expr, source_manager);
-
-    auto blocks_expr = kernel_call.getArg(1);
+    auto blocks_expr = kernel_call.getArg(0);
     blocks_expr->dump();
 
-    blocks_expr = getExprText(blocks_expr, source_manager);
+    blocks = getExprText(blocks_expr, source_manager);
+
+    auto threads_expr = kernel_call.getArg(1);
+    threads_expr->dump();
+
+    threads = getExprText(threads_expr, source_manager);
 }
 
 std::string InstrGenerator::generateBlockCode(unsigned int id) const {
@@ -58,10 +58,7 @@ std::string InstrGenerator::generateInstrumentationParms() const {
 std::string InstrGenerator::generateInstrumentationLocals() const {
     std::stringstream ss;
 
-    // The opening brace needs to be added to the code, in order to get "inside"
-    // the kernel body. I agree that this feels like a kind of hack, but adding
-    // an offset to a SourceLocation sounds tedious
-    ss << "{\n/* Instrumentation locals */\n";
+    ss << "\n/* Instrumentation locals */\n";
 
     ss << "__shared__ uint32_t _bb_counters[" << bb_count << "][64];\n"
        << "unsigned int _bb_count = " << bb_count << ";\n";

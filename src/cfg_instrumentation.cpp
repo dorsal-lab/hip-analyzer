@@ -51,7 +51,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
         auto lang_opt = Result.Context->getLangOpts();
         auto& source_manager = *Result.SourceManager;
 
-        rewriter.setSourceMgr(*Result.SourceManager, lang_opt);
+        rewriter.setSourceMgr(source_manager, lang_opt);
 
         if (const auto* match =
                 Result.Nodes.getNodeAs<clang::FunctionDecl>(name)) {
@@ -133,9 +133,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
             auto body_loc = match->getBody()->getBeginLoc();
             body_loc.dump(source_manager);
 
-            // See generateInstrumentationLocals for the explaination regarding
-            // the 1 offset
-            error = reps.add({source_manager, body_loc, 1,
+            error = reps.add({source_manager, body_loc.getLocWithOffset(1), 0,
                               instr_generator.generateInstrumentationLocals()});
 
             if (error) {
