@@ -35,7 +35,8 @@ void applyReps(clang::tooling::Replacements& reps, clang::Rewriter& rewriter) {
     }
 }
 
-bool isBlockInstrumentable(clang::ASTContext& context, clang::CFGBlock& block) {
+bool isBlockInstrumentable(clang::ASTContext& context,
+                           const clang::CFGBlock& block) {
 
     auto first = block.front();
     auto first_statement = first.getAs<clang::CFGStmt>();
@@ -334,7 +335,9 @@ class KernelCallInstrumenter : public MatchFinder::MatchCallback {
  */
 clang::ast_matchers::DeclarationMatcher
 kernelMatcher(const std::string& kernel_name) {
-    return functionDecl(hasName(kernel_name)).bind(kernel_name);
+    // Only use non-instantiated template, see libASTmatchers doc
+    return traverse(TK_IgnoreUnlessSpelledInSource,
+                    functionDecl(hasName(kernel_name)).bind(kernel_name));
 }
 
 clang::ast_matchers::StatementMatcher
