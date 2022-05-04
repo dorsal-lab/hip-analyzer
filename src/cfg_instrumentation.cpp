@@ -35,6 +35,49 @@ void applyReps(clang::tooling::Replacements& reps, clang::Rewriter& rewriter) {
     }
 }
 
+bool isBlockInstrumentable(clang::ASTContext& context, clang::CFGBlock& block) {
+
+    auto first = block.front();
+    auto first_statement = first.getAs<clang::CFGStmt>();
+
+    if (!first_statement.hasValue()) {
+        return false;
+    }
+
+    auto terminator = block.getTerminatorStmt();
+
+    if (block.size() > 1) {
+        return true;
+    }
+
+    // If the statement is part of a for-loop condition
+    if (terminator &&
+        (terminator->getStmtClass() == clang::Stmt::ForStmtClass ||
+         terminator->getStmtClass() == clang::Stmt::IfStmtClass)) {
+        return false;
+    }
+
+    // If the successor is part of a foor loop condition (corresponds to the
+    // end-loop action)
+    if (block.succ_size() == 1) {
+        auto succ = *block.succ_begin();
+        auto succ_terminator = succ->getTerminatorStmt();
+        if (succ_terminator &&
+            (succ_terminator->getStmtClass() == clang::Stmt::ForStmtClass)) {
+            return false;
+        }
+    }
+
+    // Print if unhandled
+    if (terminator) {
+
+        auto parents = context.getParents(*terminator);
+        std::cout << terminator->getStmtClassName();
+    }
+
+    return true;
+}
+
 /** \brief Match callbacks
  */
 
@@ -97,21 +140,20 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
 
                 std::cout << "\nBlock " << id << '\n';
 
-                auto first = block->front();
-                auto first_statement = first.getAs<clang::CFGStmt>();
+                // If the block terminator is a for-loop, then do not instrument
+                // as this would mess with the syntax. We only need to
+                // instrument the inner loop
 
-                if (first_statement.hasValue()) {
+                bool do_instrument =
+                    isBlockInstrumentable(*Result.Context, *block);
+
+                if (do_instrument) {
+                    auto first = block->front();
+                    auto first_statement = first.getAs<clang::CFGStmt>();
+
                     auto stmt = first_statement->getStmt();
                     auto begin_loc = stmt->getBeginLoc();
                     begin_loc.dump(source_manager);
-
-                    // Unused, might cause issues when entering a conditional
-                    // block
-                    /*
-                    auto rep_loc = clang::Lexer::getLocForEndOfToken(
-                        begin_loc, 0, *Result.SourceManager, lang_opt);
-                    rep_loc.dump(*Result.SourceManager);
-                    */
 
                     stmt->dumpColor();
 
