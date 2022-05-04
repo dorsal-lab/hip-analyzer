@@ -175,7 +175,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
             // last_param->dump();
 
             // Get insertion location
-            auto begin_loc = last_param->getBeginLoc();
+            auto begin_loc = last_param->getEndLoc().getLocWithOffset(-1);
             auto end_loc =
                 clang::Lexer::findNextToken(begin_loc, source_manager, lang_opt)
                     .getValue()
