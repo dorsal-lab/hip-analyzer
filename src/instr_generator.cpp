@@ -81,11 +81,14 @@ std::string InstrGenerator::generateInstrumentationCommit() const {
     ss << "/* Finalize instrumentation */\n";
 
     // Print output
-    ss << "   int id = threadIdx.x;\n"
-          "for (auto i = 0u; i < _bb_count; ++i) {\n"
-          "    printf(\" %d %d : %d\\n \", id, i, "
-          "_bb_counters[i][threadIdx.x]);"
-          "}\n";
+
+    // Todo : compute actual index, this is just off the top of my head and
+    // wrong
+    ss << "    int id = threadIdx.x;\n"
+          "    for (auto i = 0u; i < _bb_count; ++i) {\n"
+          "        _instr_ptr[blockIdx.x * blockDim.x + threadIdx.x] = "
+          "_bb_counters[i][threadIdx.x]\n;"
+          "    }\n";
 
     return ss.str();
 }

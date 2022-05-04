@@ -34,10 +34,12 @@ Instrumenter::Instrumenter(KernelInfo& ki)
 
 void* Instrumenter::toDevice() {
     void* data_device;
-    hip::check(hipMalloc(&data_device, kernel_info.instr_size));
+    hip::check(
+        hipMalloc(&data_device, kernel_info.instr_size * sizeof(uint32_t)));
 
     hip::check(hipMemcpy(data_device, host_counters.data(),
-                         kernel_info.instr_size, hipMemcpyHostToDevice));
+                         kernel_info.instr_size * sizeof(uint32_t),
+                         hipMemcpyHostToDevice));
 
     return data_device;
 }
