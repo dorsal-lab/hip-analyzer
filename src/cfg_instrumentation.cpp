@@ -14,6 +14,7 @@
 
 #include "clang/Lex/Lexer.h"
 
+#include <algorithm>
 #include <iostream>
 #include <memory>
 #include <sstream>
@@ -26,6 +27,23 @@ namespace hip {
 
 /** \brief Utils
  */
+
+clang::SourceLocation findFirstLocation(clang::SourceManager& sm,
+                                        const clang::CFGBlock* block) {
+    BeforeThanCompare<clang::SourceLocation> comp(sm);
+
+    auto converter = [](clang::CFGElement e) {
+        return *e.getAs<clang::CFGStmt>();
+    };
+
+    std::vector<clang::SourceLocation> locs;
+    std::transform(
+        block->begin(), block->end(), std::back_inserter(locs),
+        [&](auto e) { return converter(e).getStmt()->getBeginLoc(); });
+
+    return *std::min_element(locs.begin(), locs.end(),
+                             [&](auto e1, auto e2) { return comp(e1, e2); });
+}
 
 void applyReps(clang::tooling::Replacements& reps, clang::Rewriter& rewriter) {
     if (!reps.empty()) {
@@ -127,14 +145,14 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                     auto first_statement = first.getAs<clang::CFGStmt>();
 
                     auto stmt = first_statement->getStmt();
-                    auto begin_loc = stmt->getBeginLoc();
-                    begin_loc.dump(source_manager);
-
                     stmt->dumpColor();
+
+                    auto begin_loc = findFirstLocation(source_manager, block);
+                    begin_loc.dump(source_manager);
 
                     // Create replacement
                     clang::tooling::Replacement rep(
-                        source_manager, stmt->getBeginLoc(), 0,
+                        source_manager, begin_loc, 0,
                         instr_generator.generateBlockCode(id));
 
                     std::cout << rep.toString();
