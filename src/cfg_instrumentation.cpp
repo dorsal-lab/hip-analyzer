@@ -102,32 +102,6 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                 Result.Nodes.getNodeAs<clang::FunctionDecl>(name)) {
             match->dump();
 
-            /** \brief Extra parameters instrumentation
-             */
-
-            auto last_param = match->parameters().back();
-
-            // last_param->dump();
-
-            // Get insertion location
-            auto begin_loc = last_param->getBeginLoc();
-            auto end_loc =
-                clang::Lexer::findNextToken(begin_loc, source_manager, lang_opt)
-                    .getValue()
-                    .getEndLoc();
-
-            end_loc.dump(source_manager);
-
-            // Generate extra code
-            auto error =
-                reps.add({source_manager, end_loc, 0,
-                          instr_generator.generateInstrumentationParms()});
-
-            if (error) {
-                throw std::runtime_error(
-                    "Could not insert instrumentation extra parameters");
-            }
-
             // Print First elements
 
             auto body = match->getBody();
@@ -166,11 +140,39 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                     auto error = reps.add(rep);
                     if (error) {
                         throw std::runtime_error(
-                            "Incompatible edit encountered");
+                            "Incompatible edit encountered : " +
+                            llvm::toString(std::move(error)));
                     }
 
                     instr_generator.bb_count++;
                 }
+            }
+
+            /** \brief Extra parameters instrumentation
+             */
+
+            auto last_param = match->parameters().back();
+
+            // last_param->dump();
+
+            // Get insertion location
+            auto begin_loc = last_param->getBeginLoc();
+            auto end_loc =
+                clang::Lexer::findNextToken(begin_loc, source_manager, lang_opt)
+                    .getValue()
+                    .getEndLoc();
+
+            end_loc.dump(source_manager);
+
+            // Generate extra code
+            auto error =
+                reps.add({source_manager, end_loc, 0,
+                          instr_generator.generateInstrumentationParms()});
+
+            if (error) {
+                throw std::runtime_error(
+                    "Could not insert instrumentation extra parameters : " +
+                    llvm::toString(std::move(error)));
             }
 
             /** \brief Instrumentation locals & initializations
@@ -184,7 +186,8 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
 
             if (error) {
                 throw std::runtime_error(
-                    "Could not insert instrumentation locals");
+                    "Could not insert instrumentation locals : " +
+                    llvm::toString(std::move(error)));
             }
 
             /** \brief Instrumentation commit
@@ -200,7 +203,8 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
 
             if (error) {
                 throw std::runtime_error(
-                    "Could not insert instrumentation commit block");
+                    "Could not insert instrumentation commit block : " +
+                    llvm::toString(std::move(error)));
             }
 
             // Add runtime includes
@@ -214,7 +218,8 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
 
             if (error) {
                 throw std::runtime_error(
-                    "Could not insert instrumentation includes");
+                    "Could not insert instrumentation includes : " +
+                    llvm::toString(std::move(error)));
             }
 
         } else if (const auto* match =
@@ -237,7 +242,8 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                           instr_generator.generateInstrumentationInit()});
             if (error) {
                 throw std::runtime_error(
-                    "Could not insert instrumentation var initializations");
+                    "Could not insert instrumentation var initializations : " +
+                    llvm::toString(std::move(error)));
             }
 
             error = reps.add(
@@ -245,7 +251,8 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                  instr_generator.generateInstrumentationLaunchParms()});
             if (error) {
                 throw std::runtime_error(
-                    "Could not insert instrumentation launch params");
+                    "Could not insert instrumentation launch params : " +
+                    llvm::toString(std::move(error)));
             }
 
             error = reps.add(
@@ -253,7 +260,8 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                  instr_generator.generateInstrumentationFinalize()});
             if (error) {
                 throw std::runtime_error(
-                    "Could not insert instrumentation finalize");
+                    "Could not insert instrumentation finalize : " +
+                    llvm::toString(std::move(error)));
             }
 
             // This line is (probably!) launched after the first block, so the
