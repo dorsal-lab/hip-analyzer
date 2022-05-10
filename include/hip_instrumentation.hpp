@@ -12,6 +12,10 @@
 
 namespace hip {
 
+/** \struct KernelInfo
+ * \brief Holds data relative to the static and dynamic features of a kernel
+ * launch (bblocks, kernel geometry)
+ */
 struct KernelInfo {
     KernelInfo(const std::string& _name, unsigned int bblocks, dim3 blcks,
                dim3 t_p_blcks)
@@ -32,12 +36,25 @@ struct KernelInfo {
 
 class Instrumenter {
   public:
+    /** \brief ctor
+     */
     Instrumenter(KernelInfo& kernel_info);
 
+    /** \fn toDevice
+     * \brief Allocates data on both the host and the device, returns the device
+     * pointer.
+     */
     void* toDevice();
 
+    /** \fn fromDevice
+     * \brief Fetches data back from the device
+     */
     void fromDevice(void* device_ptr);
 
+    /** \fn dumpCsv
+     * \brief Dump the data in a csv format. If no filename is given, it is
+     * generated automatically from the kernel name and the timestamp
+     */
     void dumpCsv(const std::string& filename = "");
 
   private:
@@ -45,6 +62,6 @@ class Instrumenter {
     KernelInfo kernel_info;
 
     uint64_t stamp;
-};
+}; // namespace hip
 
 } // namespace hip
