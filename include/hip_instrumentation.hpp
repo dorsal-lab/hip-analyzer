@@ -13,12 +13,15 @@
 namespace hip {
 
 struct KernelInfo {
-    KernelInfo(unsigned int bblocks, dim3 blcks, dim3 t_p_blcks)
-        : basic_blocks(bblocks), blocks(blcks), threads_per_blocks(t_p_blcks),
+    KernelInfo(const std::string& _name, unsigned int bblocks, dim3 blcks,
+               dim3 t_p_blcks)
+        : name(_name), basic_blocks(bblocks), blocks(blcks),
+          threads_per_blocks(t_p_blcks),
           total_blocks(blcks.x * blcks.y * blcks.z),
           total_threads_per_blocks(t_p_blcks.x * t_p_blcks.y * t_p_blcks.z),
           instr_size(basic_blocks * total_blocks * total_threads_per_blocks) {}
 
+    const std::string name;
     const dim3 blocks, threads_per_blocks;
     const unsigned int basic_blocks;
 
@@ -35,9 +38,13 @@ class Instrumenter {
 
     void fromDevice(void* device_ptr);
 
+    void dumpCsv(const std::string& filename = "");
+
   private:
     std::vector<uint32_t> host_counters;
     KernelInfo kernel_info;
+
+    uint64_t stamp;
 };
 
 } // namespace hip

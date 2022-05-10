@@ -15,11 +15,15 @@ namespace hip {
 
 std::string getExprText(const clang::Expr* expr,
                         const clang::SourceManager& sm) {
-    // TODO : This is unsafe if the expression is not a functional cast. To be
-    // investigated
-    auto cast = static_cast<const clang::CXXFunctionalCastExpr*>(expr);
-    auto begin_loc = cast->getBeginLoc();
-    auto end_loc = cast->getEndLoc().getLocWithOffset(1);
+
+    auto begin_loc = expr->getBeginLoc();
+    auto end_loc = expr->getEndLoc().getLocWithOffset(1);
+
+    if (begin_loc.isInvalid() || end_loc.isInvalid()) {
+
+        throw std::runtime_error("getExprText : Could not cast expr, unhandled "
+                                 "geometry declaration");
+    }
 
     return clang::Lexer::getSourceText(
                clang::CharSourceRange::getCharRange({begin_loc, end_loc}), sm,
@@ -86,8 +90,8 @@ std::string InstrGenerator::generateInstrumentationCommit() const {
     // wrong
     ss << "    int id = threadIdx.x;\n"
           "    for (auto i = 0u; i < _bb_count; ++i) {\n"
-          "        _instr_ptr[blockIdx.x * blockDim.x + threadIdx.x] = "
-          "_bb_counters[i][threadIdx.x]\n;"
+          "        _instr_ptr[blockIdx.x * blockDim.x * _bb_count + "
+          "threadIdx.x * _bb_count + i] = _bb_counters[i][threadIdx.x]\n;"
           "    }\n";
 
     return ss.str();
@@ -98,8 +102,8 @@ std::string InstrGenerator::generateInstrumentationInit() const {
 
     ss << "/* Instrumentation variables, hipMalloc, etc. */\n\n";
 
-    ss << "hip::KernelInfo _" << kernel_name << "_info(" << bb_count << ", "
-       << blocks << ", " << threads << ");\n";
+    ss << "hip::KernelInfo _" << kernel_name << "_info(\"" << kernel_name
+       << "\", " << bb_count << ", " << blocks << ", " << threads << ");\n";
 
     ss << "hip::Instrumenter _" << kernel_name << "_instr(_" << kernel_name
        << "_info);\n";
