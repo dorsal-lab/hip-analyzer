@@ -32,6 +32,14 @@ constexpr auto save_register =
 
 // ---- Instrumentation ----- //
 
+void KernelInfo::dump() const {
+    std::cout << "Kernel info (" << name << ") :\n"
+              << "\tTotal blocks : " << total_blocks << '\n'
+              << "\tTotal threads : " << total_threads_per_blocks << '\n'
+              << "\tBasic blocks : " << basic_blocks << '\n'
+              << "\tInstr size : " << instr_size << '\n';
+}
+
 Instrumenter::Instrumenter(KernelInfo& ki)
     : kernel_info(ki), host_counters(ki.instr_size, 0u) {
 
@@ -45,10 +53,10 @@ Instrumenter::Instrumenter(KernelInfo& ki)
 void* Instrumenter::toDevice() {
     void* data_device;
     hip::check(
-        hipMalloc(&data_device, kernel_info.instr_size * sizeof(uint32_t)));
+        hipMalloc(&data_device, kernel_info.instr_size * sizeof(counter_t)));
 
     hip::check(hipMemcpy(data_device, host_counters.data(),
-                         kernel_info.instr_size * sizeof(uint32_t),
+                         kernel_info.instr_size * sizeof(counter_t),
                          hipMemcpyHostToDevice));
 
     return data_device;
@@ -56,16 +64,21 @@ void* Instrumenter::toDevice() {
 
 void Instrumenter::fromDevice(void* device_ptr) {
     hip::check(hipMemcpy(host_counters.data(), device_ptr,
-                         kernel_info.instr_size, hipMemcpyDeviceToHost));
+                         kernel_info.instr_size * sizeof(counter_t),
+                         hipMemcpyDeviceToHost));
 }
 
+std::string Instrumenter::autoFilenamePrefix() const {
+    std::stringstream ss;
+    ss << kernel_info.name << '_' << stamp;
+
+    return ss.str();
+}
 void Instrumenter::dumpCsv(const std::string& filename_in) {
     std::string filename;
 
     if (filename_in.empty()) {
-        std::stringstream ss;
-        ss << kernel_info.name << '_' << stamp << ".csv";
-        filename = ss.str();
+        filename = autoFilenamePrefix() + ".csv";
     } else {
         filename = filename_in;
     }
@@ -81,10 +94,26 @@ void Instrumenter::dumpCsv(const std::string& filename_in) {
                                  kernel_info.basic_blocks +
                              thread * kernel_info.basic_blocks + bblock;
                 out << block << ',' << thread << ',' << bblock << ','
-                    << host_counters[index] << '\n';
+                    << static_cast<unsigned int>(host_counters[index]) << '\n';
             }
         }
     }
+
+    out.close();
+}
+
+void Instrumenter::dumpBin(const std::string& filename_in) {
+    std::string filename;
+
+    if (filename_in.empty()) {
+        filename = autoFilenamePrefix() + ".hiptrace";
+    } else {
+        filename = filename_in;
+    }
+
+    std::ofstream out(filename, std::ios::binary);
+    out.write(reinterpret_cast<const char*>(host_counters.data()),
+              host_counters.size() * sizeof(counter_t));
 
     out.close();
 }

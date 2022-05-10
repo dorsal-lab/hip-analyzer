@@ -32,9 +32,13 @@ struct KernelInfo {
     const uint32_t total_blocks;
     const uint32_t total_threads_per_blocks;
     const uint32_t instr_size;
+
+    void dump() const;
 };
 
 class Instrumenter {
+    using counter_t = uint8_t;
+
   public:
     /** \brief ctor
      */
@@ -57,8 +61,12 @@ class Instrumenter {
      */
     void dumpCsv(const std::string& filename = "");
 
+    void dumpBin(const std::string& filename = "");
+
   private:
-    std::vector<uint32_t> host_counters;
+    std::string autoFilenamePrefix() const;
+
+    std::vector<counter_t> host_counters;
     KernelInfo kernel_info;
 
     uint64_t stamp;

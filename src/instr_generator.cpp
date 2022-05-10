@@ -59,7 +59,7 @@ std::string InstrGenerator::generateIncludes() const {
 
 std::string InstrGenerator::generateInstrumentationParms() const {
     std::stringstream ss;
-    ss << ",/* Extra params */ uint32_t* _instr_ptr";
+    ss << ",/* Extra params */ uint8_t* _instr_ptr";
 
     return ss.str();
 }
@@ -69,8 +69,11 @@ std::string InstrGenerator::generateInstrumentationLocals() const {
 
     ss << "\n/* Instrumentation locals */\n";
 
-    ss << "__shared__ uint32_t _bb_counters[" << bb_count << "][64];\n"
-       << "unsigned int _bb_count = " << bb_count << ";\n";
+    ss << "__shared__ uint8_t _bb_counters[" << bb_count << "][64];\n"
+       << "unsigned int _bb_count = " << bb_count << ";\n"
+       << "#pragma unroll"
+          "\nfor(auto i = 0u; i < _bb_count; ++i) { "
+          "_bb_counters[i][threadIdx.x] = 0; }\n";
 
     // TODO (maybe) : Lexer::getIndentationForLine
 
@@ -118,7 +121,7 @@ std::string InstrGenerator::generateInstrumentationLaunchParms() const {
     std::stringstream ss;
 
     ss << ",/* Extra parameters for kernel launch ( " << bb_count
-       << " )*/ (uint32_t*) _" << kernel_name << "_ptr";
+       << " )*/ (uint8_t*) _" << kernel_name << "_ptr";
 
     return ss.str();
 }
@@ -128,7 +131,8 @@ std::string InstrGenerator::generateInstrumentationFinalize() const {
 
     ss << "\n\n/* Finalize instrumentation : copy back data */\n";
 
-    ss << "_" << kernel_name << "_instr.fromDevice(_" << kernel_name
+    ss << "hip::check(hipDeviceSynchronize());\n"
+       << "_" << kernel_name << "_instr.fromDevice(_" << kernel_name
        << "_ptr);\n";
 
     return ss.str();
