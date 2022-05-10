@@ -28,8 +28,8 @@ namespace hip {
 /** \brief Utils
  */
 
-clang::SourceLocation findFirstLocation(clang::SourceManager& sm,
-                                        const clang::CFGBlock* block) {
+std::pair<clang::SourceLocation, clang::SourceLocation>
+findBlockLimits(clang::SourceManager& sm, const clang::CFGBlock* block) {
     BeforeThanCompare<clang::SourceLocation> comp(sm);
 
     auto converter = [](clang::CFGElement e) {
@@ -41,8 +41,15 @@ clang::SourceLocation findFirstLocation(clang::SourceManager& sm,
         block->begin(), block->end(), std::back_inserter(locs),
         [&](auto e) { return converter(e).getStmt()->getBeginLoc(); });
 
-    return *std::min_element(locs.begin(), locs.end(),
-                             [&](auto e1, auto e2) { return comp(e1, e2); });
+    auto begin =
+        *std::min_element(locs.begin(), locs.end(),
+                          [&](auto e1, auto e2) { return comp(e1, e2); });
+
+    auto end =
+        *std::max_element(locs.begin(), locs.end(),
+                          [&](auto e1, auto e2) { return comp(e1, e2); });
+
+    return {begin, end};
 }
 
 void applyReps(clang::tooling::Replacements& reps, clang::Rewriter& rewriter) {
@@ -97,6 +104,17 @@ bool isBlockInstrumentable(clang::ASTContext& context,
     return true;
 }
 
+std::string generateBlockJson(const clang::SourceManager& sm, unsigned int id,
+                              const clang::SourceLocation& begin,
+                              const clang::SourceLocation& end) {
+    std::stringstream ss;
+
+    ss << "{\"id\": " << id << ", \"begin\": \"" << begin.printToString(sm)
+       << "\", \"end\": \"" << end.printToString(sm) << "\", \"flops\": null}";
+
+    return ss.str();
+}
+
 /** \brief Match callbacks
  */
 
@@ -120,6 +138,8 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
         if (const auto* match =
                 Result.Nodes.getNodeAs<clang::FunctionDecl>(name)) {
             match->dump();
+
+            std::vector<std::string> blocks_json;
 
             // Print First elements
 
@@ -147,7 +167,8 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                     auto stmt = first_statement->getStmt();
                     stmt->dumpColor();
 
-                    auto begin_loc = findFirstLocation(source_manager, block);
+                    const auto [begin_loc, end_loc] =
+                        findBlockLimits(source_manager, block);
                     begin_loc.dump(source_manager);
 
                     // Create replacement
@@ -162,6 +183,11 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                             "Incompatible edit encountered : " +
                             llvm::toString(std::move(error)));
                     }
+
+                    blocks_json.push_back(generateBlockJson(
+                        source_manager, id, begin_loc, end_loc));
+
+                    std::cout << blocks_json.back() << '\n';
 
                     instr_generator.bb_count++;
                 }
