@@ -40,6 +40,22 @@ void KernelInfo::dump() const {
               << "\tInstr size : " << instr_size << '\n';
 }
 
+std::string KernelInfo::json() {
+    std::stringstream ss;
+
+    auto t_x = threads_per_blocks.x, t_y = threads_per_blocks.y,
+         t_z = threads_per_blocks.z;
+
+    auto b_x = blocks.x, b_y = blocks.y, b_z = blocks.z;
+
+    // Sorry about this monstruosity, but trust me it works (I think?)
+    ss << "{ \"geometry\": {\"threads\": {\"x\": " << t_x << ", \"y\": " << t_y
+       << ", \"z\": " << t_z << "}, \"blocks\": {\"x\": " << b_x
+       << ", \"y\": " << b_y << ", \"z\": " << b_z << "}}}";
+
+    return ss.str();
+}
+
 Instrumenter::Instrumenter(KernelInfo& ki)
     : kernel_info(ki), host_counters(ki.instr_size, 0u) {
 
@@ -93,6 +109,7 @@ void Instrumenter::dumpCsv(const std::string& filename_in) {
                 auto index = block * kernel_info.total_threads_per_blocks *
                                  kernel_info.basic_blocks +
                              thread * kernel_info.basic_blocks + bblock;
+
                 out << block << ',' << thread << ',' << bblock << ','
                     << static_cast<unsigned int>(host_counters[index]) << '\n';
             }
@@ -116,6 +133,10 @@ void Instrumenter::dumpBin(const std::string& filename_in) {
               host_counters.size() * sizeof(counter_t));
 
     out.close();
+
+    std::ofstream db(filename + ".json");
+    db << kernel_info.json();
+    db.close();
 }
 
 } // namespace hip

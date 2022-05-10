@@ -33,7 +33,15 @@ struct KernelInfo {
     const uint32_t total_threads_per_blocks;
     const uint32_t instr_size;
 
+    /** \fn dump
+     * \brief Prints on the screen the data held by the struct
+     */
     void dump() const;
+
+    /** \fn json
+     * \brief Returns the kernel info as a JSON database
+     */
+    std::string json();
 };
 
 class Instrumenter {
@@ -61,6 +69,10 @@ class Instrumenter {
      */
     void dumpCsv(const std::string& filename = "");
 
+    /** \fn dumpBin
+     * \brief Dump the data in a binary format (packed). A KernelInfo json dump
+     * is then required to analyze the data
+     */
     void dumpBin(const std::string& filename = "");
 
   private:
