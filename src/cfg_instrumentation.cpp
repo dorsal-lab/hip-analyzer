@@ -36,17 +36,20 @@ findBlockLimits(clang::SourceManager& sm, const clang::CFGBlock* block) {
         return *e.getAs<clang::CFGStmt>();
     };
 
-    std::vector<clang::SourceLocation> locs;
+    std::vector<clang::SourceLocation> b_locs, e_locs;
     std::transform(
-        block->begin(), block->end(), std::back_inserter(locs),
+        block->begin(), block->end(), std::back_inserter(b_locs),
         [&](auto e) { return converter(e).getStmt()->getBeginLoc(); });
 
+    std::transform(block->begin(), block->end(), std::back_inserter(e_locs),
+                   [&](auto e) { return converter(e).getStmt()->getEndLoc(); });
+
     auto begin =
-        *std::min_element(locs.begin(), locs.end(),
+        *std::min_element(b_locs.begin(), b_locs.end(),
                           [&](auto e1, auto e2) { return comp(e1, e2); });
 
     auto end =
-        *std::max_element(locs.begin(), locs.end(),
+        *std::max_element(e_locs.begin(), e_locs.end(),
                           [&](auto e1, auto e2) { return comp(e1, e2); });
 
     return {begin, end};
@@ -111,6 +114,22 @@ std::string generateBlockJson(const clang::SourceManager& sm, unsigned int id,
 
     ss << "{\"id\": " << id << ", \"begin\": \"" << begin.printToString(sm)
        << "\", \"end\": \"" << end.printToString(sm) << "\", \"flops\": null}";
+
+    return ss.str();
+}
+
+std::string concatJson(const std::vector<std::string>& objects) {
+    std::stringstream ss;
+
+    ss << '[';
+
+    for (auto& str : objects) {
+        ss << str << ',';
+    }
+
+    // Remove the last comma and replace it with the closing bracket
+    ss.seekp(-1, ss.cur);
+    ss << ']';
 
     return ss.str();
 }
@@ -186,8 +205,6 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
 
                     blocks_json.push_back(generateBlockJson(
                         source_manager, id, begin_loc, end_loc));
-
-                    std::cout << blocks_json.back() << '\n';
 
                     instr_generator.bb_count++;
                 }
@@ -266,6 +283,8 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                     "Could not insert instrumentation includes : " +
                     llvm::toString(std::move(error)));
             }
+
+            std::cout << concatJson(blocks_json) << '\n';
 
         } else if (const auto* match =
                        Result.Nodes.getNodeAs<clang::CUDAKernelCallExpr>(
