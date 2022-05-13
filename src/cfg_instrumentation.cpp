@@ -14,6 +14,8 @@
 
 #include "clang/Lex/Lexer.h"
 
+#include "cfg_inner_matchers.h"
+
 #include <algorithm>
 #include <iostream>
 #include <memory>
@@ -109,7 +111,8 @@ bool isBlockInstrumentable(clang::ASTContext& context,
 
 std::string generateBlockJson(const clang::SourceManager& sm, unsigned int id,
                               const clang::SourceLocation& begin,
-                              const clang::SourceLocation& end) {
+                              const clang::SourceLocation& end,
+                              unsigned int flops = 0u) {
     std::stringstream ss;
 
     ss << "{\"id\": " << id << ", \"begin\": \"" << begin.printToString(sm)
@@ -180,17 +183,23 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                     isBlockInstrumentable(*Result.Context, *block);
 
                 if (do_instrument) {
+
+                    // Get first statement of bblock
+
                     auto first = block->front();
                     auto first_statement = first.getAs<clang::CFGStmt>();
 
-                    auto stmt = first_statement->getStmt();
-                    stmt->dumpColor();
+                    auto first_stmt = first_statement->getStmt();
+                    first_stmt->dumpColor();
+
+                    // Find begin and end of bblock
 
                     const auto [begin_loc, end_loc] =
                         findBlockLimits(source_manager, block);
                     begin_loc.dump(source_manager);
 
                     // Create replacement
+
                     clang::tooling::Replacement rep(
                         source_manager, begin_loc, 0,
                         instr_generator.generateBlockCode(id));
@@ -203,8 +212,16 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                             llvm::toString(std::move(error)));
                     }
 
+                    // Gather information on the basic block
+
+                    unsigned int flops =
+                        hip::countFlops(block, *Result.Context);
+                    std::cout << flops << " flops found in block\n";
+
+                    // Save info as JSON
+
                     blocks_json.push_back(generateBlockJson(
-                        source_manager, id, begin_loc, end_loc));
+                        source_manager, id, begin_loc, end_loc, flops));
 
                     instr_generator.bb_count++;
                 }
@@ -285,7 +302,6 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
             }
 
             std::cout << concatJson(blocks_json) << '\n';
-
         } else if (const auto* match =
                        Result.Nodes.getNodeAs<clang::CUDAKernelCallExpr>(
                            name)) {
@@ -349,7 +365,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
     llvm::raw_fd_ostream output_file;
 
     hip::InstrGenerator instr_generator;
-};
+}; // namespace hip
 
 /** \class KernelCallInstrumenter
  * \brief AST Matcher for cuda kernel call
