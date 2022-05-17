@@ -82,6 +82,6 @@ class Instrumenter {
     KernelInfo kernel_info;
 
     uint64_t stamp;
-}; // namespace hip
+};
 
 } // namespace hip

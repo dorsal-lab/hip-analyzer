@@ -42,11 +42,15 @@ class BasicCounter : public clang::ast_matchers::MatchFinder::MatchCallback {
 
 namespace hip {
 
-clang::ast_matchers::StatementMatcher flopMatcher =
-    anyOf(cxxOperatorCallExpr(hasAnyOperatorName("+", "-", "*", "/"))
-              .bind("cxxOperatorCallExpr"),
-          binaryOperator(hasAnyOperatorName("+", "-", "*", "/"))
-              .bind("binaryOperator"));
+clang::ast_matchers::StatementMatcher flopMatcher = anyOf(
+    // Cxx overloaded call -> templated code
+    cxxOperatorCallExpr(hasAnyOperatorName("+", "-", "*", "/"))
+        .bind("cxxOperatorCallExpr"),
+
+    // Classic flop
+    binaryOperator(allOf(hasAnyOperatorName("+", "-", "*", "/"),
+                         hasEitherOperand(expr(hasType(asString("float"))))))
+        .bind("binaryOperator"));
 
 unsigned int countFlops(const clang::CFGBlock* block,
                         clang::ASTContext& context) {

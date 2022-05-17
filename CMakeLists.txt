@@ -35,6 +35,7 @@ add_executable(hip-analyzer
     src/cfg_instrumentation.cpp
     src/instr_generator.cpp
     src/cfg_inner_matchers.cpp
+    src/basic_block.cpp
 )
 
 target_link_libraries(hip-analyzer
@@ -44,14 +45,17 @@ target_link_libraries(hip-analyzer
     clangASTMatchers
     clangBasic
     clangSerialization
+    jsoncpp
 )
 
 # Instrumentation library
 
 add_library(hip_instrumentation
     src/hip_instrumentation.cpp
+    src/basic_block.cpp
 )
 
 target_link_libraries(hip_instrumentation
     hip::host
+    jsoncpp
 )
