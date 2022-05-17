@@ -227,81 +227,16 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                 }
             }
 
-            /** \brief Extra parameters instrumentation
-             */
+            addExtraParameters(match, source_manager, lang_opt);
 
-            auto last_param = match->parameters().back();
+            addLocals(match, source_manager, lang_opt);
 
-            // last_param->dump();
+            addCommit(match, source_manager, lang_opt);
 
-            // Get insertion location
-            auto begin_loc = last_param->getEndLoc().getLocWithOffset(-1);
-            auto end_loc =
-                clang::Lexer::findNextToken(begin_loc, source_manager, lang_opt)
-                    .getValue()
-                    .getEndLoc();
+            addIncludes(match, source_manager, lang_opt);
 
-            end_loc.dump(source_manager);
+            // std::cout << concatJson(blocks_json) << '\n';
 
-            // Generate extra code
-            auto error =
-                reps.add({source_manager, end_loc, 0,
-                          instr_generator.generateInstrumentationParms()});
-
-            if (error) {
-                throw std::runtime_error(
-                    "Could not insert instrumentation extra parameters : " +
-                    llvm::toString(std::move(error)));
-            }
-
-            /** \brief Instrumentation locals & initializations
-             */
-
-            auto body_loc = match->getBody()->getBeginLoc();
-            // body_loc.dump(source_manager);
-
-            error = reps.add({source_manager, body_loc.getLocWithOffset(1), 0,
-                              instr_generator.generateInstrumentationLocals()});
-
-            if (error) {
-                throw std::runtime_error(
-                    "Could not insert instrumentation locals : " +
-                    llvm::toString(std::move(error)));
-            }
-
-            /** \brief Instrumentation commit
-             */
-
-            auto body_end_loc = match->getBody()->getEndLoc();
-            // body_end_loc.dump(source_manager);
-
-            // See generateInstrumentationLocals for the explaination regarding
-            // the 1 offset
-            error = reps.add({source_manager, body_end_loc, 0,
-                              instr_generator.generateInstrumentationCommit()});
-
-            if (error) {
-                throw std::runtime_error(
-                    "Could not insert instrumentation commit block : " +
-                    llvm::toString(std::move(error)));
-            }
-
-            // Add runtime includes
-            // match->getSourceRange().dump(source_manager);
-            auto file_begin_loc = source_manager.getLocForStartOfFile(
-                source_manager.getMainFileID());
-            file_begin_loc.dump(source_manager);
-
-            error = reps.add({source_manager, file_begin_loc, 0,
-                              instr_generator.generateIncludes()});
-
-            if (error) {
-                throw std::runtime_error(
-                    "Could not insert instrumentation includes : " +
-                    llvm::toString(std::move(error)));
-            }
-
-            std::cout << concatJson(blocks_json) << '\n';
         } else if (const auto* match =
                        Result.Nodes.getNodeAs<clang::CUDAKernelCallExpr>(
                            name)) {
@@ -317,32 +252,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
 
             // Generate code
 
-            auto error =
-                reps.add({source_manager, match->getBeginLoc(), 0,
-                          instr_generator.generateInstrumentationInit()});
-            if (error) {
-                throw std::runtime_error(
-                    "Could not insert instrumentation var initializations : " +
-                    llvm::toString(std::move(error)));
-            }
-
-            error = reps.add(
-                {source_manager, match->getEndLoc(), 0,
-                 instr_generator.generateInstrumentationLaunchParms()});
-            if (error) {
-                throw std::runtime_error(
-                    "Could not insert instrumentation launch params : " +
-                    llvm::toString(std::move(error)));
-            }
-
-            error = reps.add(
-                {source_manager, match->getEndLoc().getLocWithOffset(2), 0,
-                 instr_generator.generateInstrumentationFinalize()});
-            if (error) {
-                throw std::runtime_error(
-                    "Could not insert instrumentation finalize : " +
-                    llvm::toString(std::move(error)));
-            }
+            addKernelCallDecoration(match, source_manager, lang_opt);
 
             // This line is (probably!) launched after the first block, so the
             // kernel instrumentation is already performed
@@ -356,6 +266,130 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
         }
     }
 
+    /**
+     * \brief Extra parameters instrumentation
+     */
+    void addExtraParameters(const clang::FunctionDecl* match,
+                            clang::SourceManager& source_manager,
+                            clang::LangOptions& lang_opt) {
+        auto last_param = match->parameters().back();
+
+        // last_param->dump();
+
+        // Get insertion location
+        auto begin_loc = last_param->getEndLoc().getLocWithOffset(-1);
+        auto end_loc =
+            clang::Lexer::findNextToken(begin_loc, source_manager, lang_opt)
+                .getValue()
+                .getEndLoc();
+
+        end_loc.dump(source_manager);
+
+        // Generate extra code
+        auto error = reps.add({source_manager, end_loc, 0,
+                               instr_generator.generateInstrumentationParms()});
+
+        if (error) {
+            throw std::runtime_error(
+                "Could not insert instrumentation extra parameters : " +
+                llvm::toString(std::move(error)));
+        }
+    }
+
+    /**
+     * \brief Instrumentation locals & initializations
+     */
+    void addLocals(const clang::FunctionDecl* match,
+                   clang::SourceManager& source_manager,
+                   clang::LangOptions& lang_opt) {
+        auto body_loc = match->getBody()->getBeginLoc();
+        // body_loc.dump(source_manager);
+
+        auto error =
+            reps.add({source_manager, body_loc.getLocWithOffset(1), 0,
+                      instr_generator.generateInstrumentationLocals()});
+
+        if (error) {
+            throw std::runtime_error(
+                "Could not insert instrumentation locals : " +
+                llvm::toString(std::move(error)));
+        }
+    }
+
+    /**
+     * \brief Instrumentation commit
+     */
+    void addCommit(const clang::FunctionDecl* match,
+                   clang::SourceManager& source_manager,
+                   clang::LangOptions& lang_opt) {
+
+        auto body_end_loc = match->getBody()->getEndLoc();
+        // body_end_loc.dump(source_manager);
+
+        // See generateInstrumentationLocals for the explaination regarding
+        // the 1 offset
+        auto error =
+            reps.add({source_manager, body_end_loc, 0,
+                      instr_generator.generateInstrumentationCommit()});
+
+        if (error) {
+            throw std::runtime_error(
+                "Could not insert instrumentation commit block : " +
+                llvm::toString(std::move(error)));
+        }
+    }
+
+    /**
+     * \brief Add runtime includes
+     */
+    void addIncludes(const clang::FunctionDecl* match,
+                     clang::SourceManager& source_manager,
+                     clang::LangOptions& lang_opt) {
+        // match->getSourceRange().dump(source_manager);
+        auto file_begin_loc =
+            source_manager.getLocForStartOfFile(source_manager.getMainFileID());
+        file_begin_loc.dump(source_manager);
+
+        auto error = reps.add({source_manager, file_begin_loc, 0,
+                               instr_generator.generateIncludes()});
+
+        if (error) {
+            throw std::runtime_error(
+                "Could not insert instrumentation includes : " +
+                llvm::toString(std::move(error)));
+        }
+    }
+
+    void addKernelCallDecoration(const clang::CUDAKernelCallExpr* match,
+                                 clang::SourceManager& source_manager,
+                                 clang::LangOptions& lang_opt) {
+        auto error = reps.add({source_manager, match->getBeginLoc(), 0,
+                               instr_generator.generateInstrumentationInit()});
+        if (error) {
+            throw std::runtime_error(
+                "Could not insert instrumentation var initializations : " +
+                llvm::toString(std::move(error)));
+        }
+
+        error =
+            reps.add({source_manager, match->getEndLoc(), 0,
+                      instr_generator.generateInstrumentationLaunchParms()});
+        if (error) {
+            throw std::runtime_error(
+                "Could not insert instrumentation launch params : " +
+                llvm::toString(std::move(error)));
+        }
+
+        error =
+            reps.add({source_manager, match->getEndLoc().getLocWithOffset(2), 0,
+                      instr_generator.generateInstrumentationFinalize()});
+        if (error) {
+            throw std::runtime_error(
+                "Could not insert instrumentation finalize : " +
+                llvm::toString(std::move(error)));
+        }
+    }
+
   private:
     std::error_code error_code;
     const std::string name;
@@ -365,7 +399,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
     llvm::raw_fd_ostream output_file;
 
     hip::InstrGenerator instr_generator;
-}; // namespace hip
+};
 
 /** \class KernelCallInstrumenter
  * \brief AST Matcher for cuda kernel call
