@@ -139,4 +139,21 @@ void Instrumenter::dumpBin(const std::string& filename_in) {
     db.close();
 }
 
+const std::vector<hip::BasicBlock>&
+Instrumenter::loadDatabase(const std::string& filename_in) {
+    std::string filename;
+
+    if (filename_in.empty()) {
+        filename = BasicBlock::getEnvDatabaseFile(kernel_info.name);
+    } else {
+        filename = filename_in;
+    }
+
+    std::cout << filename << '\n';
+
+    blocks = BasicBlock::fromJsonArray(filename);
+
+    return blocks;
+}
+
 } // namespace hip

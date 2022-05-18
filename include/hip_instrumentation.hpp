@@ -10,6 +10,8 @@
 
 #include <vector>
 
+#include "basic_block.hpp"
+
 namespace hip {
 
 /** \struct KernelInfo
@@ -75,11 +77,19 @@ class Instrumenter {
      */
     void dumpBin(const std::string& filename = "");
 
+    /** \fn dumpBin
+     * \brief Load blocks from database
+     */
+    const std::vector<hip::BasicBlock>&
+    loadDatabase(const std::string& filename = "");
+
   private:
     std::string autoFilenamePrefix() const;
 
     std::vector<counter_t> host_counters;
     KernelInfo kernel_info;
+
+    std::vector<hip::BasicBlock> blocks;
 
     uint64_t stamp;
 };
