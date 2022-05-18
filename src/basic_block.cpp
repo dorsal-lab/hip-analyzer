@@ -31,6 +31,22 @@ std::string hip::BasicBlock::json() const {
     return ss.str();
 }
 
+std::string BasicBlock::jsonArray(const std::vector<BasicBlock>& blocks) {
+    std::stringstream ss;
+
+    ss << '[';
+
+    for (auto& block : blocks) {
+        ss << block.json() << ',';
+    }
+
+    // Remove the last comma and replace it with the closing bracket
+    ss.seekp(-1, ss.cur);
+    ss << ']';
+
+    return ss.str();
+}
+
 BasicBlock BasicBlock::fromJson(const std::string& json) {
     Json::Value root;
 

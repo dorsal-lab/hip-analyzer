@@ -13,7 +13,6 @@
 namespace hip {
 
 struct BasicBlock {
-
     /** ctor
      */
     BasicBlock(unsigned int id, unsigned int flops, const std::string& begin,
@@ -23,6 +22,11 @@ struct BasicBlock {
      * \brief Dump block to JSON
      */
     std::string json() const;
+
+    /** \fn jsonArray
+     * \brief Dump blocks to JSON
+     */
+    static std::string jsonArray(const std::vector<BasicBlock>& blocks);
 
     /** \fn fromJson
      * \brief Load block from JSON format
@@ -36,6 +40,8 @@ struct BasicBlock {
 
     unsigned int id;
     unsigned int flops;
+
+    // These are allocated as pointers as to reduce the footprint
     std::unique_ptr<std::string> begin_loc, end_loc;
 };
 

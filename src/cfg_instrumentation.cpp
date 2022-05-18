@@ -14,6 +14,7 @@
 
 #include "clang/Lex/Lexer.h"
 
+#include "basic_block.hpp"
 #include "cfg_inner_matchers.h"
 
 #include <algorithm>
@@ -161,7 +162,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                 Result.Nodes.getNodeAs<clang::FunctionDecl>(name)) {
             match->dump();
 
-            std::vector<std::string> blocks_json;
+            std::vector<hip::BasicBlock> blocks;
 
             // Print First elements
 
@@ -220,8 +221,9 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
 
                     // Save info as JSON
 
-                    blocks_json.push_back(generateBlockJson(
-                        source_manager, id, begin_loc, end_loc, flops));
+                    blocks.emplace_back(id, flops,
+                                        begin_loc.printToString(source_manager),
+                                        end_loc.printToString(source_manager));
 
                     instr_generator.bb_count++;
                 }
@@ -236,6 +238,8 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
             addIncludes(match, source_manager, lang_opt);
 
             // std::cout << concatJson(blocks_json) << '\n';
+
+            std::cout << hip::BasicBlock::jsonArray(blocks) << '\n';
 
         } else if (const auto* match =
                        Result.Nodes.getNodeAs<clang::CUDAKernelCallExpr>(
