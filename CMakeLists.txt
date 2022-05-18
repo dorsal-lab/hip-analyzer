@@ -59,3 +59,8 @@ target_link_libraries(hip_instrumentation
     hip::host
     jsoncpp
 )
+
+
+# ----- Testing ----- #
+
+add_subdirectory(test)
