@@ -12,6 +12,7 @@
 
 #include "llvm/Support/CommandLine.h"
 
+#include "basic_block.hpp"
 #include "callbacks.h"
 #include "matchers.h"
 
@@ -27,6 +28,10 @@ static llvm::cl::opt<std::string>
 static llvm::cl::opt<std::string>
     output_file("o", llvm::cl::desc("Output file path"),
                 llvm::cl::value_desc("output"), llvm::cl::Required);
+static llvm::cl::opt<std::string>
+    database_file("db", llvm::cl::desc("Output database path"),
+                  llvm::cl::value_desc("database"),
+                  llvm::cl::init(hip::default_database));
 
 int main(int argc, const char** argv) {
     auto parser =
@@ -56,8 +61,8 @@ int main(int argc, const char** argv) {
 
     // Instrument basic blocks
     auto kernel_instrumenter =
-        hip::makeCfgInstrumenter(kernel_name.getValue(),
-                                 output_file.getValue()); // redundant ?
+        hip::makeCfgInstrumenter(kernel_name.getValue(), output_file.getValue(),
+                                 database_file.getValue());
 
     /* auto kernel_call_instrumenter = hip::makeCudaCallInstrumenter(
         kernel_name.getValue(), output_file.getValue()); */

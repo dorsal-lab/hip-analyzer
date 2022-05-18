@@ -12,6 +12,8 @@
 
 namespace hip {
 
+constexpr auto default_database = "hip_analyzer.json";
+
 struct BasicBlock {
     /** ctor
      */

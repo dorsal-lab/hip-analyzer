@@ -19,7 +19,8 @@ std::unique_ptr<clang::ast_matchers::MatchFinder::MatchCallback>
 makeFunPrinter();
 
 std::unique_ptr<clang::ast_matchers::MatchFinder::MatchCallback>
-makeCfgInstrumenter(const std::string& name, const std::string& output_file);
+makeCfgInstrumenter(const std::string& name, const std::string& output_file,
+                    const std::string& database_file);
 
 std::unique_ptr<clang::ast_matchers::MatchFinder::MatchCallback>
 makeCudaCallInstrumenter(const std::string& kernel,
