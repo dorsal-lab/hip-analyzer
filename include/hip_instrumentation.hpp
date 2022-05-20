@@ -83,6 +83,17 @@ class Instrumenter {
     const std::vector<hip::BasicBlock>&
     loadDatabase(const std::string& filename = "");
 
+    // ----- Post-instrumentation reduce ----- //
+    /** \fn reduceFlops
+     * \brief Compute the number of floating point operations in the
+     * instrumented kernel execution
+     *
+     * \param device_ptr Pointer to the (device) instrumentation data
+     * \param stream Synchronization stream. If nullptr, synchronizes the device
+     */
+    unsigned int reduceFlops(const counter_t* device_ptr,
+                             hipStream_t stream = nullptr) const;
+
   private:
     std::string autoFilenamePrefix() const;
 

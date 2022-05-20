@@ -5,6 +5,7 @@
  */
 
 #include "hip_instrumentation.hpp"
+#include "hip_utils.hpp"
 
 #include <chrono>
 #include <fstream>
@@ -12,15 +13,6 @@
 #include <sstream>
 
 namespace hip {
-
-inline void check(hipError_t err) {
-    if (err != hipSuccess) {
-        std::cerr << "error : " << hipGetErrorString(err) << " (" << err
-                  << ")\n";
-        throw std::runtime_error(std::string("Encountered hip error ") +
-                                 hipGetErrorString(err));
-    }
-}
 
 // GCN Assembly
 

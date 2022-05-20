@@ -1,8 +1,10 @@
 /** \file reduction_kernels.h
  * \brief GPU-local data analysis and reductions
  *
- * \author Sébastien Darche <polymtl.ca>
+ * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */
+
+#pragma once
 
 #include "basic_block.hpp"
 
@@ -15,11 +17,9 @@ struct LaunchGeometry {
 };
 
 struct BlockUsage {
-    uint32_t count = 0u;
-    uint32_t flops = 0u;
+    uint32_t count;
+    uint32_t flops;
 } __attribute__((packed));
-
-} // namespace hip
 
 /** \fn reduceFlops
  * \brief Compute the number of flops per basic block. 1-dimensionnal array
@@ -29,18 +29,27 @@ struct BlockUsage {
  * size of the instrumentation)
  * \param blocks_info Array of block data in its normalized form \ref
  * hip::BasicBlock
+ * \param buffer Pre-allocated array for scratch-pad operations, of size
+ * gridDim.x * blockDim.x * bb_count
  * \param output Output array of size gridDim.x * bb_count
- *
- * \returns output :
  */
 
 __global__ void reduceFlops(const uint8_t* instr_ptr,
                             hip::LaunchGeometry geometry,
                             const hip::BasicBlock* blocks_info,
-                            BlockUsage* output) {
+                            hip::BlockUsage* buffer, hip::BlockUsage* output) {
     // Parallel reduction
     uint32_t tot_threads = geometry.thread_count * geometry.block_count;
-    BlockUsage blocks_thread[geometry.block_count];
+
+    hip::BlockUsage* blocks_thread =
+        &buffer[(blockIdx.x * blockDim.x + threadIdx.x) *
+                geometry.bb_count]; // TODO : templated ?
+
+    // Phase 0 : init local buffers
+
+    for (auto bb = 0u; bb < geometry.bb_count; ++bb) {
+        blocks_thread[bb] = {0u, 0u};
+    }
 
     // Phase 1 : accumulate thread-local values
 
@@ -51,7 +60,8 @@ __global__ void reduceFlops(const uint8_t* instr_ptr,
     for (auto i = begin; i < end; i += stride) {
         if (i < tot_threads) {
             for (auto bb = 0u; bb < geometry.bb_count; ++bb) {
-                blocks_thread[bb].count += instr_ptr[i * 8 + bb];
+                blocks_thread[bb].count +=
+                    static_cast<uint32_t>(instr_ptr[i * 8 + bb]);
             }
         }
     }
@@ -65,18 +75,29 @@ __global__ void reduceFlops(const uint8_t* instr_ptr,
 
     // Phase 2 : regroup values at block-level
 
-    __shared__ BlockUsage intermediary[geometry.bb_count];
+    __shared__ hip::BlockUsage intermediary;
 
     for (auto bb = 0u; bb < geometry.bb_count; ++bb) {
-        atomicAdd(intermediary[bb].count, blocks_thread[bb].count);
-        atomicAdd(intermediary[bb].flops, blocks_thread[bb].flops);
+        if (threadIdx.x == 0) {
+            intermediary = {0u, 0u};
+        }
+
+        atomicAdd(&intermediary.count, blocks_thread[bb].count);
+        atomicAdd(&intermediary.flops, blocks_thread[bb].flops);
+
+        __syncthreads();
+        if (threadIdx.x == 0) {
+            blocks_thread[bb] = intermediary;
+        }
     }
 
     // Phase 3 : save values to global memory
 
     if (threadIdx.x == 0) {
         for (auto bb = 0u; bb < geometry.bb_count; ++bb) {
-            output[blockIdx.x * 8 + bb] = intermediary[bb];
+            output[blockIdx.x * 8 + bb] = blocks_thread[bb];
         }
     }
 }
+
+} // namespace hip

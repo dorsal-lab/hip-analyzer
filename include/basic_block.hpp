@@ -4,6 +4,8 @@
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */
 
+#pragma once
+
 // Std includes
 
 #include <memory>
