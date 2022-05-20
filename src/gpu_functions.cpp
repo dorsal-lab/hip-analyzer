@@ -44,8 +44,14 @@ unsigned int hip::Instrumenter::reduceFlops(const counter_t* device_ptr,
                                  kernel_info.basic_blocks};
 
     // Basic blocks
-
     auto blocks_info = hip::BasicBlock::normalized(blocks);
+    auto blocks_info_size = blocks_info.size() * sizeof(hip::BasicBlock);
+
+    hip::BasicBlock* blocks_info_ptr;
+    hip::check(hipMalloc(&blocks_info_ptr, blocks_info_size));
+
+    hip::check(hipMemcpy(blocks_info_ptr, blocks_info.data(), blocks_info_size,
+                         hipMemcpyHostToDevice));
 
     // ----- Synchronization ----- //
     if (!stream) {
@@ -56,7 +62,7 @@ unsigned int hip::Instrumenter::reduceFlops(const counter_t* device_ptr,
 
     ::hip::
         reduceFlops<<<dim3(num_blocks), dim3(threads_per_block), 0, stream>>>(
-            device_ptr, geometry, blocks_info.data(), buffer_ptr, output_ptr);
+            device_ptr, geometry, blocks_info_ptr, buffer_ptr, output_ptr);
 
     // ----- Fetch back data ----- //
 
@@ -74,6 +80,7 @@ unsigned int hip::Instrumenter::reduceFlops(const counter_t* device_ptr,
 
     hip::check(hipFree(output_ptr));
     hip::check(hipFree(buffer_ptr));
+    hip::check(hipFree(blocks_info_ptr));
 
     // ----- Final reduction ----- //
 

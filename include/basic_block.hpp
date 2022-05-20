@@ -62,8 +62,8 @@ struct BasicBlock {
 
     bool operator<(const BasicBlock& other) const { return id < other.id; }
 
-    unsigned int id;
-    unsigned int flops;
+    uint32_t id;
+    uint32_t flops;
 
     // These are allocated as pointers as to reduce the memory footprint on the
     // device
