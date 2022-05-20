@@ -23,13 +23,9 @@ struct BasicBlock {
     BasicBlock(unsigned int id, unsigned int flops, const std::string& begin,
                const std::string& end);
 
-    BasicBlock(const BasicBlock& other) : id(other.id), flops(other.flops) {}
+    BasicBlock(const BasicBlock& other);
 
-    BasicBlock& operator=(const BasicBlock& other) {
-        id = other.id;
-        flops = other.flops;
-        return *this;
-    }
+    BasicBlock& operator=(const BasicBlock& other);
 
     /** \fn json
      * \brief Dump block to JSON

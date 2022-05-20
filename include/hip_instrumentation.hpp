@@ -58,7 +58,7 @@ class Instrumenter {
      * \brief Allocates data on both the host and the device, returns the device
      * pointer.
      */
-    void* toDevice();
+    counter_t* toDevice();
 
     /** \fn fromDevice
      * \brief Fetches data back from the device
