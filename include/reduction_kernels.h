@@ -19,7 +19,7 @@ struct LaunchGeometry {
 struct BlockUsage {
     uint32_t count;
     uint32_t flops;
-} __attribute__((packed));
+};
 
 /** \fn reduceFlops
  * \brief Compute the number of flops per basic block. 1-dimensionnal array
@@ -42,8 +42,7 @@ __global__ void reduceFlops(const uint8_t* instr_ptr,
     uint32_t tot_threads = geometry.thread_count * geometry.block_count;
 
     hip::BlockUsage* blocks_thread =
-        &buffer[(blockIdx.x * blockDim.x + threadIdx.x) *
-                geometry.bb_count]; // TODO : templated ?
+        &buffer[(blockIdx.x * blockDim.x + threadIdx.x) * geometry.bb_count];
 
     // Phase 0 : init local buffers
 
@@ -60,8 +59,8 @@ __global__ void reduceFlops(const uint8_t* instr_ptr,
     for (auto i = begin; i < end; i += stride) {
         if (i < tot_threads) {
             for (auto bb = 0u; bb < geometry.bb_count; ++bb) {
-                blocks_thread[bb].count +=
-                    static_cast<uint32_t>(instr_ptr[i * 8 + bb]);
+                blocks_thread[bb].count += static_cast<uint32_t>(
+                    instr_ptr[i * geometry.bb_count + bb]);
             }
         }
     }

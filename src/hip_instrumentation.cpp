@@ -58,8 +58,8 @@ Instrumenter::Instrumenter(KernelInfo& ki)
                 .count();
 }
 
-void* Instrumenter::toDevice() {
-    void* data_device;
+Instrumenter::counter_t* Instrumenter::toDevice() {
+    counter_t* data_device;
     hip::check(
         hipMalloc(&data_device, kernel_info.instr_size * sizeof(counter_t)));
 
