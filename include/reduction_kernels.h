@@ -94,7 +94,7 @@ __global__ void reduceFlops(const uint8_t* instr_ptr,
 
     if (threadIdx.x == 0) {
         for (auto bb = 0u; bb < geometry.bb_count; ++bb) {
-            output[blockIdx.x * 8 + bb] = blocks_thread[bb];
+            output[blockIdx.x * geometry.bb_count + bb] = blocks_thread[bb];
         }
     }
 }

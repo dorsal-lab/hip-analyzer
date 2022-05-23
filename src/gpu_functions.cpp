@@ -89,11 +89,14 @@ unsigned int hip::Instrumenter::reduceFlops(const counter_t* device_ptr,
         for (auto bb = 0u; bb < kernel_info.basic_blocks; ++bb) {
             auto block_output = output[i * kernel_info.basic_blocks + bb];
 
-            std::cout << i << ' ' << bb << " : " << block_output.count << '\n';
+            // std::cout << i << ' ' << bb << " : " << block_output.count <<
+            // '\n';
 
             flops += block_output.flops;
         }
     }
+
+    std::cout << "Total flops : " << flops << '\n';
 
     return flops;
 }
