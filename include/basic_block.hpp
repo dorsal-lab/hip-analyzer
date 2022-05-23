@@ -17,11 +17,15 @@ namespace hip {
 constexpr auto default_database = "hip_analyzer.json";
 constexpr auto env_var_name = "HIP_ANALYZER_DB";
 
+/** \struct BasicBlock
+ * \brief Holds information about a basic block, both for front-end analysis and
+ * runtime instrumentation
+ */
 struct BasicBlock {
     /** ctor
      */
-    BasicBlock(unsigned int id, unsigned int flops, const std::string& begin,
-               const std::string& end);
+    BasicBlock(uint32_t id, uint32_t clang_id, uint32_t flops,
+               const std::string& begin, const std::string& end);
 
     BasicBlock(const BasicBlock& other);
 
@@ -62,7 +66,17 @@ struct BasicBlock {
 
     bool operator<(const BasicBlock& other) const { return id < other.id; }
 
+    /** \brief Block id, its unique identifier wrt. the instrumentation runtime
+     */
     uint32_t id;
+
+    /** \brief Block id according to the clang front end. Used to relate
+     * instrumentation information back to the original file
+     */
+    uint32_t clang_id;
+
+    /** \brief Number of floating point operations in the basic block
+     */
     uint32_t flops;
 
     // These are allocated as pointers as to reduce the memory footprint on the

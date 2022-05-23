@@ -81,20 +81,17 @@ __global__ void reduceFlops(const uint8_t* instr_ptr,
             intermediary = {0u, 0u};
         }
 
+        __syncthreads();
+
         atomicAdd(&intermediary.count, blocks_thread[bb].count);
         atomicAdd(&intermediary.flops, blocks_thread[bb].flops);
 
         __syncthreads();
+
         if (threadIdx.x == 0) {
-            blocks_thread[bb] = intermediary;
-        }
-    }
+            // Phase 3 : save values to global memory
 
-    // Phase 3 : save values to global memory
-
-    if (threadIdx.x == 0) {
-        for (auto bb = 0u; bb < geometry.bb_count; ++bb) {
-            output[blockIdx.x * geometry.bb_count + bb] = blocks_thread[bb];
+            output[blockIdx.x * geometry.bb_count + bb] = intermediary;
         }
     }
 }

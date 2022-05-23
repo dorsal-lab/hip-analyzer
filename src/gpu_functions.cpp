@@ -31,8 +31,7 @@ unsigned int hip::Instrumenter::reduceFlops(const counter_t* device_ptr,
     std::vector<hip::BlockUsage> output(num_blocks * kernel_info.basic_blocks,
                                         {0u, 0u});
 
-    auto output_size =
-        num_blocks * kernel_info.basic_blocks * sizeof(hip::BlockUsage);
+    auto output_size = output.size() * sizeof(hip::BlockUsage);
 
     hip::BlockUsage* output_ptr;
     hip::check(hipMalloc(&output_ptr, buf_size));
@@ -95,8 +94,6 @@ unsigned int hip::Instrumenter::reduceFlops(const counter_t* device_ptr,
             flops += block_output.flops;
         }
     }
-
-    std::cout << "Total flops : " << flops << '\n';
 
     return flops;
 }

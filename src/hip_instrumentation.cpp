@@ -141,8 +141,6 @@ Instrumenter::loadDatabase(const std::string& filename_in) {
         filename = filename_in;
     }
 
-    std::cout << filename << '\n';
-
     blocks = BasicBlock::fromJsonArray(filename);
 
     return blocks;

@@ -223,7 +223,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
 
                     // Save info as JSON
 
-                    blocks.emplace_back(id, flops,
+                    blocks.emplace_back(instr_generator.bb_count, id, flops,
                                         begin_loc.printToString(source_manager),
                                         end_loc.printToString(source_manager));
 

@@ -18,9 +18,10 @@
 
 namespace hip {
 
-BasicBlock::BasicBlock(unsigned int i, unsigned int f, const std::string& begin,
-                       const std::string& end)
-    : id(i), flops(f), begin_loc(std::make_unique<std::string>(begin)),
+BasicBlock::BasicBlock(uint32_t i, uint32_t c, uint32_t f,
+                       const std::string& begin, const std::string& end)
+    : id(i), clang_id(c), flops(f),
+      begin_loc(std::make_unique<std::string>(begin)),
       end_loc(std::make_unique<std::string>(end)) {}
 
 BasicBlock::BasicBlock(const BasicBlock& other)
@@ -40,8 +41,9 @@ BasicBlock& BasicBlock::operator=(const BasicBlock& other) {
 std::string hip::BasicBlock::json() const {
     std::stringstream ss;
 
-    ss << "{\"id\": " << id << ", \"begin\": \"" << *begin_loc
-       << "\", \"end\": \"" << *end_loc << "\", \"flops\": " << flops << "}";
+    ss << "{\"id\": " << id << ",\"clang_id\": " << clang_id
+       << ", \"begin\": \"" << *begin_loc << "\", \"end\": \"" << *end_loc
+       << "\", \"flops\": " << flops << "}";
 
     return ss.str();
 }
@@ -70,11 +72,12 @@ BasicBlock BasicBlock::fromJson(const std::string& json) {
     file_in >> root;
 
     unsigned int id = root.get("id", 0u).asUInt();
+    unsigned int clang_id = root.get("clang_id", 0u).asUInt();
     unsigned int flops = root.get("flops", 0u).asUInt();
     std::string begin_loc = root.get("begin", "").asString();
     std::string end_loc = root.get("end", "").asString();
 
-    return {id, flops, begin_loc, end_loc};
+    return {id, clang_id, flops, begin_loc, end_loc};
 }
 
 std::vector<BasicBlock> BasicBlock::fromJsonArray(const std::string& json) {
@@ -86,11 +89,12 @@ std::vector<BasicBlock> BasicBlock::fromJsonArray(const std::string& json) {
 
     for (auto value : root) {
         unsigned int id = value.get("id", 0u).asUInt();
+        unsigned int clang_id = value.get("clang_id", 0u).asUInt();
         unsigned int flops = value.get("flops", 0u).asUInt();
         std::string begin_loc = value.get("begin", "").asString();
         std::string end_loc = value.get("end", "").asString();
 
-        blocks.emplace_back(id, flops, begin_loc, end_loc);
+        blocks.emplace_back(id, clang_id, flops, begin_loc, end_loc);
     }
 
     return blocks;
@@ -109,7 +113,7 @@ std::vector<BasicBlock>
 BasicBlock::normalized(const std::vector<BasicBlock>& blocks) {
     auto max_el = std::max_element(blocks.begin(), blocks.end())->id;
 
-    std::vector<BasicBlock> b_norm(max_el + 1, {0, 0, "", ""});
+    std::vector<BasicBlock> b_norm(max_el + 1, {0, 0, 0, "", ""});
 
     // No checking is done to verify if an id is unique, todo ?
     for (const auto& b : blocks) {
