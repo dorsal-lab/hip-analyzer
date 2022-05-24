@@ -13,6 +13,11 @@
 unsigned int hip::Instrumenter::reduceFlops(const counter_t* device_ptr,
                                             hipStream_t stream) const {
 
+    if (blocks.empty()) {
+        // The block database has to be loaded prior to reduction!
+        throw std::runtime_error("BasicBlock::normalized : Empty vector");
+    }
+
     unsigned int num_blocks = 128u; // Ultimately, how many last reductions will
                                     // we have to do on the cpu
     unsigned int threads_per_block = 128u;
