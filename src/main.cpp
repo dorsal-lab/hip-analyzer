@@ -14,6 +14,7 @@
 
 #include "basic_block.hpp"
 #include "callbacks.h"
+#include "llvm_ir_consumer.hpp"
 #include "matchers.h"
 
 static llvm::cl::OptionCategory llvmClCategory("HipAnalyzer options");
@@ -71,7 +72,11 @@ int main(int argc, const char** argv) {
     finder.addMatcher(kernel_call_matcher, kernel_instrumenter.get());
 
     auto err = 0;
+
     err |= tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
+
+    auto codegen = makeLLVMAction();
+    err |= tool.run(codegen.get());
 
     return err;
 }

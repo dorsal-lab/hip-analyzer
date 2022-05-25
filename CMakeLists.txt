@@ -36,6 +36,7 @@ add_executable(hip-analyzer
     src/instr_generator.cpp
     src/cfg_inner_matchers.cpp
     src/basic_block.cpp
+    src/llvm_ir_consumer.cpp
 )
 
 target_link_libraries(hip-analyzer
@@ -45,6 +46,8 @@ target_link_libraries(hip-analyzer
     clangASTMatchers
     clangBasic
     clangSerialization
+    clangCodeGen
+    LLVMAnalysis
     jsoncpp
 )
 
