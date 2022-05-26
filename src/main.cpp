@@ -7,6 +7,7 @@
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/Rewrite/Core/Rewriter.h"
+#include "clang/Tooling/ArgumentsAdjusters.h"
 #include "clang/Tooling/CommonOptionsParser.h"
 #include "clang/Tooling/Tooling.h"
 
@@ -34,6 +35,19 @@ static llvm::cl::opt<std::string>
                   llvm::cl::value_desc("database"),
                   llvm::cl::init(hip::default_database));
 
+void appendFlag(clang::tooling::CompilationDatabase& db_in,
+                const std::string& flag) {
+    auto adjuster = clang::tooling::getInsertArgumentAdjuster(flag.c_str());
+
+    // The reinterpret cast is ugly, but I was not able to compile LLVM with
+    // RTTI which prohibits me from using a (much cleaner) dynamic cast
+    auto& db =
+        reinterpret_cast<clang::tooling::ArgumentsAdjustingCompilations&>(
+            db_in);
+
+    db.appendArgumentsAdjuster(adjuster);
+}
+
 int main(int argc, const char** argv) {
     auto parser =
         clang::tooling::CommonOptionsParser::create(argc, argv, llvmClCategory);
@@ -44,8 +58,12 @@ int main(int argc, const char** argv) {
     }
 
     auto& options_parser = parser.get();
-    clang::tooling::ClangTool tool(options_parser.getCompilations(),
-                                   options_parser.getSourcePathList());
+
+    auto& db = options_parser.getCompilations();
+
+    appendFlag(db, "--cuda-device-only");
+
+    clang::tooling::ClangTool tool(db, options_parser.getSourcePathList());
 
     clang::ast_matchers::MatchFinder finder;
 
