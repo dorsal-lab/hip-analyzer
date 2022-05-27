@@ -6,11 +6,15 @@
 
 #pragma once
 
+#include "hip_instrumentation/basic_block.hpp"
+
 #include <memory>
+#include <vector>
 
 #include "clang/Tooling/Tooling.h"
 
 #include "clang/CodeGen/CodeGenAction.h"
 
 std::unique_ptr<clang::tooling::ToolAction>
-makeLLVMAction(const std::string& kernel_name);
+makeLLVMAction(const std::string& kernel_name,
+               std::vector<hip::BasicBlock>& blocks);

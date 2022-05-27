@@ -108,7 +108,7 @@ int main(int argc, const char** argv) {
     clang::tooling::ClangTool tool(db, options_parser.getSourcePathList());
     err |= tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
 
-    auto codegen = makeLLVMAction(kernel_name.getValue());
+    auto codegen = makeLLVMAction(kernel_name.getValue(), blocks);
     err |= tool.run(codegen.get());
 
     saveDatabase(blocks, database_file.getValue());
