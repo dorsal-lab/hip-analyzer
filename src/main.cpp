@@ -18,6 +18,15 @@
 #include "llvm_ir_consumer.hpp"
 #include "matchers.h"
 
+// ----- Statics ----- //
+
+#ifdef ROCM_PATH
+#define ROCM_PATH_STR #ROCM_PATH
+static std::string rocm_path = ROCM_PATH_STR;
+#else
+static std::string rocm_path = "/opt/rocm";
+#endif
+
 static llvm::cl::OptionCategory llvmClCategory("HipAnalyzer options");
 
 static llvm::cl::extrahelp
@@ -35,6 +44,8 @@ static llvm::cl::opt<std::string>
                   llvm::cl::value_desc("database"),
                   llvm::cl::init(hip::default_database));
 
+// ----- Utils ----- //
+
 void appendFlag(clang::tooling::CompilationDatabase& db_in,
                 const std::string& flag) {
     auto adjuster = clang::tooling::getInsertArgumentAdjuster(flag.c_str());
@@ -47,6 +58,8 @@ void appendFlag(clang::tooling::CompilationDatabase& db_in,
 
     db.appendArgumentsAdjuster(adjuster);
 }
+
+// ----- Main entry point ----- //
 
 int main(int argc, const char** argv) {
     auto parser =
@@ -62,6 +75,7 @@ int main(int argc, const char** argv) {
     auto& db = options_parser.getCompilations();
 
     appendFlag(db, "--cuda-device-only");
+    appendFlag(db, "-I" + rocm_path + "/hip/bin/include");
 
     clang::tooling::ClangTool tool(db, options_parser.getSourcePathList());
 

@@ -106,4 +106,8 @@ void IRConsumer::run(clang::CodeGenAction& action,
     */
 
     auto& kernel = findKernel(module.get(), kernel_name);
+
+    for (auto& bb : kernel) {
+        bb.print(llvm::errs());
+    }
 }
