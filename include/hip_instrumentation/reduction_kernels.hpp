@@ -95,5 +95,18 @@ __global__ void reduceFlops(const uint8_t* instr_ptr,
         }
     }
 }
+/*
+struct BlockBounds {
+    uint8_t min;
+    uint8_t max;
+}
 
+__global__ void
+findBounds(const uint8_t* instr_ptr, hip::LaunchGeometry geometry,
+           const hip::BasicBlock* blocks_info, BlockBounds* output) {
+
+
+
+}
+*/
 } // namespace hip

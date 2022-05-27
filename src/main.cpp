@@ -13,9 +13,10 @@
 
 #include "llvm/Support/CommandLine.h"
 
-#include "basic_block.hpp"
+#include "hip_instrumentation/basic_block.hpp"
+
 #include "callbacks.h"
-#include "llvm_ir_consumer.hpp"
+#include "llvm_ir_consumer.h"
 #include "matchers.h"
 
 // ----- Statics ----- //

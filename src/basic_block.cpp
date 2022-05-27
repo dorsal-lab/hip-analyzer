@@ -4,7 +4,7 @@
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */
 
-#include "basic_block.hpp"
+#include "hip_instrumentation/basic_block.hpp"
 
 // Std includes
 

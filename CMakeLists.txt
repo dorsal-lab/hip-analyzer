@@ -57,7 +57,11 @@ target_link_libraries(hip-analyzer
 add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/gpu_hip_instrumentation.o
     COMMAND ${ROCM_PATH}/hip/bin/hipcc -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/gpu_functions.cpp -std=c++20 -o ${CMAKE_BINARY_DIR}/gpu_hip_instrumentation.o
-    DEPENDS ${CMAKE_SOURCE_DIR}/include/reduction_kernels.h ${CMAKE_SOURCE_DIR}/src/gpu_functions.cpp
+    DEPENDS 
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/reduction_kernels.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
+        ${CMAKE_SOURCE_DIR}/src/gpu_functions.cpp
     VERBATIM
 )
 

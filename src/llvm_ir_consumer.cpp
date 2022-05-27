@@ -4,7 +4,7 @@
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */
 
-#include "llvm_ir_consumer.hpp"
+#include "llvm_ir_consumer.h"
 
 #include "clang/CodeGen/CodeGenAction.h"
 #include "clang/Frontend/CompilerInstance.h"
@@ -109,5 +109,6 @@ void IRConsumer::run(clang::CodeGenAction& action,
 
     for (auto& bb : kernel) {
         bb.print(llvm::errs());
+        // TODO : find matching between Clang basic block and IR.
     }
 }

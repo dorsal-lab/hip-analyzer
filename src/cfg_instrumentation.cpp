@@ -4,18 +4,17 @@
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */
 
-#include "instr_generator.h"
-
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/Analysis/CFG.h"
+#include "clang/Lex/Lexer.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Tooling/Core/Replacement.h"
 
-#include "clang/Lex/Lexer.h"
-
-#include "basic_block.hpp"
 #include "cfg_inner_matchers.h"
+#include "instr_generator.h"
+
+#include "hip_instrumentation/basic_block.hpp"
 
 #include <algorithm>
 #include <iostream>

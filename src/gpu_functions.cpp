@@ -4,11 +4,9 @@
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */
 
-#include "hip_instrumentation.hpp"
-#include "hip_utils.hpp"
-#include "reduction_kernels.h"
-
-// TODO : Compile this, then link it properly
+#include "hip_instrumentation/hip_instrumentation.hpp"
+#include "hip_instrumentation/hip_utils.hpp"
+#include "hip_instrumentation/reduction_kernels.hpp"
 
 unsigned int hip::Instrumenter::reduceFlops(const counter_t* device_ptr,
                                             hipStream_t stream) const {

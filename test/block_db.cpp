@@ -4,7 +4,7 @@
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */
 
-#include "hip_instrumentation.hpp"
+#include "hip_instrumentation/hip_instrumentation.hpp"
 
 #include <iostream>
 
