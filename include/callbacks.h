@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "hip_instrumentation/basic_block.hpp"
+
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
 
@@ -20,7 +22,7 @@ makeFunPrinter();
 
 std::unique_ptr<clang::ast_matchers::MatchFinder::MatchCallback>
 makeCfgInstrumenter(const std::string& name, const std::string& output_file,
-                    const std::string& database_file);
+                    std::vector<hip::BasicBlock>& blocks);
 
 std::unique_ptr<clang::ast_matchers::MatchFinder::MatchCallback>
 makeCudaCallInstrumenter(const std::string& kernel,

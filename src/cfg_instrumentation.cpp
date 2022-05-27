@@ -147,9 +147,9 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
   public:
     KernelCfgInstrumenter(const std::string& kernel_name,
                           const std::string& output_filename,
-                          const std::string& database_filename)
+                          std::vector<hip::BasicBlock>& b)
         : name(kernel_name), output_file(output_filename, error_code),
-          database_file(database_filename, error_code) {
+          blocks(b) {
         instr_generator.kernel_name = kernel_name;
     }
 
@@ -162,8 +162,6 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
         if (const auto* match =
                 Result.Nodes.getNodeAs<clang::FunctionDecl>(name)) {
             match->dump();
-
-            std::vector<hip::BasicBlock> blocks;
 
             // Print First elements
 
@@ -238,9 +236,6 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
 
             addIncludes(match, source_manager, lang_opt);
 
-            // std::cout << concatJson(blocks_json) << '\n';
-
-            database_file << hip::BasicBlock::jsonArray(blocks) << '\n';
 
         } else if (const auto* match =
                        Result.Nodes.getNodeAs<clang::CUDAKernelCallExpr>(
@@ -401,7 +396,9 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
 
     clang::tooling::Replacements reps;
     clang::Rewriter rewriter;
-    llvm::raw_fd_ostream output_file, database_file;
+    llvm::raw_fd_ostream output_file;
+
+    std::vector<hip::BasicBlock>& blocks;
 
     hip::InstrGenerator instr_generator;
 };
@@ -468,9 +465,8 @@ kernelCallMatcher(const std::string& kernel_name) {
  */
 std::unique_ptr<MatchFinder::MatchCallback>
 makeCfgInstrumenter(const std::string& kernel, const std::string& output_file,
-                    const std::string& database_file) {
-    return std::make_unique<KernelCfgInstrumenter>(kernel, output_file,
-                                                   database_file);
+                    std::vector<hip::BasicBlock>& blocks) {
+    return std::make_unique<KernelCfgInstrumenter>(kernel, output_file, blocks);
 }
 
 std::unique_ptr<MatchFinder::MatchCallback>

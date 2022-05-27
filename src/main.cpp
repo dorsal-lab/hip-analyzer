@@ -60,6 +60,14 @@ void appendFlag(clang::tooling::CompilationDatabase& db_in,
     db.appendArgumentsAdjuster(adjuster);
 }
 
+void saveDatabase(const std::vector<hip::BasicBlock>& blocks,
+                  const std::string& database_filename) {
+    std::error_code err;
+    llvm::raw_fd_ostream database_file(database_filename, err);
+
+    database_file << hip::BasicBlock::jsonArray(blocks) << '\n';
+}
+
 // ----- Main entry point ----- //
 
 int main(int argc, const char** argv) {
@@ -72,31 +80,22 @@ int main(int argc, const char** argv) {
     }
 
     auto& options_parser = parser.get();
-
     auto& db = options_parser.getCompilations();
-
     appendFlag(db, "--cuda-device-only");
     appendFlag(db, "-I" + rocm_path + "/hip/bin/include");
 
-    clang::tooling::ClangTool tool(db, options_parser.getSourcePathList());
+    // Instrumentation info
 
-    clang::ast_matchers::MatchFinder finder;
-
-    /*
-    auto printer = hip::makeFunPrinter();
-
-    finder.addMatcher(hip::function_call_matcher, printer.get());
-    finder.addMatcher(hip::geometry_matcher, printer.get());
-    */
+    std::vector<hip::BasicBlock> blocks;
 
     // Kernel matcher
+    clang::ast_matchers::MatchFinder finder;
     auto kernel_matcher = hip::kernelMatcher(kernel_name.getValue());
     auto kernel_call_matcher = hip::kernelCallMatcher(kernel_name.getValue());
 
     // Instrument basic blocks
-    auto kernel_instrumenter =
-        hip::makeCfgInstrumenter(kernel_name.getValue(), output_file.getValue(),
-                                 database_file.getValue());
+    auto kernel_instrumenter = hip::makeCfgInstrumenter(
+        kernel_name.getValue(), output_file.getValue(), blocks);
 
     /* auto kernel_call_instrumenter = hip::makeCudaCallInstrumenter(
         kernel_name.getValue(), output_file.getValue()); */
@@ -106,10 +105,13 @@ int main(int argc, const char** argv) {
 
     auto err = 0;
 
+    clang::tooling::ClangTool tool(db, options_parser.getSourcePathList());
     err |= tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
 
     auto codegen = makeLLVMAction(kernel_name.getValue());
     err |= tool.run(codegen.get());
+
+    saveDatabase(blocks, database_file.getValue());
 
     return err;
 }
