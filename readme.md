@@ -28,3 +28,5 @@ build/hip-analyzer -p <path to compilation database> <input file> -k <kernel nam
 ```
 
 The compilation database can be obtained using CMake (`-DCMAKE_EXPORT_COMPILE_COMMANDS=On`) or the [`bear` tool](https://github.com/rizsotto/Bear).
+
+The output file has to be linked with `libhip_instrumentation.a`, generated during compilation. It provides runtime utilities for the instrumentation as well as GPU reductions for the instrumentation data (e.g. sum the total count for a basic block).
