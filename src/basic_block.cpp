@@ -25,13 +25,14 @@ BasicBlock::BasicBlock(uint32_t i, uint32_t c, uint32_t f,
       end_loc(std::make_unique<std::string>(end)) {}
 
 BasicBlock::BasicBlock(const BasicBlock& other)
-    : id(other.id), flops(other.flops),
+    : id(other.id), clang_id(other.clang_id), flops(other.flops),
       begin_loc(std::make_unique<std::string>(*other.begin_loc)),
       end_loc(std::make_unique<std::string>(*other.end_loc)) {}
 
 BasicBlock& BasicBlock::operator=(const BasicBlock& other) {
     id = other.id;
     flops = other.flops;
+    clang_id = other.clang_id;
     begin_loc = std::make_unique<std::string>(*other.begin_loc);
     end_loc = std::make_unique<std::string>(*other.end_loc);
 
