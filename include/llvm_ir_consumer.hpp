@@ -12,4 +12,5 @@
 
 #include "clang/CodeGen/CodeGenAction.h"
 
-std::unique_ptr<clang::tooling::ToolAction> makeLLVMAction();
+std::unique_ptr<clang::tooling::ToolAction>
+makeLLVMAction(const std::string& kernel_name);

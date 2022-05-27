@@ -93,7 +93,7 @@ int main(int argc, const char** argv) {
 
     err |= tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
 
-    auto codegen = makeLLVMAction();
+    auto codegen = makeLLVMAction(kernel_name.getValue());
     err |= tool.run(codegen.get());
 
     return err;

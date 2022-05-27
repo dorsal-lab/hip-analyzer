@@ -48,6 +48,7 @@ target_link_libraries(hip-analyzer
     clangSerialization
     clangCodeGen
     LLVMAnalysis
+    LLVMCore
     jsoncpp
 )
 
