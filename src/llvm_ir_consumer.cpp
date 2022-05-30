@@ -93,12 +93,18 @@ makeLLVMAction(const std::string& kernel_name,
 
 // ---- Utils ----- //
 
+/** \fn contains
+ * \brief Returns true if the substring substr is contained in str.
+ */
 bool contains(const std::string& str, const std::string& substr) {
     auto pos = str.find(substr);
 
     return pos != std::string::npos;
 }
 
+/** \fn findKernel
+ * \brief Returns the kernel function declaration from the LLVM module
+ */
 llvm::Function& findKernel(llvm::Module* module,
                            const std::string& kernel_name) {
     for (auto& fun : module->functions()) {
@@ -128,6 +134,9 @@ bool operator<(const llvm::DebugLoc& lhs, const llvm::DebugLoc& rhs) {
     }
 }
 
+/** \fn findFirstLine
+ * \brief Returns the first debugLoc of a LLVM basic block
+ */
 llvm::DebugLoc findFirstLine(const llvm::BasicBlock& bb) {
     llvm::DebugLoc debug_loc;
     for (const auto& instr : bb) {
@@ -138,6 +147,10 @@ llvm::DebugLoc findFirstLine(const llvm::BasicBlock& bb) {
     return debug_loc;
 }
 
+/** \fn clipFilename
+ * \brief Returns a clipped filename & position within the file without the full
+ * path, such as <filename>:<line>:<col>
+ */
 std::string clipFilename(const std::string& filename) {
     auto last_sep = filename.rfind('/');
     if (last_sep == std::string::npos) {
@@ -150,6 +163,10 @@ std::string clipFilename(const std::string& filename) {
     return filename.substr(last_sep);
 }
 
+/** \fn isWithinBlock
+ * \brief Returns true if a llvm::DebugLoc is inside a clang-identified basic
+ * block
+ */
 bool isWithinBlock(const llvm::DebugLoc& debug_loc, const hip::BasicBlock& bb) {
     // Text based comparison, single file. This is literally a hack.
     // TODO : find a much, much cleaner way.
@@ -167,6 +184,8 @@ bool isWithinBlock(const llvm::DebugLoc& debug_loc, const hip::BasicBlock& bb) {
 
     return (stripped >= begin) && (stripped <= end);
 }
+
+unsigned int countFlops(const llvm::BasicBlock& bb) { return 0u; }
 
 // ---- Implementations ----- //
 
