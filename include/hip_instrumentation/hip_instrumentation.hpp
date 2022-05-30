@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "basic_block.hpp"
+#include "hip_utils.hpp"
 
 namespace hip {
 

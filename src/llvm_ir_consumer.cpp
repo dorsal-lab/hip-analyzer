@@ -196,6 +196,11 @@ void IRConsumer::run(clang::CodeGenAction& action,
                      const std::string& kernel_name) {
     auto module = action.takeModule();
 
+    if (module == nullptr) {
+        throw std::runtime_error(
+            "IRConsumer::run() : Could not compile module");
+    }
+
     /*
     for (auto& fun : module->functions()) {
         std::string name = fun.getName().str();
