@@ -7,6 +7,7 @@
 #include "llvm_ir_consumer.h"
 
 #include "hip_instrumentation/basic_block.hpp"
+#include "llvm_instr_counters.h"
 
 #include "clang/CodeGen/CodeGenAction.h"
 #include "clang/Frontend/CompilerInstance.h"
@@ -33,7 +34,7 @@ class IRConsumer {
      * \brief Returns the (front-end) basic block corresponding to the IR basic
      * block
      */
-    std::optional<std::reference_wrapper<const hip::BasicBlock>>
+    std::optional<std::reference_wrapper<hip::BasicBlock>>
     correspondingBlock(llvm::BasicBlock& bb);
 
   private:
@@ -219,17 +220,22 @@ void IRConsumer::run(clang::CodeGenAction& action,
         llvm::errs() << '\n';
         // findFirstLine(bb).print(llvm::errs());
 
-        auto block = correspondingBlock(bb);
+        hip::FlopCounter flop_counter;
+        auto flops = flop_counter(bb);
 
+        llvm::errs() << "Found " << flops << " flops\n";
+
+        auto block = correspondingBlock(bb);
         if (block) {
             llvm::errs() << "Found block : " << block.value().get().id << '\n';
+            block.value().get().flops = flops;
         }
 
         ++i;
     }
 }
 
-std::optional<std::reference_wrapper<const hip::BasicBlock>>
+std::optional<std::reference_wrapper<hip::BasicBlock>>
 IRConsumer::correspondingBlock(llvm::BasicBlock& bb) {
     // The current method is rather limited as it returns the first match ..
     // there is no guaranteed 1:1 match between instructions and the (mostly
@@ -240,7 +246,7 @@ IRConsumer::correspondingBlock(llvm::BasicBlock& bb) {
     for (const auto& instr : bb) {
         const auto& debug_loc = instr.getDebugLoc();
         if (debug_loc) {
-            for (const auto& clang_bb : blocks) {
+            for (auto& clang_bb : blocks) {
                 // Compare with frontend basic blocks. If it is within bounds,
                 // we have found a match
                 if (isWithinBlock(debug_loc, clang_bb)) {

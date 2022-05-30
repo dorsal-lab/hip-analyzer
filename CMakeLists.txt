@@ -37,6 +37,7 @@ add_executable(hip-analyzer
     src/cfg_inner_matchers.cpp
     src/basic_block.cpp
     src/llvm_ir_consumer.cpp
+    src/llvm_instr_counters.cpp
 )
 
 target_link_libraries(hip-analyzer
