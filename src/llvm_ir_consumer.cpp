@@ -225,9 +225,16 @@ void IRConsumer::run(clang::CodeGenAction& action,
 
         llvm::errs() << "Found " << flops << " flops\n";
 
+        hip::StoreCounter store_counter;
+        llvm::errs() << "Found " << store_counter(bb) << " stores \n";
+
+        hip::LoadCounter load_counter;
+        llvm::errs() << "Found " << load_counter(bb) << " loads \n";
+
         auto block = correspondingBlock(bb);
         if (block) {
-            llvm::errs() << "Found block : " << block.value().get().id << '\n';
+            llvm::errs() << "\nFound block : " << block.value().get().id
+                         << '\n';
             block.value().get().flops = flops;
         }
 
