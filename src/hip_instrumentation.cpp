@@ -12,6 +12,10 @@
 #include <iostream>
 #include <sstream>
 
+// Jsoncpp (shipped with ubuntu & debian)
+
+#include <json/json.h>
+
 namespace hip {
 
 // GCN Assembly
@@ -48,6 +52,31 @@ std::string KernelInfo::json() {
     return ss.str();
 }
 
+dim3 dim3FromJson(const Json::Value& root) {
+    auto x = root.get("x", 1u).asUInt();
+    auto y = root.get("y", 1u).asUInt();
+    auto z = root.get("z", 1u).asUInt();
+
+    return {x, y, z};
+}
+
+KernelInfo KernelInfo::fromJson(const std::string& filename) {
+    Json::Value root;
+
+    std::ifstream file_in(filename);
+
+    file_in >> root;
+
+    auto geometry = root.get("geometry", Json::Value());
+
+    dim3 blocks = dim3FromJson(geometry.get("blocks", Json::Value()));
+    dim3 threads = dim3FromJson(geometry.get("threads", Json::Value()));
+    unsigned int bblocks = root.get("bblocks", 0u).asUInt();
+    std::string kernel_name = root.get("name", "").asString();
+
+    return {kernel_name, bblocks, blocks, threads};
+}
+
 Instrumenter::Instrumenter(KernelInfo& ki)
     : kernel_info(ki), host_counters(ki.instr_size, 0u) {
 
@@ -82,6 +111,9 @@ std::string Instrumenter::autoFilenamePrefix() const {
 
     return ss.str();
 }
+
+constexpr auto csv_header = "block,thread,bblock,count\n";
+
 void Instrumenter::dumpCsv(const std::string& filename_in) {
     std::string filename;
 
@@ -92,7 +124,7 @@ void Instrumenter::dumpCsv(const std::string& filename_in) {
     }
 
     std::ofstream out(filename);
-    out << "block,thread,bblock,count\n";
+    out << csv_header;
 
     for (auto block = 0; block < kernel_info.total_blocks; ++block) {
         for (auto thread = 0; thread < kernel_info.total_threads_per_blocks;
@@ -129,6 +161,55 @@ void Instrumenter::dumpBin(const std::string& filename_in) {
     std::ofstream db(filename + ".json");
     db << kernel_info.json();
     db.close();
+}
+
+void Instrumenter::loadCsv(const std::string& filename) {
+    // Load from file
+    std::ifstream in(filename);
+    if (!in.is_open()) {
+        throw std::runtime_error(
+            "hip::Instrumenter::loadCsv() : Could not open file " + filename);
+    }
+
+    std::string buf;
+
+    // Try to read the first line
+
+    if (!std::getline(in, buf)) {
+        throw std::runtime_error(
+            "hip::Instrumenter::loadCsv() : Could not parse header");
+    }
+
+    // Compare csv header with expected header
+
+    if (buf != csv_header) {
+        throw std::runtime_error(
+            "hip::Instrumenter::loadCsv() : Wrong header, expected " +
+            std::string(csv_header) + ", got : " + buf);
+    }
+
+    while (std::getline(in, buf)) {
+        // Parse line
+
+        // TODO
+
+        // We can discard the rest of the information, since it is implied by
+        // the kernel call geometry
+    }
+}
+
+void Instrumenter::loadBin(const std::string& filename) {
+    // Load from file
+
+    using buffer_iterator = std::istreambuf_iterator<counter_t>;
+
+    std::basic_ifstream<counter_t> in(filename, std::ios::binary);
+    if (!in.is_open()) {
+        throw std::runtime_error(
+            "hip::Instrumenter::loadBin() : Could not open file " + filename);
+    }
+
+    std::copy(buffer_iterator(in), buffer_iterator(), host_counters.begin());
 }
 
 const std::vector<hip::BasicBlock>&
