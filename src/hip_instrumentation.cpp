@@ -202,15 +202,13 @@ void Instrumenter::loadCsv(const std::string& filename) {
 void Instrumenter::loadBin(const std::string& filename) {
     // Load from file
 
-    using buffer_iterator = std::istreambuf_iterator<counter_t>;
-
     std::basic_ifstream<counter_t> in(filename, std::ios::binary);
     if (!in.is_open()) {
         throw std::runtime_error(
             "hip::Instrumenter::loadBin() : Could not open file " + filename);
     }
 
-    std::copy(buffer_iterator(in), buffer_iterator(), host_counters.begin());
+    in.read(host_counters.data(), host_counters.size());
 }
 
 const std::vector<hip::BasicBlock>&
