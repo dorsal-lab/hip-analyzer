@@ -45,6 +45,8 @@ struct KernelInfo {
      * \brief Returns the kernel info as a JSON database
      */
     std::string json();
+
+    static KernelInfo fromJson(const std::string& filename);
 };
 
 class Instrumenter {
@@ -54,6 +56,14 @@ class Instrumenter {
     /** \brief ctor
      */
     Instrumenter(KernelInfo& kernel_info);
+
+    // ----- Device data collection ----- //
+
+    /** \fn dumpBin
+     * \brief Load blocks from database
+     */
+    const std::vector<hip::BasicBlock>&
+    loadDatabase(const std::string& filename = "");
 
     /** \fn toDevice
      * \brief Allocates data on both the host and the device, returns the device
@@ -65,6 +75,8 @@ class Instrumenter {
      * \brief Fetches data back from the device
      */
     void fromDevice(void* device_ptr);
+
+    // ----- Save & load data ----- //
 
     /** \fn dumpCsv
      * \brief Dump the data in a csv format. If no filename is given, it is
@@ -78,13 +90,18 @@ class Instrumenter {
      */
     void dumpBin(const std::string& filename = "");
 
-    /** \fn dumpBin
-     * \brief Load blocks from database
+    /** \fn loadCsv
+     * \brief Load data from a csv-formated file.
      */
-    const std::vector<hip::BasicBlock>&
-    loadDatabase(const std::string& filename = "");
+    void loadCsv(const std::string& filename);
+
+    /** \fn loadBin
+     * \brief Load data from a packed binary format (see \ref dumpBin).
+     */
+    void loadBin(const std::string& filename);
 
     // ----- Post-instrumentation reduce ----- //
+
     /** \fn reduceFlops
      * \brief Compute the number of floating point operations in the
      * instrumented kernel execution
