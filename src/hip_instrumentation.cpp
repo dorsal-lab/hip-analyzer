@@ -45,7 +45,8 @@ std::string KernelInfo::json() {
     auto b_x = blocks.x, b_y = blocks.y, b_z = blocks.z;
 
     // Sorry about this monstruosity, but trust me it works (I think?)
-    ss << "{ \"geometry\": {\"threads\": {\"x\": " << t_x << ", \"y\": " << t_y
+    ss << "{ \"name\": \"" << name << "\", \"bblocks\": " << basic_blocks
+       << ",\"geometry\": {\"threads\": {\"x\": " << t_x << ", \"y\": " << t_y
        << ", \"z\": " << t_z << "}, \"blocks\": {\"x\": " << b_x
        << ", \"y\": " << b_y << ", \"z\": " << b_z << "}}}";
 
