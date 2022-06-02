@@ -49,6 +49,11 @@ struct KernelInfo {
     static KernelInfo fromJson(const std::string& filename);
 };
 
+/** \class Instrumenter
+ * \brief Instrumentation instance, holding host-side counters. It can either be
+ * used for instrumentation or post-mortem analysis ( see \ref loadCsv and \ref
+ * loadBin)
+ */
 class Instrumenter {
     using counter_t = uint8_t;
 
