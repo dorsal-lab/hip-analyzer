@@ -113,7 +113,7 @@ std::string Instrumenter::autoFilenamePrefix() const {
     return ss.str();
 }
 
-constexpr auto csv_header = "block,thread,bblock,count\n";
+constexpr auto csv_header = "block,thread,bblock,count";
 
 void Instrumenter::dumpCsv(const std::string& filename_in) {
     std::string filename;
@@ -125,7 +125,7 @@ void Instrumenter::dumpCsv(const std::string& filename_in) {
     }
 
     std::ofstream out(filename);
-    out << csv_header;
+    out << csv_header << '\n';
 
     for (auto block = 0; block < kernel_info.total_blocks; ++block) {
         for (auto thread = 0; thread < kernel_info.total_threads_per_blocks;
@@ -189,10 +189,27 @@ void Instrumenter::loadCsv(const std::string& filename) {
             std::string(csv_header) + ", got : " + buf);
     }
 
+    unsigned int line_no = 0u;
+
     while (std::getline(in, buf)) {
         // Parse line
+        std::stringstream ss;
+        ss << buf;
 
-        // TODO
+        std::vector<std::string> tokens(4, "");
+
+        for (auto i = 0u; i < 4; ++i) {
+            if (!std::getline(ss, tokens[i], ',')) {
+                throw std::runtime_error("Could not parse token from line " +
+                                         ss.str());
+            }
+        }
+
+        host_counters[line_no] =
+            static_cast<counter_t>(std::atol(tokens[3].c_str()));
+
+        std::cout << static_cast<unsigned int>(host_counters[line_no]) << '\n';
+        ++line_no;
 
         // We can discard the rest of the information, since it is implied by
         // the kernel call geometry

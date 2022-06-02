@@ -19,3 +19,12 @@ add_executable(
 )
 
 target_link_libraries(load_bin hip_instrumentation LLVMSupport)
+
+# ----- load_csv ----- #
+
+add_executable(
+    load_csv
+    load_csv.cpp
+)
+
+target_link_libraries(load_csv hip_instrumentation LLVMSupport)
