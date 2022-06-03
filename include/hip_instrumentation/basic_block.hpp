@@ -25,7 +25,8 @@ struct BasicBlock {
     /** ctor
      */
     BasicBlock(uint32_t id, uint32_t clang_id, uint32_t flops,
-               const std::string& begin, const std::string& end);
+               const std::string& begin, const std::string& end,
+               uint32_t floating_ld = 0u, uint32_t floating_st = 0u);
 
     BasicBlock(const BasicBlock& other);
 
@@ -78,6 +79,14 @@ struct BasicBlock {
     /** \brief Number of floating point operations in the basic block
      */
     uint32_t flops;
+
+    /** \brief Bytes loaded from memory for floating point data
+     */
+    uint32_t floating_ld;
+
+    /** \brief Bytes stored to memory for floating point data
+     */
+    uint32_t floating_st;
 
     // These are allocated as pointers as to reduce the memory footprint on the
     // device

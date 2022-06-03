@@ -19,15 +19,18 @@
 namespace hip {
 
 BasicBlock::BasicBlock(uint32_t i, uint32_t c, uint32_t f,
-                       const std::string& begin, const std::string& end)
+                       const std::string& begin, const std::string& end,
+                       uint32_t f_ld, uint32_t f_st)
     : id(i), clang_id(c), flops(f),
       begin_loc(std::make_unique<std::string>(begin)),
-      end_loc(std::make_unique<std::string>(end)) {}
+      end_loc(std::make_unique<std::string>(end)), floating_ld(f_ld),
+      floating_st(f_st) {}
 
 BasicBlock::BasicBlock(const BasicBlock& other)
     : id(other.id), clang_id(other.clang_id), flops(other.flops),
       begin_loc(std::make_unique<std::string>(*other.begin_loc)),
-      end_loc(std::make_unique<std::string>(*other.end_loc)) {}
+      end_loc(std::make_unique<std::string>(*other.end_loc)),
+      floating_ld(other.floating_ld), floating_st(other.floating_st) {}
 
 BasicBlock& BasicBlock::operator=(const BasicBlock& other) {
     id = other.id;
@@ -35,6 +38,8 @@ BasicBlock& BasicBlock::operator=(const BasicBlock& other) {
     clang_id = other.clang_id;
     begin_loc = std::make_unique<std::string>(*other.begin_loc);
     end_loc = std::make_unique<std::string>(*other.end_loc);
+    floating_ld = other.floating_ld;
+    floating_st = other.floating_st;
 
     return *this;
 }
@@ -42,9 +47,10 @@ BasicBlock& BasicBlock::operator=(const BasicBlock& other) {
 std::string hip::BasicBlock::json() const {
     std::stringstream ss;
 
-    ss << "{\"id\": " << id << ",\"clang_id\": " << clang_id
-       << ", \"begin\": \"" << *begin_loc << "\", \"end\": \"" << *end_loc
-       << "\", \"flops\": " << flops << "}";
+    ss << "{\"id\":" << id << ",\"clang_id\":" << clang_id << ",\"begin\":\""
+       << *begin_loc << "\",\"end\":\"" << *end_loc << "\",\"flops\": " << flops
+       << ",\"floating_ld\":" << floating_ld
+       << ",\"floating_st\":" << floating_st << "}";
 
     return ss.str();
 }
@@ -77,8 +83,10 @@ BasicBlock BasicBlock::fromJson(const std::string& json) {
     unsigned int flops = root.get("flops", 0u).asUInt();
     std::string begin_loc = root.get("begin", "").asString();
     std::string end_loc = root.get("end", "").asString();
+    unsigned int f_ld = root.get("floating_ld", 0u).asUInt();
+    unsigned int f_st = root.get("floating_st", 0u).asUInt();
 
-    return {id, clang_id, flops, begin_loc, end_loc};
+    return {id, clang_id, flops, begin_loc, end_loc, f_ld, f_st};
 }
 
 std::vector<BasicBlock> BasicBlock::fromJsonArray(const std::string& json) {
@@ -94,6 +102,8 @@ std::vector<BasicBlock> BasicBlock::fromJsonArray(const std::string& json) {
         unsigned int flops = value.get("flops", 0u).asUInt();
         std::string begin_loc = value.get("begin", "").asString();
         std::string end_loc = value.get("end", "").asString();
+        unsigned int f_ld = value.get("floating_ld", 0u).asUInt();
+        unsigned int f_st = value.get("floating_st", 0u).asUInt();
 
         blocks.emplace_back(id, clang_id, flops, begin_loc, end_loc);
     }
