@@ -37,7 +37,22 @@ unsigned int FlopCounter::operator()(llvm::BasicBlock& bb) {
 
 constexpr auto bits_per_byte = 8u;
 
-unsigned int StoreCounter::operator()(llvm::BasicBlock& bb) {
+bool isTypeCounted(const llvm::Type* type, MemType::MemType type_filter) {
+    if (type_filter == MemType::All) {
+        return true;
+    }
+
+    if (type_filter & MemType::MemType::Floating) {
+        return type->isFloatingPointTy();
+    } else if (type_filter & MemType::MemType::Integer) {
+        return type->isIntegerTy();
+    } else {
+        return false;
+    }
+}
+
+unsigned int StoreCounter::count(llvm::BasicBlock& bb,
+                                 MemType::MemType type_filter) {
     for (const auto& instr : bb) {
         if (const auto* store_inst = llvm::dyn_cast<llvm::StoreInst>(&instr)) {
             // store_inst->print(llvm::errs());
@@ -45,15 +60,17 @@ unsigned int StoreCounter::operator()(llvm::BasicBlock& bb) {
             const auto* type =
                 store_inst->getPointerOperandType()->getContainedType(0);
 
-            // TODO : handle possible compound types
-            count += type->getPrimitiveSizeInBits() / bits_per_byte;
+            if (isTypeCounted(type, type_filter)) {
+                counted += type->getPrimitiveSizeInBits() / bits_per_byte;
+            }
         }
     }
 
     return getCount();
 }
 
-unsigned int LoadCounter::operator()(llvm::BasicBlock& bb) {
+unsigned int LoadCounter::count(llvm::BasicBlock& bb,
+                                MemType::MemType type_filter) {
     // TODO : handle possible compound types
     for (const auto& instr : bb) {
         if (const auto* array_deref =
@@ -63,7 +80,9 @@ unsigned int LoadCounter::operator()(llvm::BasicBlock& bb) {
             const auto* type =
                 array_deref->getPointerOperandType()->getContainedType(0);
 
-            count += type->getPrimitiveSizeInBits() / bits_per_byte;
+            if (isTypeCounted(type, type_filter)) {
+                counted += type->getPrimitiveSizeInBits() / bits_per_byte;
+            }
         } else if (const auto* load_inst =
                        llvm::dyn_cast<llvm::LoadInst>(&instr)) {
             // load_inst->print(llvm::errs());
@@ -71,7 +90,9 @@ unsigned int LoadCounter::operator()(llvm::BasicBlock& bb) {
             const auto* type =
                 load_inst->getPointerOperandType()->getContainedType(0);
 
-            count += type->getPrimitiveSizeInBits() / bits_per_byte;
+            if (isTypeCounted(type, type_filter)) {
+                counted += type->getPrimitiveSizeInBits() / bits_per_byte;
+            }
         }
     }
 

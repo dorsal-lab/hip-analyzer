@@ -40,17 +40,50 @@ class FlopCounter : public InstrCounter {
     unsigned int count = 0u;
 };
 
+namespace MemType {
+
+enum class MemType {
+    Floating = 0b001, // All floating point types (float, double, ...)
+    Integer = 0b010,  // All integer types
+    Other = 0b100     // All others : pointers, .. (?)
+};
+
+inline MemType operator|(MemType lhs, MemType rhs) {
+    return static_cast<MemType>(
+        static_cast<std::underlying_type_t<MemType>>(lhs) |
+        static_cast<std::underlying_type_t<MemType>>(rhs));
+}
+inline bool operator&(MemType lhs, MemType rhs) {
+    return static_cast<std::underlying_type_t<MemType>>(lhs) &
+           static_cast<std::underlying_type_t<MemType>>(rhs);
+}
+
+inline bool operator==(MemType lhs, MemType rhs) {
+    return static_cast<std::underlying_type_t<MemType>>(lhs) ==
+           static_cast<std::underlying_type_t<MemType>>(rhs);
+}
+
+static MemType All = MemType::Floating | MemType::Integer |
+                     MemType::Other; // All type of memory access
+
+} // namespace MemType
+
 /** \class LoadCounter
  * \brief Counts the number of loaded bytes in a basic block
  */
 class LoadCounter : public InstrCounter {
   public:
-    virtual unsigned int getCount() const override { return count; }
+    virtual unsigned int getCount() const override { return counted; }
 
-    virtual unsigned int operator()(llvm::BasicBlock& bb) override;
+    virtual unsigned int operator()(llvm::BasicBlock& bb) override {
+        return count(bb);
+    };
+
+    unsigned int count(llvm::BasicBlock& bb,
+                       MemType::MemType type_filter = MemType::All);
 
   private:
-    unsigned int count = 0u;
+    unsigned int counted = 0u;
 };
 
 /** \class StoreCounter
@@ -58,12 +91,17 @@ class LoadCounter : public InstrCounter {
  */
 class StoreCounter : public InstrCounter {
   public:
-    virtual unsigned int getCount() const override { return count; }
+    virtual unsigned int getCount() const override { return counted; }
 
-    virtual unsigned int operator()(llvm::BasicBlock& bb) override;
+    virtual unsigned int operator()(llvm::BasicBlock& bb) override {
+        return count(bb);
+    };
+
+    unsigned int count(llvm::BasicBlock& bb,
+                       MemType::MemType type_filter = MemType::All);
 
   private:
-    unsigned int count = 0u;
+    unsigned int counted = 0u;
 };
 
 } // namespace hip
