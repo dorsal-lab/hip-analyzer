@@ -98,12 +98,12 @@ class Instrumenter {
     /** \fn loadCsv
      * \brief Load data from a csv-formated file.
      */
-    void loadCsv(const std::string& filename);
+    size_t loadCsv(const std::string& filename);
 
     /** \fn loadBin
      * \brief Load data from a packed binary format (see \ref dumpBin).
      */
-    void loadBin(const std::string& filename);
+    size_t loadBin(const std::string& filename);
 
     // ----- Post-instrumentation reduce ----- //
 

@@ -6,6 +6,8 @@
 
 #include "hip_instrumentation/hip_instrumentation.hpp"
 
+#include <iostream>
+
 #include "llvm/Support/CommandLine.h"
 
 static llvm::cl::opt<std::string>
@@ -26,5 +28,7 @@ int main(int argc, char** argv) {
 
     hip::Instrumenter instrumenter(kernel_info);
 
-    instrumenter.loadCsv(hiptrace.getValue());
+    auto elements = instrumenter.loadCsv(hiptrace.getValue());
+
+    std::cout << "Read " << elements << '\n';
 }

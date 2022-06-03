@@ -164,7 +164,7 @@ void Instrumenter::dumpBin(const std::string& filename_in) {
     db.close();
 }
 
-void Instrumenter::loadCsv(const std::string& filename) {
+size_t Instrumenter::loadCsv(const std::string& filename) {
     // Load from file
     std::ifstream in(filename);
     if (!in.is_open()) {
@@ -214,9 +214,11 @@ void Instrumenter::loadCsv(const std::string& filename) {
         // We can discard the rest of the information, since it is implied by
         // the kernel call geometry
     }
+
+    return line_no;
 }
 
-void Instrumenter::loadBin(const std::string& filename) {
+size_t Instrumenter::loadBin(const std::string& filename) {
     // Load from file
 
     std::basic_ifstream<counter_t> in(filename, std::ios::binary);
@@ -226,6 +228,8 @@ void Instrumenter::loadBin(const std::string& filename) {
     }
 
     in.read(host_counters.data(), host_counters.size());
+
+    return in.gcount();
 }
 
 const std::vector<hip::BasicBlock>&
