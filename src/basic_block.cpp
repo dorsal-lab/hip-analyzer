@@ -105,7 +105,8 @@ std::vector<BasicBlock> BasicBlock::fromJsonArray(const std::string& json) {
         unsigned int f_ld = value.get("floating_ld", 0u).asUInt();
         unsigned int f_st = value.get("floating_st", 0u).asUInt();
 
-        blocks.emplace_back(id, clang_id, flops, begin_loc, end_loc);
+        blocks.emplace_back(id, clang_id, flops, begin_loc, end_loc, f_ld,
+                            f_st);
     }
 
     return blocks;
