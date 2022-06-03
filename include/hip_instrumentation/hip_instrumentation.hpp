@@ -83,6 +83,11 @@ class Instrumenter {
 
     // ----- Save & load data ----- //
 
+    /** \fn data
+     * \brief Const ref to the host counters
+     */
+    const std::vector<counter_t>& data() const { return host_counters; }
+
     /** \fn dumpCsv
      * \brief Dump the data in a csv format. If no filename is given, it is
      * generated automatically from the kernel name and the timestamp

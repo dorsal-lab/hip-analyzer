@@ -221,13 +221,15 @@ size_t Instrumenter::loadCsv(const std::string& filename) {
 size_t Instrumenter::loadBin(const std::string& filename) {
     // Load from file
 
-    std::basic_ifstream<counter_t> in(filename, std::ios::binary);
+    std::ifstream in(filename, std::ios::binary);
     if (!in.is_open()) {
         throw std::runtime_error(
             "hip::Instrumenter::loadBin() : Could not open file " + filename);
     }
 
-    in.read(host_counters.data(), host_counters.size());
+    // Ugly cast, but works
+    in.read(reinterpret_cast<char*>(host_counters.data()),
+            host_counters.size() * sizeof(counter_t));
 
     return in.gcount();
 }
