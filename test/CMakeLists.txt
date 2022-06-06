@@ -28,3 +28,12 @@ add_executable(
 )
 
 target_link_libraries(load_csv hip_instrumentation LLVMSupport)
+
+# ----- arithmetic_intensity ----- #
+
+add_executable(
+    arithmetic_intensity
+    arithmetic_intensity.cpp
+)
+
+target_link_libraries(arithmetic_intensity hip_instrumentation LLVMSupport)
