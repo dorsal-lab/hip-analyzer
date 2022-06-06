@@ -8,7 +8,10 @@
 
 #include "hip/hip_runtime.h"
 
+// Std includes
+
 #include <iostream>
+#include <memory>
 
 namespace hip {
 
@@ -19,6 +22,13 @@ inline void check(hipError_t err) {
         throw std::runtime_error(std::string("Encountered hip error ") +
                                  hipGetErrorString(err));
     }
+}
+
+inline std::unique_ptr<hipDeviceProp_t> init(int device = 0) {
+    auto properties = std::make_unique<hipDeviceProp_t>();
+    check(hipSetDevice(device));
+    check(hipGetDeviceProperties(properties.get(), device));
+    return properties;
 }
 
 } // namespace hip
