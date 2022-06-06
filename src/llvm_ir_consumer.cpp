@@ -194,6 +194,8 @@ IRConsumer::IRConsumer(std::vector<hip::BasicBlock>& b) : blocks(b) {}
 
 void IRConsumer::run(clang::CodeGenAction& action,
                      const std::string& kernel_name) {
+    using namespace hip::MemType;
+
     auto module = action.takeModule();
 
     if (module == nullptr) {
@@ -231,16 +233,21 @@ void IRConsumer::run(clang::CodeGenAction& action,
         llvm::errs() << "Found " << flops << " flops\n";
 
         hip::StoreCounter store_counter;
-        llvm::errs() << "Found " << store_counter(bb) << " stores \n";
+        auto f_st = store_counter.count(bb, MemType::Floating);
+        llvm::errs() << "Found " << f_st << " stores \n";
 
         hip::LoadCounter load_counter;
-        llvm::errs() << "Found " << load_counter(bb) << " loads \n";
+        auto f_ld = load_counter.count(bb, MemType::Floating);
+        llvm::errs() << "Found " << f_ld << " loads \n";
 
         auto block = correspondingBlock(bb);
         if (block) {
-            llvm::errs() << "\nFound block : " << block.value().get().id
-                         << '\n';
-            block.value().get().flops = flops;
+            auto& bb = block.value().get();
+            llvm::errs() << "\nFound block : " << bb.id << '\n';
+
+            bb.flops = flops;
+            bb.floating_ld = f_ld;
+            bb.floating_st = f_st;
         }
 
         ++i;
