@@ -73,18 +73,7 @@ unsigned int LoadCounter::count(llvm::BasicBlock& bb,
                                 MemType::MemType type_filter) {
     // TODO : handle possible compound types
     for (const auto& instr : bb) {
-        if (const auto* array_deref =
-                llvm::dyn_cast<llvm::GetElementPtrInst>(&instr)) {
-            // array_deref->print(llvm::errs());
-
-            const auto* type =
-                array_deref->getPointerOperandType()->getContainedType(0);
-
-            if (isTypeCounted(type, type_filter)) {
-                counted += type->getPrimitiveSizeInBits() / bits_per_byte;
-            }
-        } else if (const auto* load_inst =
-                       llvm::dyn_cast<llvm::LoadInst>(&instr)) {
+        if (const auto* load_inst = llvm::dyn_cast<llvm::LoadInst>(&instr)) {
             // load_inst->print(llvm::errs());
 
             const auto* type =
