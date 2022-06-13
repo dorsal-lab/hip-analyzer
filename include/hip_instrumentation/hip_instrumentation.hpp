@@ -123,6 +123,11 @@ class Instrumenter {
                              hipStream_t stream = nullptr) const;
 
   private:
+    /** \fn parseHeader
+     * \brief Validate header from binary trace
+     */
+    bool parseHeader(const std::string& header);
+
     std::string autoFilenamePrefix() const;
 
     std::vector<counter_t> host_counters;

@@ -144,6 +144,10 @@ void Instrumenter::dumpCsv(const std::string& filename_in) {
     out.close();
 }
 
+/** \brief Small header to validate the trace type
+ */
+constexpr auto hiptrace_name = "hiptrace";
+
 void Instrumenter::dumpBin(const std::string& filename_in) {
     std::string filename;
 
@@ -154,6 +158,22 @@ void Instrumenter::dumpBin(const std::string& filename_in) {
     }
 
     std::ofstream out(filename, std::ios::binary);
+
+    if (!out.is_open()) {
+        throw std::runtime_error(
+            "Instrumenter::dumpBin() : Could not open output file " + filename);
+    }
+
+    // Write header
+
+    // Like "hiptrace,<kernel name>,<num counters>,<stamp>,<counter size>\n"
+
+    out << hiptrace_name << ',' << kernel_info.name << ','
+        << kernel_info.instr_size << ',' << stamp << ','
+        << static_cast<unsigned int>(sizeof(counter_t)) << '\n';
+
+    // Write binary dump of counters
+
     out.write(reinterpret_cast<const char*>(host_counters.data()),
               host_counters.size() * sizeof(counter_t));
 
@@ -218,6 +238,47 @@ size_t Instrumenter::loadCsv(const std::string& filename) {
     return line_no;
 }
 
+bool Instrumenter::parseHeader(const std::string& header) {
+    std::stringstream ss;
+    ss << header;
+
+    auto get_token = [&]() -> std::string {
+        std::string buf;
+        if (!std::getline(ss, buf, ',')) {
+            throw std::runtime_error("hip::Instrumenter::parseHeader() : Could "
+                                     "not read token from header : " +
+                                     header);
+        }
+
+        return std::move(buf);
+    };
+
+    auto trace_type = get_token();
+    if (trace_type != hiptrace_name) {
+        return false;
+    }
+
+    auto kernel_name =
+        get_token(); // Is a different kernel name a reason to fail?
+
+    auto instr_size = std::stoul(get_token());
+    if (instr_size != kernel_info.instr_size) {
+        return false;
+        //"hip::Instrumenter::parseHeader() : Incompatible counter number,
+        // faulty database?"
+    }
+
+    auto stamp_in = std::stoull(get_token());
+    stamp = stamp_in;
+
+    auto counter_size = std::stoul(get_token());
+    if (counter_size != kernel_info.instr_size) {
+        return false;
+    }
+
+    return true;
+}
+
 size_t Instrumenter::loadBin(const std::string& filename) {
     // Load from file
 
@@ -225,6 +286,17 @@ size_t Instrumenter::loadBin(const std::string& filename) {
     if (!in.is_open()) {
         throw std::runtime_error(
             "hip::Instrumenter::loadBin() : Could not open file " + filename);
+    }
+
+    std::string buffer;
+    if (!std::getline(in, buffer)) {
+        throw std::runtime_error(
+            "hip::Instrumenter::loadBin() : Could not read header " + filename);
+    }
+
+    if (!parseHeader(buffer)) {
+        throw std::runtime_error(
+            "hip::Instrumenter::loadBin() : Incompatible header : " + buffer);
     }
 
     // Ugly cast, but works
