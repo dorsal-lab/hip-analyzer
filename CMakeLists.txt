@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
-project(hip-analyzer)
+project(hip-analyzer LANGUAGES C CXX)
 
-find_package(hip)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_FLAGS "-fno-rtti")
@@ -14,8 +13,17 @@ set(CLANG_INSTALL_PREFIX ${ROCM_LLVM})
 set(CMAKE_LIBRARY_PATH ${ROCM_LLVM}/lib)
 
 # ----- Packages ----- #
+
+# HIP
+
+list(APPEND CMAKE_PREFIX_PATH ${ROCM_PATH} ${ROCM_PATH}/hip)
+find_package(hip)
+
+# LLVM & Clang
+
 set(LLVM_LINK_COMPONENTS support)
-find_package(Clang)
+find_package(Clang REQUIRED)
+find_package(LLVM CONFIG REQUIRED)
 
 include_directories(
     include
@@ -24,6 +32,9 @@ include_directories(
 
 link_directories(BEFORE ${ROCM_LLVM}/lib)
 
+# jsoncpp
+
+include_directories(/usr/include/jsoncpp) # quick hack but I'm tired of fighting CMake
 
 # ----- Targets definitions ----- #
 
