@@ -21,6 +21,8 @@ mkdir build && cd build
 cmake -DCMAKE_C_COMPILER=/opt/rocm-5.0.0/llvm/bin/clang -DCMAKE_CXX_COMPILER=/opt/rocm-5.0.0/llvm/bin/clang++ -DROCM_PATH=/opt/rocm ..
 ```
 
+If you encounter some building problems with `Terminfo::terminfo` (related to LLVM 14), installing libncurses-dev seems to fix the problem.
+
 ## Running
 
 ```bash
