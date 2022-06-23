@@ -9,6 +9,34 @@
 #include <string>
 #include <vector>
 
+/** \details A GPU information json file should look like :
+ *
+ * {
+ *     "name":"GPU name",
+ *     "memory_roofs": [
+ *         {
+ *             "name": "DRAM",
+ *             "peak_bandwidth": 1.0
+ *         },
+ *         {
+ *             ...
+ *         }
+ *     ],
+ *     "compute_roofs" [
+ *         {
+ *             "name": "Regular FLOP",
+ *             "peak_flops_s": 1.0
+ *         },
+ *         {
+ *             ...
+ *         }
+ *     ]
+ *
+ * }
+ *
+ *
+ */
+
 /** \struct MemoryRoof
  * \brief Represents a peak memory bandwidth (slanted roof), in Bytes/s
  */
