@@ -4,6 +4,7 @@
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */
 
+#include <chrono>
 #include <numeric>
 
 #include "hip_instrumentation/gpu_info.hpp"
@@ -113,7 +114,43 @@ double average(const std::vector<double>& vec) {
     return sum / static_cast<double>(vec.size());
 }
 
-MemoryRoof benchmarkMemoryBandwidth(unsigned int nb_repeats) { return {}; }
+/** \fn performBenchmark
+ * \brief Execute the benchmarking function benchmark a total of nb_repeats
+ * times, returns the average in terms of ChronoUnit
+ */
+template <typename ChronoUnit = std::chrono::microseconds>
+double performBenchmark(std::function<void(void)> benchmark,
+                        unsigned int nb_repeats) {
+    std::vector<double> times;
+    times.reserve(nb_repeats);
+
+    for (auto i = 0u; i < nb_repeats; ++i) {
+        auto t0 = std::chrono::steady_clock::now();
+
+        benchmark();
+
+        auto t1 = std::chrono::steady_clock::now();
+        auto time = std::chrono::duration_cast<ChronoUnit>(t1 - t0).count();
+
+        times.emplace_back(static_cast<double>(time));
+    }
+
+    return average(times);
+}
+
+MemoryRoof benchmarkMemoryBandwidth(unsigned int nb_repeats) {
+    constexpr auto bytes_per_thread = 1024u;
+    constexpr auto threads = 1024u;
+    constexpr auto blocks = 1024u;
+
+    double avg_time = performBenchmark(
+        [&]() {
+            // TODO
+        },
+        nb_repeats);
+
+    return {};
+}
 
 ComputeRoof benchmarkMultiplyFlops(unsigned int nb_repeats) { return {}; }
 
