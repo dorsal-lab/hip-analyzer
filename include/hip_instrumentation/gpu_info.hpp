@@ -64,6 +64,9 @@ struct ComputeRoof {
  * \brief Holds information about a specific machine
  */
 struct GpuInfo {
+    GpuInfo() = default;
+    GpuInfo(const std::string& _id) : id(_id) {}
+
     /** \brief GPU Identifier
      */
     std::string id;

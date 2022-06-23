@@ -20,10 +20,14 @@ static llvm::cl::opt<std::string> output("o", llvm::cl::desc("Output file"),
                                          llvm::cl::value_desc("output"),
                                          llvm::cl::init("gpu_info.json"));
 
+static llvm::cl::opt<std::string> name("n", llvm::cl::desc("Device name"),
+                                       llvm::cl::value_desc("device"),
+                                       llvm::cl::init(""));
+
 int main(int argc, char** argv) {
     llvm::cl::ParseCommandLineOptions(argc, argv);
 
-    hip::GpuInfo gpu_info;
+    hip::GpuInfo gpu_info{name.getValue()};
 
     // Perform benchmark
 
