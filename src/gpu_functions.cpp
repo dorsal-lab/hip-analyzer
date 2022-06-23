@@ -4,6 +4,8 @@
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */
 
+#include <numeric>
+
 #include "hip_instrumentation/gpu_info.hpp"
 #include "hip_instrumentation/hip_instrumentation.hpp"
 #include "hip_instrumentation/hip_utils.hpp"
@@ -105,13 +107,19 @@ unsigned int hip::Instrumenter::reduceFlops(const counter_t* device_ptr,
 namespace hip {
 namespace benchmark {
 
-MemoryRoof benchmarkMemoryBandwidth() { return {}; }
+double average(const std::vector<double>& vec) {
+    auto sum = std::accumulate(vec.begin(), vec.end(), 0.);
 
-ComputeRoof benchmarkMultiplyFlops() { return {}; }
+    return sum / static_cast<double>(vec.size());
+}
 
-ComputeRoof benchmarkAddFlops() { return {}; }
+MemoryRoof benchmarkMemoryBandwidth(unsigned int nb_repeats) { return {}; }
 
-ComputeRoof benchmarkFmaFlops() { return {}; }
+ComputeRoof benchmarkMultiplyFlops(unsigned int nb_repeats) { return {}; }
+
+ComputeRoof benchmarkAddFlops(unsigned int nb_repeats) { return {}; }
+
+ComputeRoof benchmarkFmaFlops(unsigned int nb_repeats) { return {}; }
 
 } // namespace benchmark
 

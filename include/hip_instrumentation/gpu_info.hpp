@@ -87,25 +87,27 @@ struct GpuInfo {
 
 namespace benchmark {
 
+constexpr unsigned int DEFAULT_REPEATS = 50u;
+
 /** \fn benchmarkMemoryBandwidth
  * \brief Benchmarks the cacheless memory bandwidth
  */
-MemoryRoof benchmarkMemoryBandwidth();
+MemoryRoof benchmarkMemoryBandwidth(unsigned int nb_repeats = DEFAULT_REPEATS);
 
 /** \fn benchmarkMultiplyFlops
  * \brief Benchmarks the floating point multiplication roofline
  */
-ComputeRoof benchmarkMultiplyFlops();
+ComputeRoof benchmarkMultiplyFlops(unsigned int nb_repeats = DEFAULT_REPEATS);
 
 /** \fn benchmarkAddFlops
  * \brief Benchmarks the floating point addition roofline
  */
-ComputeRoof benchmarkAddFlops();
+ComputeRoof benchmarkAddFlops(unsigned int nb_repeats = DEFAULT_REPEATS);
 
 /** \fn benchmarkFmaFlops
  * \brief Benchmarks the fused multiply-add roofline
  */
-ComputeRoof benchmarkFmaFlops();
+ComputeRoof benchmarkFmaFlops(unsigned int nb_repeats = DEFAULT_REPEATS);
 
 } // namespace benchmark
 
