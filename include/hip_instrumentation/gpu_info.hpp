@@ -78,6 +78,35 @@ struct GpuInfo {
      * \brief Dump to json
      */
     std::string json() const;
+
+    /** \fn benchmark
+     * \brief Performs a full benchmark
+     */
+    void benchmark();
 };
+
+namespace benchmark {
+
+/** \fn benchmarkMemoryBandwidth
+ * \brief Benchmarks the cacheless memory bandwidth
+ */
+MemoryRoof benchmarkMemoryBandwidth();
+
+/** \fn benchmarkMultiplyFlops
+ * \brief Benchmarks the floating point multiplication roofline
+ */
+ComputeRoof benchmarkMultiplyFlops();
+
+/** \fn benchmarkAddFlops
+ * \brief Benchmarks the floating point addition roofline
+ */
+ComputeRoof benchmarkAddFlops();
+
+/** \fn benchmarkFmaFlops
+ * \brief Benchmarks the fused multiply-add roofline
+ */
+ComputeRoof benchmarkFmaFlops();
+
+} // namespace benchmark
 
 } // namespace hip

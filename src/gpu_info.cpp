@@ -37,3 +37,15 @@ std::string hip::GpuInfo::json() const {
 
     return ss.str();
 }
+
+void hip::GpuInfo::benchmark() {
+    // Memory benchmarks
+
+    memory_roofs.emplace_back(benchmark::benchmarkMemoryBandwidth());
+
+    // Compute benchmarks
+
+    compute_roofs.emplace_back(benchmark::benchmarkMultiplyFlops());
+    compute_roofs.emplace_back(benchmark::benchmarkAddFlops());
+    compute_roofs.emplace_back(benchmark::benchmarkFmaFlops());
+}
