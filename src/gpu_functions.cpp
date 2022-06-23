@@ -138,6 +138,8 @@ double performBenchmark(std::function<void(void)> benchmark,
     return average(times);
 }
 
+// ----- Memory benchmarks ----- //
+
 MemoryRoof benchmarkMemoryBandwidth(unsigned int nb_repeats) {
     constexpr auto bytes_per_thread = 1024u;
     constexpr auto threads = 1024u;
@@ -149,14 +151,68 @@ MemoryRoof benchmarkMemoryBandwidth(unsigned int nb_repeats) {
         },
         nb_repeats);
 
-    return {};
+    unsigned int total_bytes = bytes_per_thread * threads * blocks;
+
+    double bytes_per_second = static_cast<double>(total_bytes) / avg_time;
+
+    return {"memory", bytes_per_second};
 }
 
-ComputeRoof benchmarkMultiplyFlops(unsigned int nb_repeats) { return {}; }
+// ----- Compute benchmarks ----- //
 
-ComputeRoof benchmarkAddFlops(unsigned int nb_repeats) { return {}; }
+ComputeRoof benchmarkMultiplyFlops(unsigned int nb_repeats) {
+    constexpr auto flops_per_thread = 1024u;
+    constexpr auto threads = 1024u;
+    constexpr auto blocks = 1024u;
 
-ComputeRoof benchmarkFmaFlops(unsigned int nb_repeats) { return {}; }
+    double avg_time = performBenchmark(
+        [&]() {
+            // TODO
+        },
+        nb_repeats);
+
+    unsigned int total_flops = flops_per_thread * threads * blocks;
+
+    double flops_per_second = static_cast<double>(total_flops) / avg_time;
+
+    return {"multiply", flops_per_second};
+}
+
+ComputeRoof benchmarkAddFlops(unsigned int nb_repeats) {
+    constexpr auto flops_per_thread = 1024u;
+    constexpr auto threads = 1024u;
+    constexpr auto blocks = 1024u;
+
+    double avg_time = performBenchmark(
+        [&]() {
+            // TODO
+        },
+        nb_repeats);
+
+    unsigned int total_flops = flops_per_thread * threads * blocks;
+
+    double flops_per_second = static_cast<double>(total_flops) / avg_time;
+
+    return {"add", flops_per_second};
+}
+
+ComputeRoof benchmarkFmaFlops(unsigned int nb_repeats) {
+    constexpr auto flops_per_thread = 1024u;
+    constexpr auto threads = 1024u;
+    constexpr auto blocks = 1024u;
+
+    double avg_time = performBenchmark(
+        [&]() {
+            // TODO
+        },
+        nb_repeats);
+
+    unsigned int total_flops = flops_per_thread * threads * blocks;
+
+    double flops_per_second = static_cast<double>(total_flops) / avg_time;
+
+    return {"fma", flops_per_second};
+}
 
 } // namespace benchmark
 
