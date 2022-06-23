@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+namespace hip {
+
 /** \details A GPU information json file should look like :
  *
  * {
@@ -74,3 +76,5 @@ struct GpuInfo {
      */
     std::string json() const;
 };
+
+} // namespace hip

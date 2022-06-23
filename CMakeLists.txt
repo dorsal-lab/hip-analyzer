@@ -80,6 +80,7 @@ add_custom_command(
 add_library(hip_instrumentation
     src/hip_instrumentation.cpp
     src/basic_block.cpp
+    src/gpu_info.cpp
     ${CMAKE_BINARY_DIR}/gpu_hip_instrumentation.o
 )
 

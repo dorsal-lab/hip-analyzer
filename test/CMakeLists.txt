@@ -37,3 +37,12 @@ add_executable(
 )
 
 target_link_libraries(arithmetic_intensity hip_instrumentation LLVMSupport)
+
+# ----- gpu_benchmark ----- #
+
+add_executable(
+    gpu_benchmark
+    gpu_benchmark.cpp
+)
+
+target_link_libraries(gpu_benchmark hip_instrumentation LLVMSupport)
