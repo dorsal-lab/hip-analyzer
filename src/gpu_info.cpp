@@ -26,7 +26,7 @@ std::string hip::GpuInfo::json() const {
 
     for (const auto& roof : compute_roofs) {
         ss << "{\"name\":\"" << roof.name
-           << "\",\"peak_bandwidth\":" << roof.peak_flops_s << "},";
+           << "\",\"peak_flops_s\":" << roof.peak_flops_s << "},";
     }
 
     if (compute_roofs.size() != 0) {

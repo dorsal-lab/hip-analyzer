@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
 
     // Perform benchmark
 
-    // TODO
+    gpu_info.benchmark();
 
     // Save to file
 

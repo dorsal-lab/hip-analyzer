@@ -160,16 +160,71 @@ MemoryRoof benchmarkMemoryBandwidth(unsigned int nb_repeats) {
 
 // ----- Compute benchmarks ----- //
 
+constexpr unsigned int flop_number = 65536u - 1u; // 2^16 - 1
+
+/** \fn benchmark_operation
+ * \brief Compute kernel to benchmark an operation.
+ *
+ * \param Operation template parameter, requires an empty struct with a call
+ * operator (operator()). Prefer using <functional> types
+ * (std::multiplies<float>, etc.)
+ *
+ * \param data Vector of size blockDim.x * gridDim.x
+ */
+template <typename Operation> __global__ void benchmark_operation(float* data) {
+    Operation op{};
+
+    size_t index = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // We need to "simulate" a real access to the memory in order to prevent the
+    // compiler from optimizing our efforts
+    float lhs = data[index];
+    float rhs = data[index + 1];
+
+    for (auto i = 0u; i < flop_number; ++i) {
+        lhs = op(lhs, rhs);
+    }
+
+    // Store to prevent dead code optimization
+    data[index] = lhs;
+}
+
+float* allocEmptyVector(size_t size, float init = 1.f) {
+    std::vector<float> vec_cpu(size, init);
+
+    size_t vec_size = size * sizeof(float);
+
+    float* data;
+    hip::check(hipMalloc(&data, vec_size));
+    hip::check(
+        hipMemcpy(data, vec_cpu.data(), vec_size, hipMemcpyHostToDevice));
+
+    return data;
+}
+
 ComputeRoof benchmarkMultiplyFlops(unsigned int nb_repeats) {
     constexpr auto flops_per_thread = 1024u;
     constexpr auto threads = 1024u;
     constexpr auto blocks = 1024u;
 
+    // Alloc
+
+    float* data = allocEmptyVector(blocks * threads * 2);
+
     double avg_time = performBenchmark(
         [&]() {
-            // TODO
+            benchmark_operation<std::multiplies<float>>
+                <<<blocks, threads>>>(data);
+
+            hip::check(hipDeviceSynchronize());
         },
         nb_repeats);
+
+    // Free
+
+    hip::check(hipFree(data));
+
+    // Compute perf
 
     unsigned int total_flops = flops_per_thread * threads * blocks;
 
