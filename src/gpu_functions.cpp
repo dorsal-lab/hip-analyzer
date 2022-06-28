@@ -182,6 +182,8 @@ template <typename Operation> __global__ void benchmark_operation(float* data) {
     float rhs = data[index + 1];
 
     for (auto i = 0u; i < flops_per_thread; ++i) {
+        // Possible data dependency which can (and will) slow down the
+        // pipeline...
         lhs = op(lhs, rhs);
     }
 
@@ -203,7 +205,8 @@ float* allocEmptyVector(size_t size, float init = 1.f) {
 }
 
 ComputeRoof benchmarkMultiplyFlops(unsigned int nb_repeats) {
-    constexpr auto threads = 1024u;
+    // Compute bound -> Low number of threads
+    constexpr auto threads = 64u;
     constexpr auto blocks = 65536u - 1;
 
     // Alloc
@@ -233,7 +236,7 @@ ComputeRoof benchmarkMultiplyFlops(unsigned int nb_repeats) {
 }
 
 ComputeRoof benchmarkAddFlops(unsigned int nb_repeats) {
-    constexpr auto threads = 1024u;
+    constexpr auto threads = 64u;
     constexpr auto blocks = 65536u - 1;
 
     // Alloc
@@ -278,7 +281,7 @@ struct FmaOperation {
 };
 
 ComputeRoof benchmarkFmaFlops(unsigned int nb_repeats) {
-    constexpr auto threads = 1024u;
+    constexpr auto threads = 64u;
     constexpr auto blocks = 65536u - 1;
 
     // Alloc
