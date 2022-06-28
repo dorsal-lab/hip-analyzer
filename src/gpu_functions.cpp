@@ -160,7 +160,7 @@ MemoryRoof benchmarkMemoryBandwidth(unsigned int nb_repeats) {
 
 // ----- Compute benchmarks ----- //
 
-constexpr unsigned int flop_number = 65536u - 1u; // 2^16 - 1
+constexpr unsigned int flops_per_thread = 65536u - 1u; // 2^16 - 1
 
 /** \fn benchmark_operation
  * \brief Compute kernel to benchmark an operation.
@@ -181,7 +181,7 @@ template <typename Operation> __global__ void benchmark_operation(float* data) {
     float lhs = data[index];
     float rhs = data[index + 1];
 
-    for (auto i = 0u; i < flop_number; ++i) {
+    for (auto i = 0u; i < flops_per_thread; ++i) {
         lhs = op(lhs, rhs);
     }
 
@@ -203,9 +203,8 @@ float* allocEmptyVector(size_t size, float init = 1.f) {
 }
 
 ComputeRoof benchmarkMultiplyFlops(unsigned int nb_repeats) {
-    constexpr auto flops_per_thread = 1024u;
     constexpr auto threads = 1024u;
-    constexpr auto blocks = 1024u;
+    constexpr auto blocks = 65536u - 1;
 
     // Alloc
 
@@ -226,7 +225,7 @@ ComputeRoof benchmarkMultiplyFlops(unsigned int nb_repeats) {
 
     // Compute perf
 
-    unsigned int total_flops = flops_per_thread * threads * blocks;
+    uint64_t total_flops = flops_per_thread * threads * blocks;
 
     double flops_per_second = static_cast<double>(total_flops) / avg_time;
 
@@ -234,38 +233,75 @@ ComputeRoof benchmarkMultiplyFlops(unsigned int nb_repeats) {
 }
 
 ComputeRoof benchmarkAddFlops(unsigned int nb_repeats) {
-    constexpr auto flops_per_thread = 1024u;
     constexpr auto threads = 1024u;
-    constexpr auto blocks = 1024u;
+    constexpr auto blocks = 65536u - 1;
+
+    // Alloc
+
+    float* data = allocEmptyVector(blocks * threads * 2);
 
     double avg_time = performBenchmark(
         [&]() {
-            // TODO
+            benchmark_operation<std::plus<float>><<<blocks, threads>>>(data);
+
+            hip::check(hipDeviceSynchronize());
         },
         nb_repeats);
 
-    unsigned int total_flops = flops_per_thread * threads * blocks;
+    // Free
+
+    hip::check(hipFree(data));
+
+    // Compute perf
+
+    uint64_t total_flops = flops_per_thread * threads * blocks;
 
     double flops_per_second = static_cast<double>(total_flops) / avg_time;
 
     return {"add", flops_per_second};
 }
 
+/** \struct FmaOperation
+ * \brief Perform a fused multiply-add operation using inline GCN3 assembly
+ */
+struct FmaOperation {
+    __device__ float operator()(float lhs, float rhs) {
+        float ret;
+
+        // lhs = lhs + lhs * rhs
+        asm volatile("v_mac_f32_e32 %0, %2, %3"
+                     : "=v"(lhs)
+                     : "0"(lhs), "v"(lhs), "v"(rhs));
+
+        return ret;
+    }
+};
+
 ComputeRoof benchmarkFmaFlops(unsigned int nb_repeats) {
-    constexpr auto flops_per_thread = 1024u;
     constexpr auto threads = 1024u;
-    constexpr auto blocks = 1024u;
+    constexpr auto blocks = 65536u - 1;
+
+    // Alloc
+
+    float* data = allocEmptyVector(blocks * threads * 2);
 
     double avg_time = performBenchmark(
         [&]() {
-            // TODO
+            benchmark_operation<FmaOperation><<<blocks, threads>>>(data);
+
+            hip::check(hipDeviceSynchronize());
         },
         nb_repeats);
 
-    unsigned int total_flops = flops_per_thread * threads * blocks;
+    // Free
+
+    hip::check(hipFree(data));
+
+    // Compute perf
+
+    uint64_t total_flops = flops_per_thread * threads * blocks;
 
     double flops_per_second = static_cast<double>(total_flops) / avg_time;
-
     return {"fma", flops_per_second};
 }
 
