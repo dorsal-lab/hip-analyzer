@@ -140,22 +140,57 @@ double performBenchmark(std::function<void(void)> benchmark,
 
 // ----- Memory benchmarks ----- //
 
-MemoryRoof benchmarkMemoryBandwidth(unsigned int nb_repeats) {
+/** \fn benchmark_memory
+ * \brief Compute kernel to benchmark memory bandwidth
+ */
+__global__ void benchmark_memory(float* data, size_t items_per_thread,
+                                 size_t stride) {
+    // TODO
+}
+
+MemoryRoof benchmarkGlobalMemoryBandwidth(size_t stride,
+                                          unsigned int nb_repeats) {
     constexpr auto bytes_per_thread = 1024u;
-    constexpr auto threads = 1024u;
+    constexpr auto items_per_thread = bytes_per_thread / sizeof(float);
+
+    constexpr auto threads = 512u;
     constexpr auto blocks = 1024u;
+
+    // Alloc
+
+    float* data;
+    size_t alloc_size = items_per_thread * stride * threads * blocks;
+
+    std::vector<float> vec_cpu(alloc_size, 1.f);
+
+    hip::check(hipMalloc(&data, alloc_size * sizeof(float)));
+    hip::check(hipMemcpy(data, vec_cpu.data(), alloc_size * sizeof(float),
+                         hipMemcpyHostToDevice));
+
+    // Run benchmark
 
     double avg_time = performBenchmark(
         [&]() {
-            // TODO
+            benchmark_memory<<<blocks, threads>>>(data, items_per_thread,
+                                                  stride);
+            hip::check(hipDeviceSynchronize());
         },
         nb_repeats);
+
+    // Free
+
+    hip::check(hipFree(data));
+
+    // Compute perf
 
     unsigned int total_bytes = bytes_per_thread * threads * blocks;
 
     double bytes_per_second = static_cast<double>(total_bytes) / avg_time;
 
-    return {"memory", bytes_per_second};
+    std::stringstream ss;
+    ss << "memory_stride_" << stride;
+
+    return {ss.str(), bytes_per_second};
 }
 
 // ----- Compute benchmarks ----- //

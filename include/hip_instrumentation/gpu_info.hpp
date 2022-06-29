@@ -89,10 +89,12 @@ namespace benchmark {
 
 constexpr unsigned int DEFAULT_REPEATS = 50u;
 
-/** \fn benchmarkMemoryBandwidth
+/** \fn benchmarkGlobalMemoryBandwidth
  * \brief Benchmarks the cacheless memory bandwidth
  */
-MemoryRoof benchmarkMemoryBandwidth(unsigned int nb_repeats = DEFAULT_REPEATS);
+MemoryRoof
+benchmarkGlobalMemoryBandwidth(size_t stride = 0u,
+                               unsigned int nb_repeats = DEFAULT_REPEATS);
 
 /** \fn benchmarkMultiplyFlops
  * \brief Benchmarks the floating point multiplication roofline
