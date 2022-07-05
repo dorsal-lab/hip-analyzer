@@ -135,7 +135,14 @@ class Instrumenter {
 
     std::vector<hip::BasicBlock> blocks;
 
+    /** \brief std::chrono stamp for quick identification
+     */
     uint64_t stamp;
+
+    /** \brief Roctracer stamps for kernel launch identification
+     */
+    uint64_t stamp_begin;
+    uint64_t stamp_end;
 };
 
 } // namespace hip

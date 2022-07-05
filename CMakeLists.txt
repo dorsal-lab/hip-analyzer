@@ -28,9 +28,10 @@ find_package(LLVM CONFIG REQUIRED)
 include_directories(
     include
     ${ROCM_PATH}/llvm/include
+    ${ROCM_PATH}/roctracer/include
 )
 
-link_directories(BEFORE ${ROCM_LLVM}/lib)
+link_directories(BEFORE ${ROCM_LLVM}/lib ${ROCM_PATH}/roctracer/lib)
 
 # jsoncpp
 
@@ -87,6 +88,7 @@ add_library(hip_instrumentation
 target_link_libraries(hip_instrumentation
     hip::host
     jsoncpp
+    roctracer64
 )
 
 

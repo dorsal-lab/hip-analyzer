@@ -16,6 +16,8 @@
 
 #include <json/json.h>
 
+#include "roctracer.h"
+
 namespace hip {
 
 // GCN Assembly
@@ -97,10 +99,31 @@ Instrumenter::counter_t* Instrumenter::toDevice() {
                          kernel_info.instr_size * sizeof(counter_t),
                          hipMemcpyHostToDevice));
 
+    // We get the timestamp at this point because the toDevice method is
+    // executed right before the kernel launch
+    roctracer_status_t err = roctracer_get_timestamp(&stamp_begin);
+    if (err != ROCTRACER_STATUS_SUCCESS) {
+        throw std::runtime_error(
+            std::string(
+                "hip::Instrumenter::toDevice() : Could not get timestamp") +
+            roctracer_error_string());
+    }
+
     return data_device;
 }
 
 void Instrumenter::fromDevice(void* device_ptr) {
+    // Likewise, the fromDevice method is executed right after the end of the
+    // kernel launch
+
+    roctracer_status_t err = roctracer_get_timestamp(&stamp_end);
+    if (err != ROCTRACER_STATUS_SUCCESS) {
+        throw std::runtime_error(
+            std::string(
+                "hip::Instrumenter::toDevice() : Could not get timestamp") +
+            roctracer_error_string());
+    }
+
     hip::check(hipMemcpy(host_counters.data(), device_ptr,
                          kernel_info.instr_size * sizeof(counter_t),
                          hipMemcpyDeviceToHost));
