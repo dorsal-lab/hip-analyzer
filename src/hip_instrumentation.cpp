@@ -189,11 +189,13 @@ void Instrumenter::dumpBin(const std::string& filename_in) {
 
     // Write header
 
-    // Like "hiptrace,<kernel name>,<num counters>,<stamp>,<counter size>\n"
+    // Like "hiptrace,<kernel name>,<num
+    // counters>,<stamp>,<stamp_begin>,<stamp_end>,<counter size>\n"
 
     out << hiptrace_name << ',' << kernel_info.name << ','
-        << kernel_info.instr_size << ',' << stamp << ','
-        << static_cast<unsigned int>(sizeof(counter_t)) << '\n';
+        << kernel_info.instr_size << ',' << stamp << ',' << stamp_begin << ','
+        << stamp_end << ',' << static_cast<unsigned int>(sizeof(counter_t))
+        << '\n';
 
     // Write binary dump of counters
 
