@@ -16,6 +16,7 @@
 
 #include <json/json.h>
 
+#include "rocprofiler/rocprofiler.h"
 #include "roctracer.h"
 
 namespace hip {
@@ -90,6 +91,23 @@ Instrumenter::Instrumenter(KernelInfo& ki)
                 .count();
 }
 
+uint64_t getRoctracerStamp() {
+    uint64_t rt_timestamp, ret;
+
+    roctracer_status_t err = roctracer_get_timestamp(&rt_timestamp);
+    if (err != ROCTRACER_STATUS_SUCCESS) {
+        throw std::runtime_error(
+            std::string(
+                "hip::Instrumenter::toDevice() : Could not get timestamp") +
+            roctracer_error_string());
+    }
+
+    rocprofiler_get_time(ROCPROFILER_TIME_ID_CLOCK_REALTIME, rt_timestamp, &ret,
+                         NULL);
+
+    return ret;
+}
+
 Instrumenter::counter_t* Instrumenter::toDevice() {
     counter_t* data_device;
     hip::check(
@@ -101,13 +119,8 @@ Instrumenter::counter_t* Instrumenter::toDevice() {
 
     // We get the timestamp at this point because the toDevice method is
     // executed right before the kernel launch
-    roctracer_status_t err = roctracer_get_timestamp(&stamp_begin);
-    if (err != ROCTRACER_STATUS_SUCCESS) {
-        throw std::runtime_error(
-            std::string(
-                "hip::Instrumenter::toDevice() : Could not get timestamp") +
-            roctracer_error_string());
-    }
+
+    stamp_begin = getRoctracerStamp();
 
     return data_device;
 }
@@ -116,13 +129,7 @@ void Instrumenter::fromDevice(void* device_ptr) {
     // Likewise, the fromDevice method is executed right after the end of the
     // kernel launch
 
-    roctracer_status_t err = roctracer_get_timestamp(&stamp_end);
-    if (err != ROCTRACER_STATUS_SUCCESS) {
-        throw std::runtime_error(
-            std::string(
-                "hip::Instrumenter::toDevice() : Could not get timestamp") +
-            roctracer_error_string());
-    }
+    stamp_end = getRoctracerStamp();
 
     hip::check(hipMemcpy(host_counters.data(), device_ptr,
                          kernel_info.instr_size * sizeof(counter_t),

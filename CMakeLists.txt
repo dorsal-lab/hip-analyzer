@@ -29,9 +29,10 @@ include_directories(
     include
     ${ROCM_PATH}/llvm/include
     ${ROCM_PATH}/roctracer/include
+    ${ROCM_PATH}/include/hsa
 )
 
-link_directories(BEFORE ${ROCM_LLVM}/lib ${ROCM_PATH}/roctracer/lib)
+link_directories(BEFORE ${ROCM_LLVM}/lib ${ROCM_PATH}/lib)
 
 # jsoncpp
 
@@ -89,6 +90,7 @@ target_link_libraries(hip_instrumentation
     hip::host
     jsoncpp
     roctracer64
+    rocprofiler64
 )
 
 
