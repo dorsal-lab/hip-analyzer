@@ -114,6 +114,19 @@ double average(const std::vector<double>& vec) {
     return sum / static_cast<double>(vec.size());
 }
 
+/** \fn asSecondDuration
+ * \brief Returns the duration in seconds, as a double precision floating point
+ * value
+ */
+template <typename ChronoUnit> double asSecondDuration(double duration) {
+    // A std::chrono::duration is expressed as a ratio to a duration of one
+    // second, use this for the computation
+    auto num = static_cast<double>(ChronoUnit::period::num);
+    auto den = static_cast<double>(ChronoUnit::period::den);
+
+    return duration * num / den;
+}
+
 /** \fn performBenchmark
  * \brief Execute the benchmarking function benchmark a total of nb_repeats
  * times, returns the average in terms of ChronoUnit
@@ -135,7 +148,7 @@ double performBenchmark(std::function<void(void)> benchmark,
         times.emplace_back(static_cast<double>(time));
     }
 
-    return average(times);
+    return asSecondDuration<ChronoUnit>(average(times));
 }
 
 // ----- Memory benchmarks ----- //
@@ -216,6 +229,7 @@ template <typename Operation> __global__ void benchmark_operation(float* data) {
     float lhs = data[index];
     float rhs = data[index + 1];
 
+#pragma unroll
     for (auto i = 0u; i < flops_per_thread; ++i) {
         // Possible data dependency which can (and will) slow down the
         // pipeline...
