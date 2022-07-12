@@ -83,6 +83,7 @@ int main(int argc, const char** argv) {
     auto& db = options_parser.getCompilations();
     appendFlag(db, "--cuda-device-only");
     appendFlag(db, "-I" + rocm_path + "/hip/bin/include");
+    appendFlag(db, "-gline-directives-only");
 
     // Instrumentation info
 
