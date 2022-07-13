@@ -21,6 +21,8 @@ find_package(hip)
 
 # LLVM & Clang
 
+link_directories(BEFORE ${ROCM_LLVM}/lib ${ROCM_PATH}/lib)
+
 set(LLVM_LINK_COMPONENTS support)
 find_package(Clang REQUIRED)
 find_package(LLVM CONFIG REQUIRED)
@@ -31,8 +33,6 @@ include_directories(
     ${ROCM_PATH}/roctracer/include
     ${ROCM_PATH}/include/hsa
 )
-
-link_directories(BEFORE ${ROCM_LLVM}/lib ${ROCM_PATH}/lib)
 
 # jsoncpp
 

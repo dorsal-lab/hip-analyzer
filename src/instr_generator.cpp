@@ -25,10 +25,17 @@ std::string getExprText(const clang::Expr* expr,
                                  "geometry declaration");
     }
 
-    return clang::Lexer::getSourceText(
-               clang::CharSourceRange::getCharRange({begin_loc, end_loc}), sm,
-               clang::LangOptions())
-        .str();
+    auto text = clang::Lexer::getSourceText(
+                    clang::CharSourceRange::getTokenRange({begin_loc, end_loc}),
+                    sm, clang::LangOptions())
+                    .str();
+
+    // Handle strange edge case where the following ',' could be included in the
+    // token
+    if (text.back() == ',') {
+        text.pop_back();
+    }
+    return text;
 }
 
 void InstrGenerator::setGeometry(const clang::CallExpr& kernel_call,
@@ -37,11 +44,13 @@ void InstrGenerator::setGeometry(const clang::CallExpr& kernel_call,
     blocks_expr->dump();
 
     blocks = getExprText(blocks_expr, source_manager);
+    llvm::errs() << blocks << '\n';
 
     auto threads_expr = kernel_call.getArg(1);
     threads_expr->dump();
 
     threads = getExprText(threads_expr, source_manager);
+    llvm::errs() << threads << '\n';
 }
 
 std::string InstrGenerator::generateBlockCode(unsigned int id) const {
