@@ -157,8 +157,25 @@ double performBenchmark(std::function<void(void)> benchmark,
  * \brief Compute kernel to benchmark memory bandwidth
  */
 __global__ void benchmark_memory(float* data, size_t items_per_thread,
-                                 size_t stride) {
-    // TODO
+                                 size_t stride_fetch) {
+    size_t half = items_per_thread / 2u;
+
+    // Take an item, and put it in another place. Do this (items_per_thread / 2)
+    // times
+
+    size_t block_offset =
+        blockIdx.x * blockDim.x * items_per_thread * stride_fetch;
+    size_t thread_offset = stride_fetch * threadIdx.x;
+
+    size_t begin = block_offset + thread_offset;
+    size_t end = block_offset + blockDim.x * half * stride_fetch;
+
+    size_t stride = stride_fetch * blockDim.x;
+
+    for (auto i = begin; i < end; i += stride) {
+        float in = data[i];
+        data[i + half * blockDim.x * stride_fetch] = in;
+    }
 }
 
 MemoryRoof benchmarkGlobalMemoryBandwidth(size_t stride,
@@ -172,7 +189,9 @@ MemoryRoof benchmarkGlobalMemoryBandwidth(size_t stride,
     // Alloc
 
     float* data;
-    size_t alloc_size = items_per_thread * stride * threads * blocks;
+
+    size_t stride_factor = stride == 0 ? 1 : stride * threads;
+    size_t alloc_size = stride_factor * items_per_thread * blocks;
 
     std::vector<float> vec_cpu(alloc_size, 1.f);
 

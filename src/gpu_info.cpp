@@ -41,7 +41,10 @@ std::string hip::GpuInfo::json() const {
 void hip::GpuInfo::benchmark() {
     // Memory benchmarks
 
-    memory_roofs.emplace_back(benchmark::benchmarkGlobalMemoryBandwidth());
+    memory_roofs.emplace_back(benchmark::benchmarkGlobalMemoryBandwidth(0));
+    memory_roofs.emplace_back(benchmark::benchmarkGlobalMemoryBandwidth(1));
+    memory_roofs.emplace_back(benchmark::benchmarkGlobalMemoryBandwidth(2));
+    memory_roofs.emplace_back(benchmark::benchmarkGlobalMemoryBandwidth(32));
 
     // Compute benchmarks
 
