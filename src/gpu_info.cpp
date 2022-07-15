@@ -51,4 +51,5 @@ void hip::GpuInfo::benchmark() {
     compute_roofs.emplace_back(benchmark::benchmarkMultiplyFlops());
     compute_roofs.emplace_back(benchmark::benchmarkAddFlops());
     compute_roofs.emplace_back(benchmark::benchmarkFmaFlops());
+    compute_roofs.emplace_back(benchmark::benchmarkTheoreticalFlops());
 }

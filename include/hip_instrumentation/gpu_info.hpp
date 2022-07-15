@@ -111,6 +111,11 @@ ComputeRoof benchmarkAddFlops(unsigned int nb_repeats = DEFAULT_REPEATS);
  */
 ComputeRoof benchmarkFmaFlops(unsigned int nb_repeats = DEFAULT_REPEATS);
 
+/** \fn benchmarkTheoreticalFlops
+ * \brief Computes the theoretical performance
+ */
+ComputeRoof benchmarkTheoreticalFlops();
+
 } // namespace benchmark
 
 } // namespace hip

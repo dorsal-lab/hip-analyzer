@@ -376,6 +376,36 @@ ComputeRoof benchmarkFmaFlops(unsigned int nb_repeats) {
     return {"fma", flops_per_second};
 }
 
+ComputeRoof benchmarkTheoreticalFlops() {
+    hipDeviceProp_t properties;
+
+    hip::check(hipGetDeviceProperties(&properties, 0));
+
+    auto name = properties.name;
+    auto cu_count = properties.multiProcessorCount;
+    auto warp_size = properties.warpSize;
+    auto clock = static_cast<long>(properties.clockRate) *
+                 1000L; // Stored in kHz, convert to Hz
+
+    // GCN Architecture specifics, may not be accurate for others ?
+    constexpr auto simd_per_cu = 4L; // 4 SIMD Units per CU
+    constexpr auto alu_per_simd =
+        16L; // Each SIMD unit perform 16 ALU ops per cycle
+
+    // Includes Thread(item)-level parallelism
+    auto instr_per_cycle =
+        static_cast<long>(cu_count) * simd_per_cu * alu_per_simd;
+    auto flops_per_second = static_cast<double>(instr_per_cycle * clock);
+
+    std::cout << "Device properties :\n"
+              << "  Name :\t\t" << name << '\n'
+              << "  Clock : \t\t" << clock << " Hz\n"
+              << "  Compute units : \t" << cu_count
+              << "\n  Theoretical flops : \t" << flops_per_second << '\n';
+
+    return {"theoretical", flops_per_second};
+}
+
 } // namespace benchmark
 
 } // namespace hip
