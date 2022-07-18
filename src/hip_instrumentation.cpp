@@ -110,12 +110,15 @@ uint64_t getRoctracerStamp() {
 
 Instrumenter::counter_t* Instrumenter::toDevice() {
     counter_t* data_device;
-    hip::check(
-        hipMalloc(&data_device, kernel_info.instr_size * sizeof(counter_t)));
+    auto size = kernel_info.instr_size * sizeof(counter_t);
+
+    hip::check(hipMalloc(&data_device, size));
 
     hip::check(hipMemcpy(data_device, host_counters.data(),
                          kernel_info.instr_size * sizeof(counter_t),
                          hipMemcpyHostToDevice));
+
+    hip::check(hipMemset(data_device, 0u, size));
 
     // We get the timestamp at this point because the toDevice method is
     // executed right before the kernel launch

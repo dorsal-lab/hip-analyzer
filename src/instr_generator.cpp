@@ -84,10 +84,6 @@ std::string InstrGenerator::generateInstrumentationLocals() const {
           "\nfor(auto i = 0u; i < _bb_count; ++i) { "
           "_bb_counters[i][threadIdx.x] = 0; }\n";
 
-    // TODO (maybe) : Lexer::getIndentationForLine
-
-    // TODO : init counters to 0
-
     return ss.str();
 }
 
@@ -98,8 +94,6 @@ std::string InstrGenerator::generateInstrumentationCommit() const {
 
     // Print output
 
-    // Todo : compute actual index, this is just off the top of my head and
-    // wrong
     ss << "    int id = threadIdx.x;\n"
           "    for (auto i = 0u; i < _bb_count; ++i) {\n"
           "        _instr_ptr[blockIdx.x * blockDim.x * _bb_count + "
