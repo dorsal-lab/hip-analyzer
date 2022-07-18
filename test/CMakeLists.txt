@@ -46,3 +46,12 @@ add_executable(
 )
 
 target_link_libraries(gpu_benchmark hip_instrumentation LLVMSupport)
+
+# ----- recover_arrays ----- #
+
+add_executable(
+    recover_arrays
+    recover_arrays.cpp
+)
+
+target_link_libraries(recover_arrays hip_instrumentation)
