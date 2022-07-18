@@ -147,4 +147,10 @@ std::string InstrGenerator::generateInstrumentationFinalize() const {
     return ss.str();
 }
 
+// ----- MultipleExecutionInstrGenerator ----- //
+
+std::string MultipleExecutionInstrGenerator::generatePostKernel() const {
+    return "";
+}
+
 }; // namespace hip

@@ -147,10 +147,12 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
   public:
     KernelCfgInstrumenter(const std::string& kernel_name,
                           const std::string& output_filename,
-                          std::vector<hip::BasicBlock>& b)
+                          std::vector<hip::BasicBlock>& b,
+                          std::unique_ptr<hip::InstrGenerator> instr_gen =
+                              std::make_unique<hip::InstrGenerator>())
         : name(kernel_name), output_file(output_filename, error_code),
-          blocks(b) {
-        instr_generator.kernel_name = kernel_name;
+          blocks(b), instr_generator(std::move(instr_gen)) {
+        instr_generator->kernel_name = kernel_name;
     }
 
     virtual void run(const MatchFinder::MatchResult& Result) {
@@ -202,7 +204,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
 
                     clang::tooling::Replacement rep(
                         source_manager, begin_loc, 0,
-                        instr_generator.generateBlockCode(id));
+                        instr_generator->generateBlockCode(id));
 
                     std::cout << rep.toString();
                     auto error = reps.add(rep);
@@ -220,11 +222,11 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
 
                     // Save info as JSON
 
-                    blocks.emplace_back(instr_generator.bb_count, id, flops,
+                    blocks.emplace_back(instr_generator->bb_count, id, flops,
                                         begin_loc.printToString(source_manager),
                                         end_loc.printToString(source_manager));
 
-                    instr_generator.bb_count++;
+                    instr_generator->bb_count++;
                 }
             }
 
@@ -235,7 +237,6 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
             addCommit(match, source_manager, lang_opt);
 
             addIncludes(match, source_manager, lang_opt);
-
 
         } else if (const auto* match =
                        Result.Nodes.getNodeAs<clang::CUDAKernelCallExpr>(
@@ -248,7 +249,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
 
             // Set kernel geometry
 
-            instr_generator.setGeometry(*match->getConfig(), source_manager);
+            instr_generator->setGeometry(*match->getConfig(), source_manager);
 
             // Generate code
 
@@ -286,8 +287,9 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
         end_loc.dump(source_manager);
 
         // Generate extra code
-        auto error = reps.add({source_manager, end_loc, 0,
-                               instr_generator.generateInstrumentationParms()});
+        auto error =
+            reps.add({source_manager, end_loc, 0,
+                      instr_generator->generateInstrumentationParms()});
 
         if (error) {
             throw std::runtime_error(
@@ -307,7 +309,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
 
         auto error =
             reps.add({source_manager, body_loc.getLocWithOffset(1), 0,
-                      instr_generator.generateInstrumentationLocals()});
+                      instr_generator->generateInstrumentationLocals()});
 
         if (error) {
             throw std::runtime_error(
@@ -330,7 +332,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
         // the 1 offset
         auto error =
             reps.add({source_manager, body_end_loc, 0,
-                      instr_generator.generateInstrumentationCommit()});
+                      instr_generator->generateInstrumentationCommit()});
 
         if (error) {
             throw std::runtime_error(
@@ -351,7 +353,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
         file_begin_loc.dump(source_manager);
 
         auto error = reps.add({source_manager, file_begin_loc, 0,
-                               instr_generator.generateIncludes()});
+                               instr_generator->generateIncludes()});
 
         if (error) {
             throw std::runtime_error(
@@ -364,7 +366,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                                  clang::SourceManager& source_manager,
                                  clang::LangOptions& lang_opt) {
         auto error = reps.add({source_manager, match->getBeginLoc(), 0,
-                               instr_generator.generateInstrumentationInit()});
+                               instr_generator->generateInstrumentationInit()});
         if (error) {
             throw std::runtime_error(
                 "Could not insert instrumentation var initializations : " +
@@ -373,7 +375,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
 
         error =
             reps.add({source_manager, match->getEndLoc(), 0,
-                      instr_generator.generateInstrumentationLaunchParms()});
+                      instr_generator->generateInstrumentationLaunchParms()});
         if (error) {
             throw std::runtime_error(
                 "Could not insert instrumentation launch params : " +
@@ -382,7 +384,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
 
         error =
             reps.add({source_manager, match->getEndLoc().getLocWithOffset(2), 0,
-                      instr_generator.generateInstrumentationFinalize()});
+                      instr_generator->generateInstrumentationFinalize()});
         if (error) {
             throw std::runtime_error(
                 "Could not insert instrumentation finalize : " +
@@ -400,7 +402,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
 
     std::vector<hip::BasicBlock>& blocks;
 
-    hip::InstrGenerator instr_generator;
+    std::unique_ptr<hip::InstrGenerator> instr_generator;
 };
 
 /** \class KernelCallInstrumenter
