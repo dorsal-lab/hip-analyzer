@@ -165,6 +165,8 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
                 Result.Nodes.getNodeAs<clang::FunctionDecl>(name)) {
             match->dump();
 
+            instr_generator->setKernelDecl(match, source_manager);
+
             // Print First elements
 
             auto body = match->getBody();
@@ -241,7 +243,7 @@ class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
         } else if (const auto* match =
                        Result.Nodes.getNodeAs<clang::CUDAKernelCallExpr>(
                            name)) {
-            match->dump();
+            match->dumpPretty(*Result.Context);
 
             // For now, only the CUDA-style kernel launch is supported (like
             // kernel<<<...>>>) as parsing macros (which hipLaunchKernelGGL is)

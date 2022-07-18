@@ -22,7 +22,12 @@ struct InstrGenerator {
     void setGeometry(const clang::CallExpr& kernel_call,
                      const clang::SourceManager& source_manager);
 
-    virtual void setKernelDecl(clang::FunctionDecl* decl) {}
+    virtual void setKernelDecl(const clang::FunctionDecl* decl,
+                               const clang::SourceManager& source_manager) {
+        llvm::errs() << "Kernel Decl\n";
+        decl->getBeginLoc().dump(source_manager);
+        decl->getEndLoc().dump(source_manager);
+    }
 
     // ----- Device-side instrumentation ----- //
 
