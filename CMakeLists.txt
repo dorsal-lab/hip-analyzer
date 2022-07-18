@@ -83,6 +83,7 @@ add_library(hip_instrumentation
     src/hip_instrumentation.cpp
     src/basic_block.cpp
     src/gpu_info.cpp
+    src/state_recoverer.cpp
     ${CMAKE_BINARY_DIR}/gpu_hip_instrumentation.o
 )
 
