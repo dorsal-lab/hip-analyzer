@@ -28,6 +28,10 @@ struct TaggedPointer {
     const void* ptr;
     const size_t size;
     const size_t element_size;
+
+    // ----- Utils ----- //
+
+    bool isArray() const { return size > element_size; }
 };
 
 /** \class StateRecoverer
@@ -56,7 +60,15 @@ class StateRecoverer {
     void rollback() const;
 
   private:
-    std::map<TaggedPointer, void*> saved_values;
+    // ----- Utils ---- //
+
+    /** \fn allocateElement
+     * \brief Saves a single memory pointer
+     */
+    uint8_t* saveElement(const TaggedPointer ptr);
+
+    // ----- Attributes ----- //
+    std::map<TaggedPointer, uint8_t*> saved_values;
 };
 
 } // namespace hip
