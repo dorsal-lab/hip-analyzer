@@ -5,6 +5,7 @@
  */
 
 #include "hip_instrumentation/state_recoverer.hpp"
+#include "hip_instrumentation/hip_utils.hpp"
 
 #include "hip/hip_runtime.h"
 
@@ -25,7 +26,7 @@ void StateRecoverer::saveState(const std::vector<TaggedPointer>& pointers) {
     }
 }
 
-void StateRecoverer::saveElement(const TaggedPointer& ptr) {
+uint8_t* StateRecoverer::saveElement(const TaggedPointer& ptr) {
     // Allocate a byte array to store the values
 
     uint8_t* cpu_ptr = new uint8_t[ptr.size];
@@ -39,8 +40,8 @@ void StateRecoverer::saveElement(const TaggedPointer& ptr) {
 
 void StateRecoverer::rollback() const {
     for (auto [tagged_ptr, cpu_ptr] : saved_values) {
-        hip::check(hipMemcpy(tagged_ptr.ptr, cpu_ptr, ptr.size,
-                             hipMemcpyHostToDevice));
+        hip::check(hipMemcpy(const_cast<void*>(tagged_ptr.ptr), cpu_ptr,
+                             tagged_ptr.size, hipMemcpyHostToDevice));
     }
 }
 

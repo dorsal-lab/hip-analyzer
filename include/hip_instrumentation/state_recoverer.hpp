@@ -19,9 +19,9 @@ struct TaggedPointer {
     /** ctor
      */
     template <typename T>
-    TaggedPointer(T* value_ptr, size_t array_size = 1u)
-        : ptr{static_cast<void*>(value_ptr)}, size{array_size * sizeof(T)},
-          element_size{array_size} {}
+    TaggedPointer(const T* value_ptr, size_t array_size = 1u)
+        : ptr{static_cast<const void*>(value_ptr)},
+          size{array_size * sizeof(T)}, element_size{array_size} {}
 
     // ----- Attributes ----- //
 
@@ -32,6 +32,7 @@ struct TaggedPointer {
     // ----- Utils ----- //
 
     bool isArray() const { return size > element_size; }
+    auto operator<(const TaggedPointer& other) const { return ptr < other.ptr; }
 };
 
 /** \class StateRecoverer
@@ -65,7 +66,7 @@ class StateRecoverer {
     /** \fn allocateElement
      * \brief Saves a single memory pointer
      */
-    uint8_t* saveElement(const TaggedPointer ptr);
+    uint8_t* saveElement(const TaggedPointer& ptr);
 
     // ----- Attributes ----- //
     std::map<TaggedPointer, uint8_t*> saved_values;
