@@ -51,6 +51,7 @@ add_executable(hip-analyzer
     src/basic_block.cpp
     src/llvm_ir_consumer.cpp
     src/llvm_instr_counters.cpp
+    src/actions_processor.cpp
 )
 
 target_link_libraries(hip-analyzer

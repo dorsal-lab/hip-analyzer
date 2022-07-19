@@ -35,10 +35,24 @@ class ActionsProcessor {
     ~ActionsProcessor();
 
     /** \fn process
-     * \brief Executes an action and modifies the buffer
+     * \brief Executes an action and modifies the buffer. Does not modify the
+     * buffer if the return value is an empty string.
      */
     ActionsProcessor&
     process(std::function<std::string(clang::tooling::ClangTool&)> action);
+
+    /** \fn observe
+     * \brief Performs an action, but does not modify the buffer
+     */
+    ActionsProcessor&
+    observe(std::function<void(clang::tooling::ClangTool&)> action);
+
+    /** \fn observe
+     * \brief Performs an action on the original file, but does not modify the
+     * buffer
+     */
+    ActionsProcessor&
+    observeOriginal(std::function<void(clang::tooling::ClangTool&)> action);
 
   private:
     std::string input_file_path;

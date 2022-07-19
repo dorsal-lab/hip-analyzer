@@ -40,7 +40,25 @@ ActionsProcessor& ActionsProcessor::process(
         buffer = std::move(ret);
     }
 
-    std::cout << buffer << "\n\n";
+    return *this;
+}
+
+ActionsProcessor& ActionsProcessor::observe(
+    std::function<void(clang::tooling::ClangTool&)> action) {
+    clang::tooling::ClangTool tool(db, {input_file_path});
+
+    tool.mapVirtualFile(input_file_path, buffer);
+
+    action(tool);
+
+    return *this;
+}
+
+ActionsProcessor& ActionsProcessor::observeOriginal(
+    std::function<void(clang::tooling::ClangTool&)> action) {
+    clang::tooling::ClangTool tool(db, {input_file_path});
+
+    action(tool);
 
     return *this;
 }

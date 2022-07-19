@@ -125,7 +125,7 @@ int main(int argc, const char** argv) {
                 clang::tooling::newFrontendActionFactory(&finder).get());
             return kernel_instrumenter->getOutputBuffer();
         })
-        .process([&err, &codegen](auto& tool) {
+        .observeOriginal([&err, &codegen](auto& tool) {
             err |= tool.run(codegen.get());
             return "";
         });
