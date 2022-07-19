@@ -25,7 +25,7 @@ class ActionsProcessor {
      * \param output_file
      */
     ActionsProcessor(const std::string& input_file,
-                     clang::tooling::ClangTool& tool,
+                     const clang::tooling::CompilationDatabase& db,
                      const std::string& output_file);
 
     /**
@@ -38,12 +38,12 @@ class ActionsProcessor {
      * \brief Executes an action and modifies the buffer
      */
     ActionsProcessor&
-    process(std::function<std::string(clang::tooling::ClangTool&)>& action);
+    process(std::function<std::string(clang::tooling::ClangTool&)> action);
 
   private:
     std::string input_file_path;
     std::string output_file;
     std::string buffer;
 
-    clang::tooling::ClangTool& tool
+    const clang::tooling::CompilationDatabase& db;
 };
