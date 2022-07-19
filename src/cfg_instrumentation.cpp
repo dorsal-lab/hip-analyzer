@@ -11,6 +11,7 @@
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Tooling/Core/Replacement.h"
 
+#include "callbacks.h"
 #include "cfg_inner_matchers.h"
 #include "instr_generator.h"
 
@@ -140,272 +141,243 @@ std::string concatJson(const std::vector<std::string>& objects) {
 /** \brief Match callbacks
  */
 
-/** \class KernelCfgInstrumenter
- * \brief AST Matcher callback to instrument CFG blocks. To be run first
- */
-class KernelCfgInstrumenter : public MatchFinder::MatchCallback {
-  public:
-    KernelCfgInstrumenter(const std::string& kernel_name,
-                          const std::string& output_filename,
-                          std::vector<hip::BasicBlock>& b,
-                          std::unique_ptr<hip::InstrGenerator> instr_gen =
-                              std::make_unique<hip::InstrGenerator>())
-        : name(kernel_name), output_file(output_filename, error_code),
-          blocks(b), instr_generator(std::move(instr_gen)) {
-        instr_generator->kernel_name = kernel_name;
-    }
+hip::KernelCfgInstrumenter::KernelCfgInstrumenter(
+    const std::string& kernel_name, std::vector<hip::BasicBlock>& b,
+    std::unique_ptr<hip::InstrGenerator> instr_gen)
+    : name(kernel_name), output_buffer(), output_file(output_buffer), blocks(b),
+      instr_generator(std::move(instr_gen)) {
+    instr_generator->kernel_name = kernel_name;
+}
 
-    virtual void run(const MatchFinder::MatchResult& Result) {
-        auto lang_opt = Result.Context->getLangOpts();
-        auto& source_manager = *Result.SourceManager;
+void hip::KernelCfgInstrumenter::run(const MatchFinder::MatchResult& Result) {
+    auto lang_opt = Result.Context->getLangOpts();
+    auto& source_manager = *Result.SourceManager;
 
-        rewriter.setSourceMgr(source_manager, lang_opt);
+    rewriter.setSourceMgr(source_manager, lang_opt);
 
-        if (const auto* match =
-                Result.Nodes.getNodeAs<clang::FunctionDecl>(name)) {
-            match->dump();
+    if (const auto* match = Result.Nodes.getNodeAs<clang::FunctionDecl>(name)) {
+        match->dump();
 
-            instr_generator->setKernelDecl(match, source_manager);
+        instr_generator->setKernelDecl(match, source_manager);
 
-            // Print First elements
+        // Print First elements
 
-            auto body = match->getBody();
-            auto cfg = CFG::buildCFG(match, body, Result.Context,
-                                     clang::CFG::BuildOptions());
-            cfg->dump(lang_opt, true);
+        auto body = match->getBody();
+        auto cfg = CFG::buildCFG(match, body, Result.Context,
+                                 clang::CFG::BuildOptions());
+        cfg->dump(lang_opt, true);
 
-            for (auto block : *cfg.get()) {
-                auto id = block->getBlockID();
+        for (auto block : *cfg.get()) {
+            auto id = block->getBlockID();
 
-                std::cout << "\nBlock " << id << '\n';
+            std::cout << "\nBlock " << id << '\n';
 
-                // If the block terminator is a for-loop, then do not instrument
-                // as this would mess with the syntax. We only need to
-                // instrument the inner loop
+            // If the block terminator is a for-loop, then do not instrument
+            // as this would mess with the syntax. We only need to
+            // instrument the inner loop
 
-                bool do_instrument =
-                    isBlockInstrumentable(*Result.Context, *block);
+            bool do_instrument = isBlockInstrumentable(*Result.Context, *block);
 
-                if (do_instrument) {
+            if (do_instrument) {
 
-                    // Get first statement of bblock
+                // Get first statement of bblock
 
-                    auto first = block->front();
-                    auto first_statement = first.getAs<clang::CFGStmt>();
+                auto first = block->front();
+                auto first_statement = first.getAs<clang::CFGStmt>();
 
-                    auto first_stmt = first_statement->getStmt();
-                    first_stmt->dumpColor();
+                auto first_stmt = first_statement->getStmt();
+                first_stmt->dumpColor();
 
-                    // Find begin and end of bblock
+                // Find begin and end of bblock
 
-                    const auto [begin_loc, end_loc] =
-                        findBlockLimits(source_manager, block);
-                    begin_loc.dump(source_manager);
+                const auto [begin_loc, end_loc] =
+                    findBlockLimits(source_manager, block);
+                begin_loc.dump(source_manager);
 
-                    // Create replacement
+                // Create replacement
 
-                    clang::tooling::Replacement rep(
-                        source_manager, begin_loc, 0,
-                        instr_generator->generateBlockCode(id));
+                clang::tooling::Replacement rep(
+                    source_manager, begin_loc, 0,
+                    instr_generator->generateBlockCode(id));
 
-                    std::cout << rep.toString();
-                    auto error = reps.add(rep);
-                    if (error) {
-                        throw std::runtime_error(
-                            "Incompatible edit encountered : " +
-                            llvm::toString(std::move(error)));
-                    }
-
-                    // Gather information on the basic block
-
-                    unsigned int flops =
-                        hip::countFlops(block, *Result.Context);
-                    std::cout << flops << " flops found in block\n";
-
-                    // Save info as JSON
-
-                    blocks.emplace_back(instr_generator->bb_count, id, flops,
-                                        begin_loc.printToString(source_manager),
-                                        end_loc.printToString(source_manager));
-
-                    instr_generator->bb_count++;
+                std::cout << rep.toString();
+                auto error = reps.add(rep);
+                if (error) {
+                    throw std::runtime_error(
+                        "Incompatible edit encountered : " +
+                        llvm::toString(std::move(error)));
                 }
+
+                // Gather information on the basic block
+
+                unsigned int flops = hip::countFlops(block, *Result.Context);
+                std::cout << flops << " flops found in block\n";
+
+                // Save info as JSON
+
+                blocks.emplace_back(instr_generator->bb_count, id, flops,
+                                    begin_loc.printToString(source_manager),
+                                    end_loc.printToString(source_manager));
+
+                instr_generator->bb_count++;
             }
-
-            addExtraParameters(match, source_manager, lang_opt);
-
-            addLocals(match, source_manager, lang_opt);
-
-            addCommit(match, source_manager, lang_opt);
-
-            addIncludes(match, source_manager, lang_opt);
-
-        } else if (const auto* match =
-                       Result.Nodes.getNodeAs<clang::CUDAKernelCallExpr>(
-                           name)) {
-            match->dumpPretty(*Result.Context);
-
-            // For now, only the CUDA-style kernel launch is supported (like
-            // kernel<<<...>>>) as parsing macros (which hipLaunchKernelGGL is)
-            // with Clang is a bit of a pain. I hate C macros.
-
-            // Set kernel geometry
-
-            instr_generator->setGeometry(*match->getConfig(), source_manager);
-
-            // Generate code
-
-            addKernelCallDecoration(match, source_manager, lang_opt);
-
-            // This line is (probably!) launched after the first block, so the
-            // kernel instrumentation is already performed
-
-            applyReps(reps, rewriter);
-            // rewriter.overwriteChangedFiles(); // Rewrites the input file
-
-            rewriter.getEditBuffer(source_manager.getMainFileID())
-                .write(output_file);
-            output_file.close();
         }
+
+        addExtraParameters(match, source_manager, lang_opt);
+
+        addLocals(match, source_manager, lang_opt);
+
+        addCommit(match, source_manager, lang_opt);
+
+        addIncludes(match, source_manager, lang_opt);
+
+    } else if (const auto* match =
+                   Result.Nodes.getNodeAs<clang::CUDAKernelCallExpr>(name)) {
+        match->dumpPretty(*Result.Context);
+
+        // For now, only the CUDA-style kernel launch is supported (like
+        // kernel<<<...>>>) as parsing macros (which hipLaunchKernelGGL is)
+        // with Clang is a bit of a pain. I hate C macros.
+
+        // Set kernel geometry
+
+        instr_generator->setGeometry(*match->getConfig(), source_manager);
+
+        // Generate code
+
+        addKernelCallDecoration(match, source_manager, lang_opt);
+
+        // This line is (probably!) launched after the first block, so the
+        // kernel instrumentation is already performed
+
+        applyReps(reps, rewriter);
+        // rewriter.overwriteChangedFiles(); // Rewrites the input file
+
+        rewriter.getEditBuffer(source_manager.getMainFileID())
+            .write(output_file);
+        // output_file.close();
+    }
+}
+
+/**
+ * \brief Extra parameters instrumentation
+ */
+void hip::KernelCfgInstrumenter::addExtraParameters(
+    const clang::FunctionDecl* match, clang::SourceManager& source_manager,
+    clang::LangOptions& lang_opt) {
+    auto last_param = match->parameters().back();
+
+    // last_param->dump();
+
+    // Get insertion location
+    auto begin_loc = last_param->getEndLoc().getLocWithOffset(-1);
+    auto end_loc =
+        clang::Lexer::findNextToken(begin_loc, source_manager, lang_opt)
+            .getValue()
+            .getEndLoc();
+
+    end_loc.dump(source_manager);
+
+    // Generate extra code
+    auto error = reps.add({source_manager, end_loc, 0,
+                           instr_generator->generateInstrumentationParms()});
+
+    if (error) {
+        throw std::runtime_error(
+            "Could not insert instrumentation extra parameters : " +
+            llvm::toString(std::move(error)));
+    }
+}
+
+/**
+ * \brief Instrumentation locals & initializations
+ */
+void hip::KernelCfgInstrumenter::addLocals(const clang::FunctionDecl* match,
+                                           clang::SourceManager& source_manager,
+                                           clang::LangOptions& lang_opt) {
+    auto body_loc = match->getBody()->getBeginLoc();
+    // body_loc.dump(source_manager);
+
+    auto error = reps.add({source_manager, body_loc.getLocWithOffset(1), 0,
+                           instr_generator->generateInstrumentationLocals()});
+
+    if (error) {
+        throw std::runtime_error("Could not insert instrumentation locals : " +
+                                 llvm::toString(std::move(error)));
+    }
+}
+
+/**
+ * \brief Instrumentation commit
+ */
+void hip::KernelCfgInstrumenter::addCommit(const clang::FunctionDecl* match,
+                                           clang::SourceManager& source_manager,
+                                           clang::LangOptions& lang_opt) {
+
+    auto body_end_loc = match->getBody()->getEndLoc();
+    // body_end_loc.dump(source_manager);
+
+    // See generateInstrumentationLocals for the explaination regarding
+    // the 1 offset
+    auto error = reps.add({source_manager, body_end_loc, 0,
+                           instr_generator->generateInstrumentationCommit()});
+
+    if (error) {
+        throw std::runtime_error(
+            "Could not insert instrumentation commit block : " +
+            llvm::toString(std::move(error)));
+    }
+}
+
+/**
+ * \brief Add runtime includes
+ */
+void hip::KernelCfgInstrumenter::addIncludes(
+    const clang::FunctionDecl* match, clang::SourceManager& source_manager,
+    clang::LangOptions& lang_opt) {
+    // match->getSourceRange().dump(source_manager);
+    auto file_begin_loc =
+        source_manager.getLocForStartOfFile(source_manager.getMainFileID());
+    file_begin_loc.dump(source_manager);
+
+    auto error = reps.add({source_manager, file_begin_loc, 0,
+                           instr_generator->generateIncludes()});
+
+    if (error) {
+        throw std::runtime_error(
+            "Could not insert instrumentation includes : " +
+            llvm::toString(std::move(error)));
+    }
+}
+
+void hip::KernelCfgInstrumenter::addKernelCallDecoration(
+    const clang::CUDAKernelCallExpr* match,
+    clang::SourceManager& source_manager, clang::LangOptions& lang_opt) {
+
+    auto error = reps.add({source_manager, match->getBeginLoc(), 0,
+                           instr_generator->generateInstrumentationInit()});
+    if (error) {
+        throw std::runtime_error(
+            "Could not insert instrumentation var initializations : " +
+            llvm::toString(std::move(error)));
     }
 
-    /**
-     * \brief Extra parameters instrumentation
-     */
-    void addExtraParameters(const clang::FunctionDecl* match,
-                            clang::SourceManager& source_manager,
-                            clang::LangOptions& lang_opt) {
-        auto last_param = match->parameters().back();
-
-        // last_param->dump();
-
-        // Get insertion location
-        auto begin_loc = last_param->getEndLoc().getLocWithOffset(-1);
-        auto end_loc =
-            clang::Lexer::findNextToken(begin_loc, source_manager, lang_opt)
-                .getValue()
-                .getEndLoc();
-
-        end_loc.dump(source_manager);
-
-        // Generate extra code
-        auto error =
-            reps.add({source_manager, end_loc, 0,
-                      instr_generator->generateInstrumentationParms()});
-
-        if (error) {
-            throw std::runtime_error(
-                "Could not insert instrumentation extra parameters : " +
-                llvm::toString(std::move(error)));
-        }
-    }
-
-    /**
-     * \brief Instrumentation locals & initializations
-     */
-    void addLocals(const clang::FunctionDecl* match,
-                   clang::SourceManager& source_manager,
-                   clang::LangOptions& lang_opt) {
-        auto body_loc = match->getBody()->getBeginLoc();
-        // body_loc.dump(source_manager);
-
-        auto error =
-            reps.add({source_manager, body_loc.getLocWithOffset(1), 0,
-                      instr_generator->generateInstrumentationLocals()});
-
-        if (error) {
-            throw std::runtime_error(
-                "Could not insert instrumentation locals : " +
-                llvm::toString(std::move(error)));
-        }
-    }
-
-    /**
-     * \brief Instrumentation commit
-     */
-    void addCommit(const clang::FunctionDecl* match,
-                   clang::SourceManager& source_manager,
-                   clang::LangOptions& lang_opt) {
-
-        auto body_end_loc = match->getBody()->getEndLoc();
-        // body_end_loc.dump(source_manager);
-
-        // See generateInstrumentationLocals for the explaination regarding
-        // the 1 offset
-        auto error =
-            reps.add({source_manager, body_end_loc, 0,
-                      instr_generator->generateInstrumentationCommit()});
-
-        if (error) {
-            throw std::runtime_error(
-                "Could not insert instrumentation commit block : " +
-                llvm::toString(std::move(error)));
-        }
-    }
-
-    /**
-     * \brief Add runtime includes
-     */
-    void addIncludes(const clang::FunctionDecl* match,
-                     clang::SourceManager& source_manager,
-                     clang::LangOptions& lang_opt) {
-        // match->getSourceRange().dump(source_manager);
-        auto file_begin_loc =
-            source_manager.getLocForStartOfFile(source_manager.getMainFileID());
-        file_begin_loc.dump(source_manager);
-
-        auto error = reps.add({source_manager, file_begin_loc, 0,
-                               instr_generator->generateIncludes()});
-
-        if (error) {
-            throw std::runtime_error(
-                "Could not insert instrumentation includes : " +
-                llvm::toString(std::move(error)));
-        }
-    }
-
-    void addKernelCallDecoration(const clang::CUDAKernelCallExpr* match,
-                                 clang::SourceManager& source_manager,
-                                 clang::LangOptions& lang_opt) {
-        auto error = reps.add({source_manager, match->getBeginLoc(), 0,
-                               instr_generator->generateInstrumentationInit()});
-        if (error) {
-            throw std::runtime_error(
-                "Could not insert instrumentation var initializations : " +
-                llvm::toString(std::move(error)));
-        }
-
-        error =
-            reps.add({source_manager, match->getEndLoc(), 0,
+    error = reps.add({source_manager, match->getEndLoc(), 0,
                       instr_generator->generateInstrumentationLaunchParms()});
-        if (error) {
-            throw std::runtime_error(
-                "Could not insert instrumentation launch params : " +
-                llvm::toString(std::move(error)));
-        }
-
-        error =
-            reps.add({source_manager, match->getEndLoc().getLocWithOffset(2), 0,
-                      instr_generator->generateInstrumentationFinalize()});
-        if (error) {
-            throw std::runtime_error(
-                "Could not insert instrumentation finalize : " +
-                llvm::toString(std::move(error)));
-        }
+    if (error) {
+        throw std::runtime_error(
+            "Could not insert instrumentation launch params : " +
+            llvm::toString(std::move(error)));
     }
 
-  private:
-    std::error_code error_code;
-    const std::string name;
-
-    clang::tooling::Replacements reps;
-    clang::Rewriter rewriter;
-    llvm::raw_fd_ostream output_file;
-
-    std::vector<hip::BasicBlock>& blocks;
-
-    std::unique_ptr<hip::InstrGenerator> instr_generator;
-};
+    error = reps.add({source_manager, match->getEndLoc().getLocWithOffset(2), 0,
+                      instr_generator->generateInstrumentationFinalize()});
+    if (error) {
+        throw std::runtime_error(
+            "Could not insert instrumentation finalize : " +
+            llvm::toString(std::move(error)));
+    }
+}
 
 /** \class KernelCallInstrumenter
  * \brief AST Matcher for cuda kernel call
@@ -467,10 +439,10 @@ kernelCallMatcher(const std::string& kernel_name) {
 
 /** \brief MatchCallbacks
  */
-std::unique_ptr<MatchFinder::MatchCallback>
-makeCfgInstrumenter(const std::string& kernel, const std::string& output_file,
+std::unique_ptr<KernelCfgInstrumenter>
+makeCfgInstrumenter(const std::string& kernel,
                     std::vector<hip::BasicBlock>& blocks) {
-    return std::make_unique<KernelCfgInstrumenter>(kernel, output_file, blocks);
+    return std::make_unique<KernelCfgInstrumenter>(kernel, blocks);
 }
 
 std::unique_ptr<MatchFinder::MatchCallback>

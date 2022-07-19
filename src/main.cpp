@@ -15,6 +15,7 @@
 
 #include "hip_instrumentation/basic_block.hpp"
 
+#include "actions_processor.h"
 #include "callbacks.h"
 #include "llvm_ir_consumer.h"
 #include "matchers.h"
@@ -95,8 +96,8 @@ int main(int argc, const char** argv) {
     auto kernel_call_matcher = hip::kernelCallMatcher(kernel_name.getValue());
 
     // Instrument basic blocks
-    auto kernel_instrumenter = hip::makeCfgInstrumenter(
-        kernel_name.getValue(), output_file.getValue(), blocks);
+    auto kernel_instrumenter =
+        hip::makeCfgInstrumenter(kernel_name.getValue(), blocks);
 
     /* auto kernel_call_instrumenter = hip::makeCudaCallInstrumenter(
         kernel_name.getValue(), output_file.getValue()); */
@@ -104,13 +105,30 @@ int main(int argc, const char** argv) {
     finder.addMatcher(kernel_matcher, kernel_instrumenter.get());
     finder.addMatcher(kernel_call_matcher, kernel_instrumenter.get());
 
+    auto codegen = makeLLVMAction(kernel_name.getValue(), blocks);
+
     auto err = 0;
 
     clang::tooling::ClangTool tool(db, options_parser.getSourcePathList());
-    err |= tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
 
-    auto codegen = makeLLVMAction(kernel_name.getValue(), blocks);
-    err |= tool.run(codegen.get());
+    std::string main_path;
+
+    for (auto f : options_parser.getSourcePathList()) {
+        main_path = f;
+    }
+
+    ActionsProcessor actions(main_path, db, output_file.getValue());
+
+    actions
+        .process([&err, &kernel_instrumenter, &finder](auto& tool) {
+            err |= tool.run(
+                clang::tooling::newFrontendActionFactory(&finder).get());
+            return kernel_instrumenter->getOutputBuffer();
+        })
+        .process([&err, &codegen](auto& tool) {
+            err |= tool.run(codegen.get());
+            return "";
+        });
 
     saveDatabase(blocks, database_file.getValue());
 
