@@ -44,10 +44,6 @@ void StateRecoverer::rollback() const {
             hip::check(hipMemcpy(const_cast<void*>(tagged_ptr.ptr), cpu_ptr,
                                  tagged_ptr.size, hipMemcpyHostToDevice));
 
-            // Throwing const_cast is technically safe here. std::map requires
-            // that its keys are immutable in order to guarantee the ordered
-            // state, but the dirtiness of the TaggedPointer does not modify its
-            // order according to our operator<. Ugly, but correct.
             tagged_ptr.dirty = false;
         }
     }
