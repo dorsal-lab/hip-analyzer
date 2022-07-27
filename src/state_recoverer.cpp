@@ -14,7 +14,7 @@ namespace hip {
 StateRecoverer::~StateRecoverer() {
     // Need to free all allocated values, unfortunately we have to manage the
     // memory ourselves
-    for (auto [tagged_ptr, cpu_ptr] : saved_values) {
+    for (auto& [tagged_ptr, cpu_ptr] : saved_values) {
         delete[] cpu_ptr;
     }
 }
@@ -22,7 +22,7 @@ StateRecoverer::~StateRecoverer() {
 void StateRecoverer::saveState(const std::vector<TaggedPointer>& pointers) {
     for (auto& ptr : pointers) {
         uint8_t* cpu_ptr = saveElement(ptr);
-        saved_values.emplace(ptr, cpu_ptr);
+        saved_values.emplace_back(ptr, cpu_ptr);
     }
 }
 
@@ -40,8 +40,16 @@ uint8_t* StateRecoverer::saveElement(const TaggedPointer& ptr) {
 
 void StateRecoverer::rollback() const {
     for (auto [tagged_ptr, cpu_ptr] : saved_values) {
-        hip::check(hipMemcpy(const_cast<void*>(tagged_ptr.ptr), cpu_ptr,
-                             tagged_ptr.size, hipMemcpyHostToDevice));
+        if (tagged_ptr.dirty) {
+            hip::check(hipMemcpy(const_cast<void*>(tagged_ptr.ptr), cpu_ptr,
+                                 tagged_ptr.size, hipMemcpyHostToDevice));
+
+            // Throwing const_cast is technically safe here. std::map requires
+            // that its keys are immutable in order to guarantee the ordered
+            // state, but the dirtiness of the TaggedPointer does not modify its
+            // order according to our operator<. Ugly, but correct.
+            tagged_ptr.dirty = false;
+        }
     }
 }
 

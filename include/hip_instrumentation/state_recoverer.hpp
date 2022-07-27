@@ -29,6 +29,7 @@ struct TaggedPointer {
     const void* ptr;
     const size_t size;
     const size_t element_size;
+    bool dirty = false;
 
     // ----- Utils ----- //
 
@@ -80,7 +81,8 @@ class StateRecoverer {
         registerCallArgs(args...);
     }
 
-    template <typename T> void registerCallArgs(T value);
+    template <typename T> void registerCallArgs(T* value);
+    template <typename T> void registerCallArgs(T value) {}
 
   private:
     // ----- Utils ---- //
@@ -91,15 +93,25 @@ class StateRecoverer {
     uint8_t* saveElement(const TaggedPointer& ptr);
 
     // ----- Attributes ----- //
-    std::map<TaggedPointer, uint8_t*> saved_values;
+    std::vector<std::pair<TaggedPointer, uint8_t*>> saved_values;
 };
 
-template <typename T> void StateRecoverer::registerCallArgs(T v) {
-    if (!std::is_pointer_v<T>) {
-        return;
+template <typename T> void StateRecoverer::registerCallArgs(T* v) {
+    bool found = false;
+    TaggedPointer* tagged_ptr = nullptr;
+
+    for (auto& [ptr, cpu_ptr] : saved_values) {
+        if (ptr.ptr == static_cast<void*>(v)) {
+            found = true;
+            tagged_ptr = &ptr;
+        }
     }
 
-    // TODO
+    if (!found) {
+        // TODO : handle errors : report, crash ?
+    }
+
+    tagged_ptr->dirty = true;
 }
 
 } // namespace hip

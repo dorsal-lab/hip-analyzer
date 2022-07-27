@@ -47,6 +47,7 @@ int main() {
     // Modify something
     cpu_values[0] = 2.f;
     commit();
+    recoverer.registerCallArgs(gpu_values, n_elements);
 
     // Assert that the copy was successful
     checkValue(gpu_values, 2.f);
