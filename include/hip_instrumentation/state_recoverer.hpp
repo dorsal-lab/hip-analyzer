@@ -8,6 +8,7 @@
 
 #include <map>
 #include <memory>
+#include <type_traits>
 #include <vector>
 
 namespace hip {
@@ -58,7 +59,28 @@ class StateRecoverer {
      */
     void saveState(const std::vector<TaggedPointer>& pointers);
 
+    /** \fn rollback
+     * \brief Recovers the state of the tainted memory zones
+     */
     void rollback() const;
+
+    /** \fn registerCallArgs
+     * \brief To be called before or after the kernel call, to register that the
+     * memory zones were potentially modified and thus need recovering when
+     * rollback'd
+     *
+     * \details The function needs to be called with the exact same arguments as
+     * the kernel. Some meta-programming magic will take care of determining
+     * whether it is a pointer to GPU memory or not
+     *
+     **/
+    template <typename T, typename... Args>
+    void registerCallArgs(T value, Args... args) {
+        registerCallArgs(value);
+        registerCallArgs(args...);
+    }
+
+    template <typename T> void registerCallArgs(T value);
 
   private:
     // ----- Utils ---- //
@@ -71,5 +93,13 @@ class StateRecoverer {
     // ----- Attributes ----- //
     std::map<TaggedPointer, uint8_t*> saved_values;
 };
+
+template <typename T> void StateRecoverer::registerCallArgs(T v) {
+    if (!std::is_pointer_v<T>) {
+        return;
+    }
+
+    // TODO
+}
 
 } // namespace hip
