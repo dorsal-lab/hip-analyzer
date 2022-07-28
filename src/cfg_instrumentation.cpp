@@ -58,14 +58,6 @@ findBlockLimits(clang::SourceManager& sm, const clang::CFGBlock* block) {
     return {begin, end};
 }
 
-void applyReps(clang::tooling::Replacements& reps, clang::Rewriter& rewriter) {
-    if (!reps.empty()) {
-        for (auto rep : reps) {
-            rep.apply(rewriter);
-        }
-    }
-}
-
 bool isBlockInstrumentable(clang::ASTContext& context,
                            const clang::CFGBlock& block) {
 
@@ -138,18 +130,26 @@ std::string concatJson(const std::vector<std::string>& objects) {
     return ss.str();
 }
 
+void RewritingMatchCallback::applyReps() {
+    if (!reps.empty()) {
+        for (auto rep : reps) {
+            rep.apply(rewriter);
+        }
+    }
+}
+
 /** \brief Match callbacks
  */
 
 hip::KernelCfgInstrumenter::KernelCfgInstrumenter(
     const std::string& kernel_name, std::vector<hip::BasicBlock>& b,
     std::unique_ptr<hip::InstrGenerator> instr_gen)
-    : name(kernel_name), output_buffer(), output_file(output_buffer), blocks(b),
-      instr_generator(std::move(instr_gen)) {
+    : name(kernel_name), blocks(b), instr_generator(std::move(instr_gen)) {
     instr_generator->kernel_name = kernel_name;
 }
 
-void hip::KernelCfgInstrumenter::run(const MatchFinder::MatchResult& Result) {
+void hip::KernelCfgInstrumenter::matchResult(
+    const MatchFinder::MatchResult& Result) {
     auto lang_opt = Result.Context->getLangOpts();
     auto& source_manager = *Result.SourceManager;
 
@@ -229,9 +229,6 @@ void hip::KernelCfgInstrumenter::run(const MatchFinder::MatchResult& Result) {
 
         addCommit(match, source_manager, lang_opt);
     }
-
-    applyReps(reps, rewriter);
-    rewriter.getEditBuffer(source_manager.getMainFileID()).write(output_file);
 }
 
 /**
@@ -304,7 +301,7 @@ void hip::KernelCfgInstrumenter::addCommit(const clang::FunctionDecl* match,
     }
 }
 
-void KernelDuplicator::run(
+void KernelDuplicator::matchResult(
     const clang::ast_matchers::MatchFinder::MatchResult& Result) {
     auto lang_opt = Result.Context->getLangOpts();
     auto& source_manager = *Result.SourceManager;
@@ -356,12 +353,9 @@ void KernelDuplicator::run(
                 llvm::toString(std::move(error)));
         }
     }
-
-    applyReps(reps, rewriter);
-    rewriter.getEditBuffer(source_manager.getMainFileID()).write(output_file);
 }
 
-void KernelCallReplacer::run(
+void KernelCallReplacer::matchResult(
     const clang::ast_matchers::MatchFinder::MatchResult& Result) {
     auto lang_opt = Result.Context->getLangOpts();
     auto& source_manager = *Result.SourceManager;
@@ -384,9 +378,6 @@ void KernelCallReplacer::run(
                 llvm::toString(std::move(error)));
         }
     }
-
-    applyReps(reps, rewriter);
-    rewriter.getEditBuffer(source_manager.getMainFileID()).write(output_file);
 }
 
 void hip::KernelCallInstrumenter::addIncludes(
@@ -437,12 +428,12 @@ void hip::KernelCallInstrumenter::addKernelCallDecoration(
 
 KernelCallInstrumenter::KernelCallInstrumenter(
     const std::string& kernel_name, const std::vector<hip::BasicBlock>& b)
-    : kernel_name(kernel_name), output_buffer(), output_file(output_buffer) {
+    : kernel_name(kernel_name) {
     instr_generator = std::make_unique<InstrGenerator>();
     instr_generator->bb_count = b.size();
 }
 
-void KernelCallInstrumenter::run(
+void KernelCallInstrumenter::matchResult(
     const clang::ast_matchers::MatchFinder::MatchResult& Result) {
     auto lang_opt = Result.Context->getLangOpts();
     auto& source_manager = *Result.SourceManager;
@@ -465,9 +456,6 @@ void KernelCallInstrumenter::run(
 
         addKernelCallDecoration(match, source_manager, lang_opt);
     }
-
-    applyReps(reps, rewriter);
-    rewriter.getEditBuffer(source_manager.getMainFileID()).write(output_file);
 }
 
 /** \brief AST matchers
