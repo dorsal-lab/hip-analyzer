@@ -16,6 +16,7 @@
 #include "clang/Rewrite/Core/Rewriter.h"
 
 #include "callbacks.h"
+#include "llvm_ir_consumer.h"
 #include "matchers.h"
 
 namespace hip {
@@ -96,6 +97,12 @@ std::string InstrumentBasicBlocks::operator()(clang::tooling::ClangTool& tool) {
 
     err |= tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
     return kernel_instrumenter->getOutputBuffer();
+}
+
+std::string AnalyzeIR::operator()(clang::tooling::ClangTool& tool) {
+    auto codegen = makeLLVMAction(kernel, blocks);
+    err |= tool.run(codegen.get());
+    return "";
 }
 
 } // namespace actions

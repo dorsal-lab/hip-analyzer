@@ -84,11 +84,7 @@ int main(int argc, const char** argv) {
     // Instrumentation info
 
     std::vector<hip::BasicBlock> blocks;
-
-    auto codegen = makeLLVMAction(kernel_name.getValue(), blocks);
-
     auto err = 0;
-
     clang::tooling::ClangTool tool(db, options_parser.getSourcePathList());
 
     std::string main_path;
@@ -102,10 +98,8 @@ int main(int argc, const char** argv) {
     actions
         .process(hip::actions::InstrumentBasicBlocks(kernel_name.getValue(),
                                                      blocks, err))
-        .observeOriginal([&err, &codegen](auto& tool) {
-            err |= tool.run(codegen.get());
-            return "";
-        });
+        .observeOriginal(
+            hip::actions::AnalyzeIR(kernel_name.getValue(), blocks, err));
 
     saveDatabase(blocks, database_file.getValue());
 

@@ -95,8 +95,22 @@ class InstrumentBasicBlocks : public Action {
     virtual std::string operator()(clang::tooling::ClangTool& tool) override;
 
   private:
-    std::vector<hip::BasicBlock>& blocks;
     const std::string& kernel;
+    std::vector<hip::BasicBlock>& blocks;
+    int& err;
+};
+
+class AnalyzeIR : public Action {
+  public:
+    AnalyzeIR(const std::string& kernel_name,
+              std::vector<hip::BasicBlock>& blocks, int& err)
+        : kernel(kernel_name), blocks(blocks), err(err) {}
+
+    virtual std::string operator()(clang::tooling::ClangTool& tool) override;
+
+  private:
+    const std::string& kernel;
+    std::vector<hip::BasicBlock>& blocks;
     int& err;
 };
 
