@@ -92,15 +92,23 @@ int main(int argc, const char** argv) {
         main_path = f;
     }
 
+    // Kernel name
+    auto kernel = kernel_name.getValue();
+    auto instrumented_bb_name =
+        hip::actions::InstrumentBasicBlocks::getInstrumentedKernelName(kernel);
+
     hip::ActionsProcessor actions(main_path, db, output_file.getValue());
 
     actions
         .process(
-            hip::actions::DuplicateKernel(kernel_name.getValue(), "tmp", err))
-        .process(hip::actions::InstrumentBasicBlocks(kernel_name.getValue(),
+            hip::actions::DuplicateKernel(kernel, instrumented_bb_name, err))
+        .process(hip::actions::InstrumentBasicBlocks(instrumented_bb_name,
                                                      blocks, err))
-        .observeOriginal(
-            hip::actions::AnalyzeIR(kernel_name.getValue(), blocks, err));
+        .process(
+            hip::actions::ReplaceKernelCall(kernel, instrumented_bb_name, err))
+        .process(hip::actions::InstrumentKernelCall(instrumented_bb_name,
+                                                    blocks, err))
+        .observeOriginal(hip::actions::AnalyzeIR(kernel, blocks, err));
 
     saveDatabase(blocks, database_file.getValue());
 

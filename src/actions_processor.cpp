@@ -92,7 +92,6 @@ std::string InstrumentBasicBlocks::operator()(clang::tooling::ClangTool& tool) {
     // Kernel matcher
     clang::ast_matchers::MatchFinder finder;
     auto kernel_matcher = hip::kernelMatcher(kernel);
-    auto kernel_call_matcher = hip::kernelCallMatcher(kernel);
 
     // Instrument basic blocks
     auto kernel_instrumenter = hip::makeCfgInstrumenter(kernel, blocks);
@@ -101,16 +100,43 @@ std::string InstrumentBasicBlocks::operator()(clang::tooling::ClangTool& tool) {
     kernel_name.getValue(), output_file.getValue()); */
 
     finder.addMatcher(kernel_matcher, kernel_instrumenter.get());
-    finder.addMatcher(kernel_call_matcher, kernel_instrumenter.get());
-
     err |= tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
     return kernel_instrumenter->getOutputBuffer();
+}
+
+std::string InstrumentBasicBlocks::getInstrumentedKernelName(
+    const std::string& kernel_name) {
+    return kernel_name + "_bb";
 }
 
 std::string AnalyzeIR::operator()(clang::tooling::ClangTool& tool) {
     auto codegen = makeLLVMAction(kernel, blocks);
     err |= tool.run(codegen.get());
     return "";
+}
+
+std::string ReplaceKernelCall::operator()(clang::tooling::ClangTool& tool) {
+    clang::ast_matchers::MatchFinder finder;
+    auto kernel_call_matcher = hip::kernelCallMatcher(original);
+
+    KernelCallReplacer replacer(original, new_kernel);
+
+    finder.addMatcher(kernel_call_matcher, &replacer);
+
+    err |= tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
+    return replacer.getOutputBuffer();
+}
+
+std::string InstrumentKernelCall::operator()(clang::tooling::ClangTool& tool) {
+    clang::ast_matchers::MatchFinder finder;
+    auto kernel_call_matcher = hip::kernelCallMatcher(kernel);
+
+    KernelCallInstrumenter instrumenter(kernel, blocks);
+
+    finder.addMatcher(kernel_call_matcher, &instrumenter);
+
+    err |= tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
+    return instrumenter.getOutputBuffer();
 }
 
 } // namespace actions

@@ -228,34 +228,6 @@ void hip::KernelCfgInstrumenter::run(const MatchFinder::MatchResult& Result) {
         addLocals(match, source_manager, lang_opt);
 
         addCommit(match, source_manager, lang_opt);
-
-        addIncludes(match, source_manager, lang_opt);
-
-    } else if (const auto* match =
-                   Result.Nodes.getNodeAs<clang::CUDAKernelCallExpr>(name)) {
-        match->dumpPretty(*Result.Context);
-
-        // For now, only the CUDA-style kernel launch is supported (like
-        // kernel<<<...>>>) as parsing macros (which hipLaunchKernelGGL is)
-        // with Clang is a bit of a pain. I hate C macros.
-
-        // Set kernel geometry
-
-        instr_generator->setGeometry(*match->getConfig(), source_manager);
-
-        // Generate code
-
-        addKernelCallDecoration(match, source_manager, lang_opt);
-
-        // This line is (probably!) launched after the first block, so the
-        // kernel instrumentation is already performed
-
-        applyReps(reps, rewriter);
-        // rewriter.overwriteChangedFiles(); // Rewrites the input file
-
-        rewriter.getEditBuffer(source_manager.getMainFileID())
-            .write(output_file);
-        // output_file.close();
     }
 }
 
@@ -329,99 +301,6 @@ void hip::KernelCfgInstrumenter::addCommit(const clang::FunctionDecl* match,
     }
 }
 
-/**
- * \brief Add runtime includes
- */
-void hip::KernelCfgInstrumenter::addIncludes(
-    const clang::FunctionDecl* match, clang::SourceManager& source_manager,
-    clang::LangOptions& lang_opt) {
-    // match->getSourceRange().dump(source_manager);
-    auto file_begin_loc =
-        source_manager.getLocForStartOfFile(source_manager.getMainFileID());
-    file_begin_loc.dump(source_manager);
-
-    auto error = reps.add({source_manager, file_begin_loc, 0,
-                           instr_generator->generateIncludes()});
-
-    if (error) {
-        throw std::runtime_error(
-            "Could not insert instrumentation includes : " +
-            llvm::toString(std::move(error)));
-    }
-}
-
-void hip::KernelCfgInstrumenter::addKernelCallDecoration(
-    const clang::CUDAKernelCallExpr* match,
-    clang::SourceManager& source_manager, clang::LangOptions& lang_opt) {
-
-    auto error = reps.add({source_manager, match->getBeginLoc(), 0,
-                           instr_generator->generateInstrumentationInit()});
-    if (error) {
-        throw std::runtime_error(
-            "Could not insert instrumentation var initializations : " +
-            llvm::toString(std::move(error)));
-    }
-
-    error = reps.add({source_manager, match->getEndLoc(), 0,
-                      instr_generator->generateInstrumentationLaunchParms()});
-    if (error) {
-        throw std::runtime_error(
-            "Could not insert instrumentation launch params : " +
-            llvm::toString(std::move(error)));
-    }
-
-    error = reps.add({source_manager, match->getEndLoc().getLocWithOffset(2), 0,
-                      instr_generator->generateInstrumentationFinalize()});
-    if (error) {
-        throw std::runtime_error(
-            "Could not insert instrumentation finalize : " +
-            llvm::toString(std::move(error)));
-    }
-}
-
-/** \class KernelCallInstrumenter
- * \brief AST Matcher for cuda kernel call
- */
-class KernelCallInstrumenter : public MatchFinder::MatchCallback {
-  public:
-    KernelCallInstrumenter(const std::string& kernel_name,
-                           const std::string& output_filename)
-        : name(kernel_name), output_file(output_filename, error_code) {}
-
-    virtual void run(const MatchFinder::MatchResult& Result) {
-        auto lang_opt = Result.Context->getLangOpts();
-        auto& source_manager = *Result.SourceManager;
-
-        clang::tooling::Replacements reps;
-        rewriter.setSourceMgr(source_manager, lang_opt);
-
-        if (const auto* match =
-                Result.Nodes.getNodeAs<clang::CUDAKernelCallExpr>(name)) {
-            match->dump();
-            /*
-                        auto last_arg = match->arguments().back();
-                        last_arg->dump();
-
-                        last_arg->getLocEnd().dump(*Result.SourceManager);
-            */
-            match->getEndLoc().dump(source_manager);
-
-            match->getRParenLoc().dump(source_manager);
-
-            clang::Lexer::getLocForEndOfToken(match->getEndLoc(), 0,
-                                              source_manager, lang_opt)
-                .dump(source_manager);
-        }
-    }
-
-  private:
-    std::error_code error_code;
-    const std::string name;
-    clang::FunctionDecl* kernel = nullptr;
-    clang::Rewriter rewriter;
-    llvm::raw_fd_ostream output_file;
-};
-
 void KernelDuplicator::run(
     const clang::ast_matchers::MatchFinder::MatchResult& Result) {
     auto lang_opt = Result.Context->getLangOpts();
@@ -479,6 +358,115 @@ void KernelDuplicator::run(
     rewriter.getEditBuffer(source_manager.getMainFileID()).write(output_file);
 }
 
+void KernelCallReplacer::run(
+    const clang::ast_matchers::MatchFinder::MatchResult& Result) {
+    auto lang_opt = Result.Context->getLangOpts();
+    auto& source_manager = *Result.SourceManager;
+
+    rewriter.setSourceMgr(source_manager, lang_opt);
+    if (const auto* match =
+            Result.Nodes.getNodeAs<clang::CUDAKernelCallExpr>(original)) {
+        match->getBeginLoc().dump(source_manager);
+
+        auto kernel_name_token = match->getBeginLoc();
+        auto name_token_length = clang::Lexer::MeasureTokenLength(
+            kernel_name_token, source_manager, lang_opt);
+
+        auto error = reps.add(
+            {source_manager, kernel_name_token, name_token_length, new_kernel});
+
+        if (error) {
+            throw std::runtime_error(
+                "Could insert original kernel definition : " +
+                llvm::toString(std::move(error)));
+        }
+    }
+
+    applyReps(reps, rewriter);
+    rewriter.getEditBuffer(source_manager.getMainFileID()).write(output_file);
+}
+
+void hip::KernelCallInstrumenter::addIncludes(
+    clang::SourceManager& source_manager, clang::LangOptions& lang_opt) {
+    // match->getSourceRange().dump(source_manager);
+    auto file_begin_loc =
+        source_manager.getLocForStartOfFile(source_manager.getMainFileID());
+    file_begin_loc.dump(source_manager);
+
+    auto error = reps.add({source_manager, file_begin_loc, 0,
+                           instr_generator->generateIncludes()});
+
+    if (error) {
+        throw std::runtime_error(
+            "Could not insert instrumentation includes : " +
+            llvm::toString(std::move(error)));
+    }
+}
+
+void hip::KernelCallInstrumenter::addKernelCallDecoration(
+    const clang::CUDAKernelCallExpr* match,
+    clang::SourceManager& source_manager, clang::LangOptions& lang_opt) {
+
+    auto error = reps.add({source_manager, match->getBeginLoc(), 0,
+                           instr_generator->generateInstrumentationInit()});
+    if (error) {
+        throw std::runtime_error(
+            "Could not insert instrumentation var initializations : " +
+            llvm::toString(std::move(error)));
+    }
+
+    error = reps.add({source_manager, match->getEndLoc(), 0,
+                      instr_generator->generateInstrumentationLaunchParms()});
+    if (error) {
+        throw std::runtime_error(
+            "Could not insert instrumentation launch params : " +
+            llvm::toString(std::move(error)));
+    }
+
+    error = reps.add({source_manager, match->getEndLoc().getLocWithOffset(2), 0,
+                      instr_generator->generateInstrumentationFinalize()});
+    if (error) {
+        throw std::runtime_error(
+            "Could not insert instrumentation finalize : " +
+            llvm::toString(std::move(error)));
+    }
+}
+
+KernelCallInstrumenter::KernelCallInstrumenter(
+    const std::string& kernel_name, const std::vector<hip::BasicBlock>& b)
+    : kernel_name(kernel_name), output_buffer(), output_file(output_buffer) {
+    instr_generator = std::make_unique<InstrGenerator>();
+    instr_generator->bb_count = b.size();
+}
+
+void KernelCallInstrumenter::run(
+    const clang::ast_matchers::MatchFinder::MatchResult& Result) {
+    auto lang_opt = Result.Context->getLangOpts();
+    auto& source_manager = *Result.SourceManager;
+
+    rewriter.setSourceMgr(source_manager, lang_opt);
+    if (const auto* match =
+            Result.Nodes.getNodeAs<clang::CUDAKernelCallExpr>(kernel_name)) {
+
+        addIncludes(source_manager, lang_opt);
+
+        // For now, only the CUDA-style kernel launch is supported (like
+        // kernel<<<...>>>) as parsing macros (which hipLaunchKernelGGL is)
+        // with Clang is a bit of a pain. I hate C macros.
+
+        // Set kernel geometry
+
+        instr_generator->setGeometry(*match->getConfig(), source_manager);
+
+        // Generate code
+
+        addKernelCallDecoration(match, source_manager, lang_opt);
+    }
+
+    applyReps(reps, rewriter);
+    rewriter.getEditBuffer(source_manager.getMainFileID()).write(output_file);
+}
+
 /** \brief AST matchers
  */
 clang::ast_matchers::DeclarationMatcher
@@ -500,12 +488,6 @@ std::unique_ptr<KernelCfgInstrumenter>
 makeCfgInstrumenter(const std::string& kernel,
                     std::vector<hip::BasicBlock>& blocks) {
     return std::make_unique<KernelCfgInstrumenter>(kernel, blocks);
-}
-
-std::unique_ptr<MatchFinder::MatchCallback>
-makeCudaCallInstrumenter(const std::string& kernel,
-                         const std::string& output_file) {
-    return std::make_unique<KernelCallInstrumenter>(kernel, output_file);
 }
 
 } // namespace hip

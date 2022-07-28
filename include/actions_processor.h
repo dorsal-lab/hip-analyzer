@@ -69,7 +69,9 @@ class ActionsProcessor {
 namespace actions {
 
 /** \class Action
- * \brief A generic action to be performed
+ * \brief A generic action to be performed on the source code. The output of the
+ * call to its operator() must produce a valid, compilable code to ensure that
+ * following actions will work.
  */
 class Action {
   public:
@@ -104,6 +106,12 @@ class InstrumentBasicBlocks : public Action {
 
     virtual std::string operator()(clang::tooling::ClangTool& tool) override;
 
+    /** \fn getInstrumentedKernelName
+     * \brief Returns the name of the kernel with instrumented bblocks
+     */
+    static std::string
+    getInstrumentedKernelName(const std::string& kernel_name);
+
   private:
     const std::string& kernel;
     std::vector<hip::BasicBlock>& blocks;
@@ -126,6 +134,34 @@ class AnalyzeIR : public Action {
   private:
     const std::string& kernel;
     std::vector<hip::BasicBlock>& blocks;
+    int& err;
+};
+
+class ReplaceKernelCall : public Action {
+  public:
+    ReplaceKernelCall(const std::string& original,
+                      const std::string& new_kernel, int& err)
+        : original(original), new_kernel(new_kernel), err(err) {}
+
+    virtual std::string operator()(clang::tooling::ClangTool& tool) override;
+
+  private:
+    const std::string& original;
+    const std::string& new_kernel;
+    int& err;
+};
+
+class InstrumentKernelCall : public Action {
+  public:
+    InstrumentKernelCall(const std::string& kernel,
+                         const std::vector<hip::BasicBlock>& blocks, int& err)
+        : kernel(kernel), blocks(blocks), err(err) {}
+
+    virtual std::string operator()(clang::tooling::ClangTool& tool) override;
+
+  private:
+    const std::string& kernel;
+    const std::vector<hip::BasicBlock>& blocks;
     int& err;
 };
 
