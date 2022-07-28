@@ -131,7 +131,7 @@ std::string InstrumentKernelCall::operator()(clang::tooling::ClangTool& tool) {
     clang::ast_matchers::MatchFinder finder;
     auto kernel_call_matcher = hip::kernelCallMatcher(kernel);
 
-    KernelCallInstrumenter instrumenter(kernel, blocks);
+    KernelCallInstrumenter instrumenter(kernel, blocks, do_rollback);
 
     finder.addMatcher(kernel_call_matcher, &instrumenter);
 

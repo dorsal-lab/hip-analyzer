@@ -55,7 +55,8 @@ struct InstrGenerator {
 
     /** \brief Device-side allocation & init of variables
      */
-    virtual std::string generateInstrumentationInit() const;
+    virtual std::string
+    generateInstrumentationInit(bool rollback = false) const;
 
     /** \brief Additional kernel launch parameters
      */
@@ -63,7 +64,8 @@ struct InstrGenerator {
 
     /** \brief Final code to be executed, right after execution
      */
-    virtual std::string generateInstrumentationFinalize() const;
+    virtual std::string
+    generateInstrumentationFinalize(bool rollback = false) const;
 
     /** \brief Code to be added after the kernel definition, e.g. a second
      * kernel

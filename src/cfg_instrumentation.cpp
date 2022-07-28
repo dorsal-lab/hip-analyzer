@@ -444,8 +444,9 @@ void hip::KernelCallInstrumenter::addKernelCallDecoration(
     const clang::CUDAKernelCallExpr* match,
     clang::SourceManager& source_manager, clang::LangOptions& lang_opt) {
 
-    auto error = reps.add({source_manager, match->getBeginLoc(), 0,
-                           instr_generator->generateInstrumentationInit()});
+    auto error =
+        reps.add({source_manager, match->getBeginLoc(), 0,
+                  instr_generator->generateInstrumentationInit(rollback)});
     if (error) {
         throw std::runtime_error(
             "Could not insert instrumentation var initializations : " +
@@ -460,8 +461,9 @@ void hip::KernelCallInstrumenter::addKernelCallDecoration(
             llvm::toString(std::move(error)));
     }
 
-    error = reps.add({source_manager, match->getEndLoc().getLocWithOffset(2), 0,
-                      instr_generator->generateInstrumentationFinalize()});
+    error =
+        reps.add({source_manager, match->getEndLoc().getLocWithOffset(2), 0,
+                  instr_generator->generateInstrumentationFinalize(rollback)});
     if (error) {
         throw std::runtime_error(
             "Could not insert instrumentation finalize : " +
@@ -470,8 +472,9 @@ void hip::KernelCallInstrumenter::addKernelCallDecoration(
 }
 
 KernelCallInstrumenter::KernelCallInstrumenter(
-    const std::string& kernel_name, const std::vector<hip::BasicBlock>& b)
-    : kernel_name(kernel_name) {
+    const std::string& kernel_name, const std::vector<hip::BasicBlock>& b,
+    bool rollback)
+    : kernel_name(kernel_name), rollback(rollback) {
     instr_generator = std::make_unique<InstrGenerator>();
     instr_generator->bb_count = b.size();
 }

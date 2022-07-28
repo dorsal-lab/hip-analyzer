@@ -103,7 +103,7 @@ std::string InstrGenerator::generateInstrumentationCommit() const {
     return ss.str();
 }
 
-std::string InstrGenerator::generateInstrumentationInit() const {
+std::string InstrGenerator::generateInstrumentationInit(bool rollback) const {
     std::stringstream ss;
 
     ss << "/* Instrumentation variables, hipMalloc, etc. */\n\n";
@@ -117,6 +117,10 @@ std::string InstrGenerator::generateInstrumentationInit() const {
     ss << "auto _" << kernel_name << "_ptr = _" << kernel_name
        << "_instr.toDevice();\n\n";
 
+    if (rollback) {
+        // TODO
+    }
+
     return ss.str();
 }
 
@@ -129,7 +133,8 @@ std::string InstrGenerator::generateInstrumentationLaunchParms() const {
     return ss.str();
 }
 
-std::string InstrGenerator::generateInstrumentationFinalize() const {
+std::string
+InstrGenerator::generateInstrumentationFinalize(bool rollback) const {
     std::stringstream ss;
 
     ss << "\n\n/* Finalize instrumentation : copy back data */\n";
@@ -137,6 +142,10 @@ std::string InstrGenerator::generateInstrumentationFinalize() const {
     ss << "hip::check(hipDeviceSynchronize());\n"
        << "_" << kernel_name << "_instr.fromDevice(_" << kernel_name
        << "_ptr);\n";
+
+    if (rollback) {
+        // TODO
+    }
 
     return ss.str();
 }

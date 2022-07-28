@@ -148,7 +148,8 @@ class KernelCallDuplicator : public RewritingMatchCallback {
 class KernelCallInstrumenter : public RewritingMatchCallback {
   public:
     KernelCallInstrumenter(const std::string& kernel_name,
-                           const std::vector<hip::BasicBlock>& b);
+                           const std::vector<hip::BasicBlock>& b,
+                           bool rollback = false);
 
     virtual void matchResult(
         const clang::ast_matchers::MatchFinder::MatchResult& Result) override;
@@ -170,6 +171,7 @@ class KernelCallInstrumenter : public RewritingMatchCallback {
   private:
     const std::string& kernel_name;
     std::unique_ptr<hip::InstrGenerator> instr_generator;
+    bool rollback;
 };
 
 // Printers
