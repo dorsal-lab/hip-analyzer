@@ -68,7 +68,7 @@ std::string InstrGenerator::generateIncludes() const {
 
 std::string InstrGenerator::generateInstrumentationParms() const {
     std::stringstream ss;
-    ss << ",/* Extra params */ uint8_t* _instr_ptr";
+    ss << ",/* Extra params */ uint8_t* _instr_ptr = nullptr";
 
     return ss.str();
 }

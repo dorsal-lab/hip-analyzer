@@ -229,6 +229,9 @@ void hip::KernelCfgInstrumenter::run(const MatchFinder::MatchResult& Result) {
 
         addCommit(match, source_manager, lang_opt);
     }
+
+    applyReps(reps, rewriter);
+    rewriter.getEditBuffer(source_manager.getMainFileID()).write(output_file);
 }
 
 /**
