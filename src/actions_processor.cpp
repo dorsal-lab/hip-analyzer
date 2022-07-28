@@ -76,8 +76,16 @@ ActionsProcessor& ActionsProcessor::observeOriginal(
 namespace actions {
 
 std::string DuplicateKernel::operator()(clang::tooling::ClangTool& tool) {
-    // TODO
-    return "";
+    // Kernel matcher
+    clang::ast_matchers::MatchFinder finder;
+    auto kernel_matcher = hip::kernelMatcher(original);
+
+    hip::KernelDuplicator duplicator(original, new_kernel);
+
+    finder.addMatcher(kernel_matcher, &duplicator);
+
+    err |= tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
+    return duplicator.getOutputBuffer();
 }
 
 std::string InstrumentBasicBlocks::operator()(clang::tooling::ClangTool& tool) {

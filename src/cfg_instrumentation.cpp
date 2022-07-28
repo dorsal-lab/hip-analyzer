@@ -422,6 +422,28 @@ class KernelCallInstrumenter : public MatchFinder::MatchCallback {
     llvm::raw_fd_ostream output_file;
 };
 
+void KernelDuplicator::run(
+    const clang::ast_matchers::MatchFinder::MatchResult& Result) {
+    auto lang_opt = Result.Context->getLangOpts();
+    auto& source_manager = *Result.SourceManager;
+
+    rewriter.setSourceMgr(source_manager, lang_opt);
+
+    // Check if it is a real function decl
+
+    if (const auto* match =
+            Result.Nodes.getNodeAs<clang::FunctionDecl>(original)) {
+        match->dump();
+
+        auto range = match->getSourceRange();
+        range.dump(source_manager);
+
+        match->getNameInfo().getBeginLoc().dump(source_manager);
+    }
+
+    rewriter.getEditBuffer(source_manager.getMainFileID()).write(output_file);
+}
+
 /** \brief AST matchers
  */
 clang::ast_matchers::DeclarationMatcher

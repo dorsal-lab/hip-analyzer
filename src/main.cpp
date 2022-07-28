@@ -13,7 +13,6 @@
 #include "hip_instrumentation/basic_block.hpp"
 
 #include "actions_processor.h"
-#include "llvm_ir_consumer.h"
 
 // ----- Statics ----- //
 
@@ -96,6 +95,8 @@ int main(int argc, const char** argv) {
     hip::ActionsProcessor actions(main_path, db, output_file.getValue());
 
     actions
+        .process(
+            hip::actions::DuplicateKernel(kernel_name.getValue(), "tmp", err))
         .process(hip::actions::InstrumentBasicBlocks(kernel_name.getValue(),
                                                      blocks, err))
         .observeOriginal(

@@ -82,14 +82,15 @@ class Action {
 class DuplicateKernel : public Action {
   public:
     DuplicateKernel(const std::string& original_name,
-                    const std::string& new_name)
-        : original(original_name), new_kernel(new_name) {}
+                    const std::string& new_name, int& err)
+        : original(original_name), new_kernel(new_name), err(err) {}
 
     virtual std::string operator()(clang::tooling::ClangTool& tool) override;
 
   private:
     const std::string& original;
     const std::string& new_kernel;
+    int& err;
 };
 
 /** \class InstrumentBasicBlocks

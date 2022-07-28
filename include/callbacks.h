@@ -84,6 +84,28 @@ class KernelCfgInstrumenter
     std::unique_ptr<hip::InstrGenerator> instr_generator;
 };
 
+class KernelDuplicator
+    : public clang::ast_matchers::MatchFinder::MatchCallback {
+  public:
+    KernelDuplicator(const std::string& original, const std::string& new_kernel)
+        : original(original), new_kernel(new_kernel), output_buffer(),
+          output_file(output_buffer) {}
+
+    virtual void
+    run(const clang::ast_matchers::MatchFinder::MatchResult& Result) override;
+
+    const std::string& getOutputBuffer() const { return output_buffer; };
+
+  private:
+    const std::string& original;
+    const std::string& new_kernel;
+
+    std::string output_buffer;
+    clang::tooling::Replacements reps;
+    clang::Rewriter rewriter;
+    llvm::raw_string_ostream output_file;
+};
+
 // Printers
 
 std::unique_ptr<clang::ast_matchers::MatchFinder::MatchCallback>
