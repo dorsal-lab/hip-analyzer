@@ -4,9 +4,6 @@
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */
 
-#include "clang/ASTMatchers/ASTMatchFinder.h"
-#include "clang/Frontend/FrontendActions.h"
-#include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Tooling/ArgumentsAdjusters.h"
 #include "clang/Tooling/CommonOptionsParser.h"
 #include "clang/Tooling/Tooling.h"
@@ -16,9 +13,7 @@
 #include "hip_instrumentation/basic_block.hpp"
 
 #include "actions_processor.h"
-#include "callbacks.h"
 #include "llvm_ir_consumer.h"
-#include "matchers.h"
 
 // ----- Statics ----- //
 
@@ -90,21 +85,6 @@ int main(int argc, const char** argv) {
 
     std::vector<hip::BasicBlock> blocks;
 
-    // Kernel matcher
-    clang::ast_matchers::MatchFinder finder;
-    auto kernel_matcher = hip::kernelMatcher(kernel_name.getValue());
-    auto kernel_call_matcher = hip::kernelCallMatcher(kernel_name.getValue());
-
-    // Instrument basic blocks
-    auto kernel_instrumenter =
-        hip::makeCfgInstrumenter(kernel_name.getValue(), blocks);
-
-    /* auto kernel_call_instrumenter = hip::makeCudaCallInstrumenter(
-        kernel_name.getValue(), output_file.getValue()); */
-
-    finder.addMatcher(kernel_matcher, kernel_instrumenter.get());
-    finder.addMatcher(kernel_call_matcher, kernel_instrumenter.get());
-
     auto codegen = makeLLVMAction(kernel_name.getValue(), blocks);
 
     auto err = 0;
@@ -120,12 +100,8 @@ int main(int argc, const char** argv) {
     hip::ActionsProcessor actions(main_path, db, output_file.getValue());
 
     actions
-        .process(hip::actions::DuplicateKernel(kernel_name.getValue(), "tmp"))
-        .process([&err, &kernel_instrumenter, &finder](auto& tool) {
-            err |= tool.run(
-                clang::tooling::newFrontendActionFactory(&finder).get());
-            return kernel_instrumenter->getOutputBuffer();
-        })
+        .process(hip::actions::InstrumentBasicBlocks(kernel_name.getValue(),
+                                                     blocks, err))
         .observeOriginal([&err, &codegen](auto& tool) {
             err |= tool.run(codegen.get());
             return "";

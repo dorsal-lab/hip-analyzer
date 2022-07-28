@@ -12,6 +12,8 @@
 #include <functional>
 #include <string>
 
+#include "hip_instrumentation/basic_block.hpp"
+
 namespace hip {
 
 /** \class ActionsProcessor
@@ -82,6 +84,20 @@ class DuplicateKernel : public Action {
   private:
     const std::string& original;
     const std::string& new_kernel;
+};
+
+class InstrumentBasicBlocks : public Action {
+  public:
+    InstrumentBasicBlocks(const std::string& kernel_name,
+                          std::vector<hip::BasicBlock>& blocks, int& err)
+        : kernel(kernel_name), blocks(blocks), err(err) {}
+
+    virtual std::string operator()(clang::tooling::ClangTool& tool) override;
+
+  private:
+    std::vector<hip::BasicBlock>& blocks;
+    const std::string& kernel;
+    int& err;
 };
 
 } // namespace actions

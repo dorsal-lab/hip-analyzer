@@ -11,6 +11,13 @@
 #include <iostream>
 #include <sstream>
 
+#include "clang/ASTMatchers/ASTMatchFinder.h"
+#include "clang/Frontend/FrontendActions.h"
+#include "clang/Rewrite/Core/Rewriter.h"
+
+#include "callbacks.h"
+#include "matchers.h"
+
 namespace hip {
 
 ActionsProcessor::ActionsProcessor(const std::string& input_file,
@@ -69,6 +76,26 @@ namespace actions {
 
 std::string DuplicateKernel::operator()(clang::tooling::ClangTool& tool) {
     // TODO
+    return "";
+}
+
+std::string InstrumentBasicBlocks::operator()(clang::tooling::ClangTool& tool) {
+    // Kernel matcher
+    clang::ast_matchers::MatchFinder finder;
+    auto kernel_matcher = hip::kernelMatcher(kernel);
+    auto kernel_call_matcher = hip::kernelCallMatcher(kernel);
+
+    // Instrument basic blocks
+    auto kernel_instrumenter = hip::makeCfgInstrumenter(kernel, blocks);
+
+    /* auto kernel_call_instrumenter = hip::makeCudaCallInstrumenter(
+    kernel_name.getValue(), output_file.getValue()); */
+
+    finder.addMatcher(kernel_matcher, kernel_instrumenter.get());
+    finder.addMatcher(kernel_call_matcher, kernel_instrumenter.get());
+
+    err |= tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
+    return kernel_instrumenter->getOutputBuffer();
 }
 
 } // namespace actions
