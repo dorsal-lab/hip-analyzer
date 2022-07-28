@@ -139,6 +139,18 @@ std::string InstrumentKernelCall::operator()(clang::tooling::ClangTool& tool) {
     return instrumenter.getOutputBuffer();
 }
 
+std::string DuplicateKernelCall::operator()(clang::tooling::ClangTool& tool) {
+    clang::ast_matchers::MatchFinder finder;
+    auto kernel_call_matcher = hip::kernelCallMatcher(original);
+
+    KernelCallDuplicator replacer(original, new_kernel);
+
+    finder.addMatcher(kernel_call_matcher, &replacer);
+
+    err |= tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
+    return replacer.getOutputBuffer();
+}
+
 } // namespace actions
 
 } // namespace hip

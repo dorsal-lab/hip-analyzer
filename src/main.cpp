@@ -40,6 +40,11 @@ static llvm::cl::opt<std::string>
                   llvm::cl::value_desc("database"),
                   llvm::cl::init(hip::default_database));
 
+static llvm::cl::opt<bool> include_original_call(
+    "d",
+    llvm::cl::desc("Duplicate : Keep a call to the original, non-instrumented "
+                   "kernel with memory rollback"));
+
 // ----- Utils ----- //
 
 void appendFlag(clang::tooling::CompilationDatabase& db_in,
@@ -100,14 +105,27 @@ int main(int argc, const char** argv) {
     hip::ActionsProcessor actions(main_path, db, output_file.getValue());
 
     actions
+        // Create a new kernel, with a new name
         .process(
             hip::actions::DuplicateKernel(kernel, instrumented_bb_name, err))
+        // Instrument the newly created kernel
         .process(hip::actions::InstrumentBasicBlocks(instrumented_bb_name,
-                                                     blocks, err))
-        .process(
-            hip::actions::ReplaceKernelCall(kernel, instrumented_bb_name, err))
+                                                     blocks, err));
+
+    if (include_original_call) {
+        // Replace calls to the original kernel to the new instrumented one
+        actions.process(hip::actions::DuplicateKernelCall(
+            kernel, instrumented_bb_name, err));
+    } else {
+        actions.process(
+            hip::actions::ReplaceKernelCall(kernel, instrumented_bb_name, err));
+    }
+
+    actions
+        // Add the necessary tools to instrument the kernel call
         .process(hip::actions::InstrumentKernelCall(instrumented_bb_name,
                                                     blocks, err))
+        // Analyze the original IR to get better info on the kernel execution
         .observeOriginal(hip::actions::AnalyzeIR(kernel, blocks, err));
 
     saveDatabase(blocks, database_file.getValue());

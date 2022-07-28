@@ -380,6 +380,49 @@ void KernelCallReplacer::matchResult(
     }
 }
 
+void KernelCallDuplicator::matchResult(
+    const clang::ast_matchers::MatchFinder::MatchResult& Result) {
+    auto lang_opt = Result.Context->getLangOpts();
+    auto& source_manager = *Result.SourceManager;
+
+    rewriter.setSourceMgr(source_manager, lang_opt);
+    if (const auto* match =
+            Result.Nodes.getNodeAs<clang::CUDAKernelCallExpr>(original)) {
+
+        // Replace initial kernel call with the new one
+
+        auto kernel_name_token = match->getBeginLoc();
+        auto name_token_length = clang::Lexer::MeasureTokenLength(
+            kernel_name_token, source_manager, lang_opt);
+
+        auto error = reps.add(
+            {source_manager, kernel_name_token, name_token_length, new_kernel});
+
+        if (error) {
+            throw std::runtime_error("Could insert original kernel call : " +
+                                     llvm::toString(std::move(error)));
+        }
+
+        auto range = match->getSourceRange();
+        auto char_range =
+            clang::Lexer::getAsCharRange(range, source_manager, lang_opt);
+
+        std::string kernel_call_string =
+            clang::Lexer::getSourceText(char_range, source_manager, lang_opt)
+                .str();
+
+        error =
+            reps.add({source_manager, match->getEndLoc().getLocWithOffset(2), 0,
+                      '\n' + kernel_call_string + ';'});
+
+        if (error) {
+            throw std::runtime_error(
+                "Could insert original kernel definition : " +
+                llvm::toString(std::move(error)));
+        }
+    }
+}
+
 void hip::KernelCallInstrumenter::addIncludes(
     clang::SourceManager& source_manager, clang::LangOptions& lang_opt) {
     // match->getSourceRange().dump(source_manager);

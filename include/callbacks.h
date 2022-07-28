@@ -128,6 +128,23 @@ class KernelCallReplacer : public RewritingMatchCallback {
     const std::string& new_kernel;
 };
 
+/** \class KernelCallDuplicator
+ * \brief Copies the call to a kernel `original` to a new one `new_kernel`
+ */
+class KernelCallDuplicator : public RewritingMatchCallback {
+  public:
+    KernelCallDuplicator(const std::string& original,
+                         const std::string& new_kernel)
+        : original(original), new_kernel(new_kernel) {}
+
+    virtual void matchResult(
+        const clang::ast_matchers::MatchFinder::MatchResult& Result) override;
+
+  private:
+    const std::string& original;
+    const std::string& new_kernel;
+};
+
 class KernelCallInstrumenter : public RewritingMatchCallback {
   public:
     KernelCallInstrumenter(const std::string& kernel_name,

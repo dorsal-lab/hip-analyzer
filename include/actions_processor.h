@@ -154,14 +154,30 @@ class ReplaceKernelCall : public Action {
 class InstrumentKernelCall : public Action {
   public:
     InstrumentKernelCall(const std::string& kernel,
-                         const std::vector<hip::BasicBlock>& blocks, int& err)
-        : kernel(kernel), blocks(blocks), err(err) {}
+                         const std::vector<hip::BasicBlock>& blocks, int& err,
+                         bool rollback = false)
+        : kernel(kernel), blocks(blocks), err(err), do_rollback(rollback) {}
 
     virtual std::string operator()(clang::tooling::ClangTool& tool) override;
 
   private:
     const std::string& kernel;
     const std::vector<hip::BasicBlock>& blocks;
+    int& err;
+    bool do_rollback = false;
+};
+
+class DuplicateKernelCall : public Action {
+  public:
+    DuplicateKernelCall(const std::string& original,
+                        const std::string& new_kernel, int& err)
+        : original(original), new_kernel(new_kernel), err(err) {}
+
+    virtual std::string operator()(clang::tooling::ClangTool& tool) override;
+
+  private:
+    const std::string& original;
+    const std::string& new_kernel;
     int& err;
 };
 
