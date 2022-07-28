@@ -137,6 +137,9 @@ class AnalyzeIR : public Action {
     int& err;
 };
 
+/** \class ReplaceKernelCall
+ * \brief Replaces calls to the original kernel to a new one `new_kernel`
+ */
 class ReplaceKernelCall : public Action {
   public:
     ReplaceKernelCall(const std::string& original,
@@ -151,6 +154,33 @@ class ReplaceKernelCall : public Action {
     int& err;
 };
 
+/** \class DuplicateKernelCall
+ * \brief Duplicates each call to the kernel `original` with a second call to
+ * `new_kernel`. The original one will be executed after the new one.
+ */
+class DuplicateKernelCall : public Action {
+  public:
+    DuplicateKernelCall(const std::string& original,
+                        const std::string& new_kernel, int& err)
+        : original(original), new_kernel(new_kernel), err(err) {}
+
+    virtual std::string operator()(clang::tooling::ClangTool& tool) override;
+
+  private:
+    const std::string& original;
+    const std::string& new_kernel;
+    int& err;
+};
+
+/** \class InstrumentKernelCall
+ * \brief Add all the necessary hiptrace instrumentation to an instrumented
+ * kernel call
+ *
+ * \details The rollback parameter in the constructor indicates to
+ * the instrumenter that the memory has to be reset to its initial value before
+ * the start of the kernel, which is necessary to ensure that each execution is
+ * deterministic
+ */
 class InstrumentKernelCall : public Action {
   public:
     InstrumentKernelCall(const std::string& kernel,
@@ -165,20 +195,6 @@ class InstrumentKernelCall : public Action {
     const std::vector<hip::BasicBlock>& blocks;
     int& err;
     bool do_rollback = false;
-};
-
-class DuplicateKernelCall : public Action {
-  public:
-    DuplicateKernelCall(const std::string& original,
-                        const std::string& new_kernel, int& err)
-        : original(original), new_kernel(new_kernel), err(err) {}
-
-    virtual std::string operator()(clang::tooling::ClangTool& tool) override;
-
-  private:
-    const std::string& original;
-    const std::string& new_kernel;
-    int& err;
 };
 
 } // namespace actions
