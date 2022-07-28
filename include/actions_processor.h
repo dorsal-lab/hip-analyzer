@@ -68,11 +68,17 @@ class ActionsProcessor {
 
 namespace actions {
 
+/** \class Action
+ * \brief A generic action to be performed
+ */
 class Action {
   public:
     virtual std::string operator()(clang::tooling::ClangTool& tool) = 0;
 };
 
+/** \class DuplicateKernel
+ * \brief Duplicate a function declaration which has the name original_name
+ */
 class DuplicateKernel : public Action {
   public:
     DuplicateKernel(const std::string& original_name,
@@ -86,6 +92,9 @@ class DuplicateKernel : public Action {
     const std::string& new_kernel;
 };
 
+/** \class InstrumentBasicBlocks
+ * \brief Perform a CFG analysis to add instrumentation points for basic blocks
+ */
 class InstrumentBasicBlocks : public Action {
   public:
     InstrumentBasicBlocks(const std::string& kernel_name,
@@ -100,6 +109,11 @@ class InstrumentBasicBlocks : public Action {
     int& err;
 };
 
+/** \class AnalyzeIR
+ * \brief Compiles the kernel to LLVM IR and performs a more fine-grained
+ * analysis of the basic blocks, to extract more precise informations (flops,
+ * ld, st). Adjusts the basic block database
+ */
 class AnalyzeIR : public Action {
   public:
     AnalyzeIR(const std::string& kernel_name,
