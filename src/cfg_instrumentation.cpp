@@ -433,14 +433,49 @@ void KernelDuplicator::run(
 
     if (const auto* match =
             Result.Nodes.getNodeAs<clang::FunctionDecl>(original)) {
-        match->dump();
+
+        // Replace original kernel name
+
+        auto kernel_name_token = match->getNameInfo().getBeginLoc();
+        auto name_token_length = clang::Lexer::MeasureTokenLength(
+            kernel_name_token, source_manager, lang_opt);
+
+        auto error = reps.add(
+            {source_manager, kernel_name_token, name_token_length, new_kernel});
+
+        if (error) {
+            throw std::runtime_error("Could not replace kernel name : " +
+                                     llvm::toString(std::move(error)));
+        }
 
         auto range = match->getSourceRange();
         range.dump(source_manager);
 
-        match->getNameInfo().getBeginLoc().dump(source_manager);
+        // Copy kernel, and paste it after the newly-modified kernel
+
+        if (const auto* templated_fun = match->getDescribedFunctionTemplate()) {
+            // If the function is templated, we have to copy the template<>
+            // header as well : extend the source range
+            range = templated_fun->getSourceRange();
+        }
+
+        auto char_range =
+            clang::Lexer::getAsCharRange(range, source_manager, lang_opt);
+        auto kernel_def_string =
+            clang::Lexer::getSourceText(char_range, source_manager, lang_opt);
+
+        error =
+            reps.add({source_manager, match->getEndLoc().getLocWithOffset(1), 0,
+                      kernel_def_string});
+
+        if (error) {
+            throw std::runtime_error(
+                "Could insert original kernel definition : " +
+                llvm::toString(std::move(error)));
+        }
     }
 
+    applyReps(reps, rewriter);
     rewriter.getEditBuffer(source_manager.getMainFileID()).write(output_file);
 }
 
