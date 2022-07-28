@@ -117,9 +117,10 @@ int main(int argc, const char** argv) {
         main_path = f;
     }
 
-    ActionsProcessor actions(main_path, db, output_file.getValue());
+    hip::ActionsProcessor actions(main_path, db, output_file.getValue());
 
     actions
+        .process(hip::actions::DuplicateKernel(kernel_name.getValue(), "tmp"))
         .process([&err, &kernel_instrumenter, &finder](auto& tool) {
             err |= tool.run(
                 clang::tooling::newFrontendActionFactory(&finder).get());

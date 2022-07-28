@@ -12,6 +12,8 @@
 #include <functional>
 #include <string>
 
+namespace hip {
+
 /** \class ActionsProcessor
  * \brief Utility class to chain different compiler actions, using the
  * intermediate result as an input to the next. The result is stored when the
@@ -61,3 +63,27 @@ class ActionsProcessor {
 
     const clang::tooling::CompilationDatabase& db;
 };
+
+namespace actions {
+
+class Action {
+  public:
+    virtual std::string operator()(clang::tooling::ClangTool& tool) = 0;
+};
+
+class DuplicateKernel : public Action {
+  public:
+    DuplicateKernel(const std::string& original_name,
+                    const std::string& new_name)
+        : original(original_name), new_kernel(new_name) {}
+
+    virtual std::string operator()(clang::tooling::ClangTool& tool) override;
+
+  private:
+    const std::string& original;
+    const std::string& new_kernel;
+};
+
+} // namespace actions
+
+} // namespace hip

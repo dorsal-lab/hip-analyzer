@@ -11,6 +11,8 @@
 #include <iostream>
 #include <sstream>
 
+namespace hip {
+
 ActionsProcessor::ActionsProcessor(const std::string& input_file,
                                    const clang::tooling::CompilationDatabase& d,
                                    const std::string& output_file_path)
@@ -62,3 +64,13 @@ ActionsProcessor& ActionsProcessor::observeOriginal(
 
     return *this;
 }
+
+namespace actions {
+
+std::string DuplicateKernel::operator()(clang::tooling::ClangTool& tool) {
+    // TODO
+}
+
+} // namespace actions
+
+} // namespace hip
