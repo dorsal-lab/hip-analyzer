@@ -59,8 +59,8 @@ struct InstrGenerator {
 
     /** \brief Device-side allocation & init of variables
      */
-    virtual std::string
-    generateInstrumentationInit(bool rollback = false) const;
+    virtual std::string generateInstrumentationInit(
+        std::optional<std::string> call_args = std::nullopt) const;
 
     /** \brief Additional kernel launch parameters
      */

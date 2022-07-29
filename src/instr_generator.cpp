@@ -112,10 +112,17 @@ std::string InstrGenerator::generateInstrumentationCommit() const {
     return ss.str();
 }
 
-std::string InstrGenerator::generateInstrumentationInit(bool rollback) const {
+std::string InstrGenerator::generateInstrumentationInit(
+    std::optional<std::string> call_args) const {
     std::stringstream ss;
 
     ss << "/* Instrumentation variables, hipMalloc, etc. */\n\n";
+
+    if (call_args.has_value()) {
+        ss << "hip::StateRecoverer _" << kernel_name << "_recoverer;\n"
+           << "_" << kernel_name << "_recoverer.registerCallArgs("
+           << call_args.value() << ");\n";
+    }
 
     ss << "hip::KernelInfo _" << kernel_name << "_info(\"" << kernel_name
        << "\", " << bb_count << ", " << blocks << ", " << threads << ");\n";
@@ -125,10 +132,6 @@ std::string InstrGenerator::generateInstrumentationInit(bool rollback) const {
 
     ss << "auto _" << kernel_name << "_ptr = _" << kernel_name
        << "_instr.toDevice();\n\n";
-
-    if (rollback) {
-        // TODO
-    }
 
     return ss.str();
 }
@@ -153,7 +156,7 @@ InstrGenerator::generateInstrumentationFinalize(bool rollback) const {
        << "_ptr);\n";
 
     if (rollback) {
-        // TODO
+        ss << "_" << kernel_name << "_recoverer.rollback();\n";
     }
 
     return ss.str();

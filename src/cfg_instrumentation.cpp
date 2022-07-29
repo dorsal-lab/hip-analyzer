@@ -453,9 +453,25 @@ void hip::KernelCallInstrumenter::addKernelCallDecoration(
     const clang::CUDAKernelCallExpr* match,
     clang::SourceManager& source_manager, clang::LangOptions& lang_opt) {
 
+    std::optional<std::string> call_args = std::nullopt;
+
+    if (rollback) {
+        auto r_paren = match->getArg(0)->getBeginLoc();
+        auto l_paren = match->getRParenLoc().getLocWithOffset(-1);
+
+        auto char_range = clang::Lexer::getAsCharRange(
+            {r_paren, l_paren}, source_manager, lang_opt);
+
+        std::string kernel_call_params =
+            clang::Lexer::getSourceText(char_range, source_manager, lang_opt)
+                .str();
+
+        call_args = std::make_optional(kernel_call_params);
+    }
+
     auto error =
         reps.add({source_manager, match->getBeginLoc(), 0,
-                  instr_generator->generateInstrumentationInit(rollback)});
+                  instr_generator->generateInstrumentationInit(call_args)});
     if (error) {
         throw std::runtime_error(
             "Could not insert instrumentation var initializations : " +

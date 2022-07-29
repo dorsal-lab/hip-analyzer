@@ -123,8 +123,8 @@ int main(int argc, const char** argv) {
 
     actions
         // Add the necessary tools to instrument the kernel call
-        .process(hip::actions::InstrumentKernelCall(instrumented_bb_name,
-                                                    blocks, err))
+        .process(hip::actions::InstrumentKernelCall(
+            instrumented_bb_name, blocks, err, include_original_call))
         // Analyze the original IR to get better info on the kernel execution
         .observeOriginal(hip::actions::AnalyzeIR(kernel, blocks, err));
 
