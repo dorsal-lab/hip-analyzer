@@ -9,6 +9,8 @@
 
 #include "hip/hip_runtime.h"
 
+#include <dlfcn.h>
+
 namespace hip {
 
 StateRecoverer::~StateRecoverer() {
@@ -51,9 +53,32 @@ void StateRecoverer::rollback() const {
 
 std::unique_ptr<HipMemoryManager> HipMemoryManager::instance;
 
+HipMemoryManager::HipMemoryManager() {
+    so_handle = reinterpret_cast<char*>(dlopen("libamdhip64.so", RTLD_LAZY));
+    if (!so_handle) {
+        throw std::runtime_error("HipMemoryManager::HipMemoryManager() : Could "
+                                 "not load shared object libamdhip64.so");
+    }
+
+    hipMallocHandler =
+        reinterpret_cast<hipError_t (*)(void** ptr, size_t size)>(
+            dlsym(so_handle, "hipMalloc"));
+    if (!hipMallocHandler) {
+        throw std::runtime_error("HipMemoryManager::HipMemoryManager() : Could "
+                                 "not load hipMalloc symbol");
+    }
+
+    hipFreeHandler = reinterpret_cast<hipError_t (*)(void* ptr)>(
+        dlsym(so_handle, "hipFree"));
+    if (!hipFreeHandler) {
+        throw std::runtime_error("HipMemoryManager::HipMemoryManager() : Could "
+                                 "not load hipFree symbol");
+    }
+}
+
 hipError_t HipMemoryManager::hipMallocWrapper(void** ptr, size_t size,
                                               size_t el_size) {
-    hipError_t err = ::hipMalloc(ptr, size);
+    hipError_t err = hipMallocHandler(ptr, size);
     if (err == hipSuccess) {
         TaggedPointer tagged_ptr{static_cast<uint8_t*>(*ptr), size, el_size};
 
@@ -63,7 +88,7 @@ hipError_t HipMemoryManager::hipMallocWrapper(void** ptr, size_t size,
 }
 
 hipError_t HipMemoryManager::hipFreeWrapper(void* ptr) {
-    hipError_t err = ::hipFree(ptr);
+    hipError_t err = hipFreeHandler(ptr);
     if (err == hipSuccess) {
         if (alloc_map.erase(ptr) == 0) {
             // Not found in map, do we need to tell the user ?
@@ -80,3 +105,13 @@ HipMemoryManager::~HipMemoryManager() {
 }
 
 } // namespace hip
+
+extern "C" {
+hipError_t hipMalloc(void** ptr, size_t size) {
+    return hip::HipMemoryManager::getInstance().hipMalloc(ptr, size);
+}
+
+hipError_t hipFree(void* ptr) {
+    return hip::HipMemoryManager::getInstance().hipFree(ptr);
+}
+}

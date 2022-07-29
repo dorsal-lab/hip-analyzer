@@ -68,11 +68,8 @@ std::string InstrGenerator::generateIncludes() const {
 
 std::string InstrGenerator::generateIncludesPost(bool rollback) const {
     if (rollback) {
-        return "#include \"hip_instrumentation/state_recoverer.hpp\"\n"
-               "#define hipMalloc(x, y) "
-               "hip::HipMemoryManager::getInstance().hipMalloc(x, y)\n"
-               "#define hipFree(x) "
-               "hip::HipMemoryManager::getInstance().hipFree(x)\n";
+        // Is there really something to add, now that we're hijacking hipMalloc?
+        return "";
     } else {
         return "";
     }

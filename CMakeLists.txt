@@ -93,6 +93,7 @@ target_link_libraries(hip_instrumentation
     jsoncpp
     roctracer64
     rocprofiler64
+    dl
 )
 
 

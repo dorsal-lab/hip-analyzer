@@ -145,10 +145,14 @@ class HipMemoryManager {
     }
 
   private:
-    HipMemoryManager() = default;
+    HipMemoryManager();
 
     hipError_t hipMallocWrapper(void** ptr, size_t size, size_t el_size);
     hipError_t hipFreeWrapper(void* ptr);
+
+    char* so_handle;
+    hipError_t (*hipMallocHandler)(void** ptr, size_t size);
+    hipError_t (*hipFreeHandler)(void* ptr);
 
     static std::unique_ptr<HipMemoryManager> instance;
     std::map<void*, TaggedPointer> alloc_map;
