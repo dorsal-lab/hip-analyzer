@@ -305,6 +305,7 @@ void KernelDuplicator::matchResult(
     const clang::ast_matchers::MatchFinder::MatchResult& Result) {
     auto lang_opt = Result.Context->getLangOpts();
     auto& source_manager = *Result.SourceManager;
+    InstrGenerator instr_generator;
 
     rewriter.setSourceMgr(source_manager, lang_opt);
 
@@ -349,7 +350,15 @@ void KernelDuplicator::matchResult(
 
         if (error) {
             throw std::runtime_error(
-                "Could insert original kernel definition : " +
+                "Could not insert original kernel definition : " +
+                llvm::toString(std::move(error)));
+        }
+
+        error = reps.add({source_manager, range.getBegin(), 0,
+                          instr_generator.generateIncludesPost(rollback)});
+        if (error) {
+            throw std::runtime_error(
+                "Could not insert pre-kernel preprocessor : " +
                 llvm::toString(std::move(error)));
         }
     }

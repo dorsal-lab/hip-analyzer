@@ -100,8 +100,9 @@ class KernelCfgInstrumenter : public RewritingMatchCallback {
  */
 class KernelDuplicator : public RewritingMatchCallback {
   public:
-    KernelDuplicator(const std::string& original, const std::string& new_kernel)
-        : original(original), new_kernel(new_kernel) {}
+    KernelDuplicator(const std::string& original, const std::string& new_kernel,
+                     bool rollback = false)
+        : original(original), new_kernel(new_kernel), rollback(rollback) {}
 
     virtual void matchResult(
         const clang::ast_matchers::MatchFinder::MatchResult& Result) override;
@@ -109,6 +110,7 @@ class KernelDuplicator : public RewritingMatchCallback {
   private:
     const std::string& original;
     const std::string& new_kernel;
+    bool rollback;
 };
 
 /** \class KernelCallReplacer

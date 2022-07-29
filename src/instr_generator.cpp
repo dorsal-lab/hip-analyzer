@@ -66,6 +66,16 @@ std::string InstrGenerator::generateIncludes() const {
     return "#include \"hip_instrumentation/hip_instrumentation.hpp\"\n";
 }
 
+std::string InstrGenerator::generateIncludesPost(bool rollback) const {
+    if (rollback) {
+        return "#include \"hip_instrumentation/state_recoverer.hpp\"\n"
+               "#define hipMalloc(x, y) "
+               "hip::HipMemoryManager::getInstance().hipMalloc(x, y)\n"
+               "#define hipFree(x) "
+               "hip::HipMemoryManager::getInstance().hipFree(x)\n";
+    }
+}
+
 std::string InstrGenerator::generateInstrumentationParms() const {
     std::stringstream ss;
     ss << ",/* Extra params */ uint8_t* _instr_ptr = nullptr";

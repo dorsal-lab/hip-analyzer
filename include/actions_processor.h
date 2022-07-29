@@ -79,13 +79,17 @@ class Action {
 };
 
 /** \class DuplicateKernel
- * \brief Duplicate a function declaration which has the name original_name
+ * \brief Duplicate a function declaration which has the name original_name. The
+ * rollback argument indicates to the Instrumentation Generator that alternate
+ * HIP memory allocations method will be used ( \see hip::HipMemoryManager)
  */
 class DuplicateKernel : public Action {
   public:
     DuplicateKernel(const std::string& original_name,
-                    const std::string& new_name, int& err)
-        : original(original_name), new_kernel(new_name), err(err) {}
+                    const std::string& new_name, int& err,
+                    bool rollback = false)
+        : original(original_name), new_kernel(new_name), err(err),
+          rollback(rollback) {}
 
     virtual std::string operator()(clang::tooling::ClangTool& tool) override;
 
@@ -93,6 +97,7 @@ class DuplicateKernel : public Action {
     const std::string& original;
     const std::string& new_kernel;
     int& err;
+    bool rollback;
 };
 
 /** \class InstrumentBasicBlocks

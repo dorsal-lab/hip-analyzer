@@ -106,8 +106,8 @@ int main(int argc, const char** argv) {
 
     actions
         // Create a new kernel, with a new name
-        .process(
-            hip::actions::DuplicateKernel(kernel, instrumented_bb_name, err))
+        .process(hip::actions::DuplicateKernel(kernel, instrumented_bb_name,
+                                               err, include_original_call))
         // Instrument the newly created kernel
         .process(hip::actions::InstrumentBasicBlocks(instrumented_bb_name,
                                                      blocks, err));

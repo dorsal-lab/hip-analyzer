@@ -80,7 +80,7 @@ std::string DuplicateKernel::operator()(clang::tooling::ClangTool& tool) {
     clang::ast_matchers::MatchFinder finder;
     auto kernel_matcher = hip::kernelMatcher(original);
 
-    hip::KernelDuplicator duplicator(original, new_kernel);
+    hip::KernelDuplicator duplicator(original, new_kernel, rollback);
 
     finder.addMatcher(kernel_matcher, &duplicator);
 

@@ -35,11 +35,15 @@ struct InstrGenerator {
      */
     virtual std::string generateBlockCode(unsigned int id) const;
 
-    /** \brief  Additional includes for the runtime
+    /** \brief Additional includes for the runtime
      */
     virtual std::string generateIncludes() const;
 
-    /** \brief  Additional parameters for the instrumented kernel
+    /** \brief Additional includes, after all the others
+     */
+    virtual std::string generateIncludesPost(bool rollback) const;
+
+    /** \brief Additional parameters for the instrumented kernel
      */
     virtual std::string generateInstrumentationParms() const;
 
