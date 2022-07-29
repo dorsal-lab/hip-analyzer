@@ -21,6 +21,9 @@ void checkValue(float* gpu_pointer, float expected_val) {
     }
 }
 
+#define hipMalloc(x, y) hip::HipMemoryManager::getInstance().hipMalloc(x, y)
+#define hipFree(x) hip::HipMemoryManager::getInstance().hipFree(x)
+
 int main() {
     hip::init();
 

@@ -49,4 +49,34 @@ void StateRecoverer::rollback() const {
     }
 }
 
+std::unique_ptr<HipMemoryManager> HipMemoryManager::instance;
+
+hipError_t HipMemoryManager::hipMallocWrapper(void** ptr, size_t size,
+                                              size_t el_size) {
+    hipError_t err = ::hipMalloc(ptr, size);
+    if (err == hipSuccess) {
+        TaggedPointer tagged_ptr{static_cast<uint8_t*>(*ptr), size, el_size};
+
+        alloc_map.emplace(std::make_pair(*ptr, tagged_ptr));
+    }
+    return err;
+}
+
+hipError_t HipMemoryManager::hipFreeWrapper(void* ptr) {
+    hipError_t err = ::hipFree(ptr);
+    if (err == hipSuccess) {
+        if (alloc_map.erase(ptr) == 0) {
+            // Not found in map, do we need to tell the user ?
+        }
+    }
+    return err;
+}
+
+HipMemoryManager::~HipMemoryManager() {
+    for (auto& [ptr, tagged_ptr] : alloc_map) {
+        std::cout << "HipMemoryManager::~HipMemoryManager : unfreed object "
+                  << ptr << '\n';
+    }
+}
+
 } // namespace hip

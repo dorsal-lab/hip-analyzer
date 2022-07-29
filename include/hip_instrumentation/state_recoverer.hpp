@@ -11,6 +11,8 @@
 #include <type_traits>
 #include <vector>
 
+#include "hip/hip_runtime.h"
+
 namespace hip {
 
 /** \struct TaggedPointer
@@ -23,6 +25,9 @@ struct TaggedPointer {
     TaggedPointer(const T* value_ptr, size_t array_size = 1u)
         : ptr{static_cast<const void*>(value_ptr)},
           size{array_size * sizeof(T)}, element_size{array_size} {}
+
+    TaggedPointer(void* ptr, size_t total_size, size_t element_size = 1u)
+        : ptr(ptr), size(total_size), element_size(element_size) {}
 
     // ----- Attributes ----- //
 
@@ -112,6 +117,56 @@ template <typename T> void StateRecoverer::registerCallArgs(T* v) {
     }
 
     tagged_ptr->dirty = true;
+}
+
+/** \class HipMemoryManager
+ * \brief Memory manager (singleton) to record hip malloc / free operations
+ */
+class HipMemoryManager {
+  public:
+    HipMemoryManager(const HipMemoryManager&) = delete;
+    HipMemoryManager operator=(const HipMemoryManager&) = delete;
+    ~HipMemoryManager();
+
+    /** \fn getInstance
+     * \brief Returns the singleton instance
+     */
+    static HipMemoryManager& getInstance() {
+        if (instance.get() == nullptr) {
+            instance =
+                std::unique_ptr<HipMemoryManager>(new HipMemoryManager());
+        }
+
+        return *instance;
+    }
+
+    /** \fn hipMalloc
+     * \brief Allocates memory on the device
+     */
+    template <typename T> hipError_t hipMalloc(T** ptr, size_t size);
+
+    /** \fn hipFree
+     * \brief Frees allocated memory
+     */
+    template <typename T> hipError_t hipFree(T* ptr);
+
+  private:
+    HipMemoryManager() = default;
+
+    hipError_t hipMallocWrapper(void** ptr, size_t size, size_t el_size);
+    hipError_t hipFreeWrapper(void* ptr);
+
+    static std::unique_ptr<HipMemoryManager> instance;
+    std::map<void*, TaggedPointer> alloc_map;
+};
+
+template <typename T>
+hipError_t HipMemoryManager::hipMalloc(T** ptr, size_t size) {
+    return hipMallocWrapper(reinterpret_cast<void**>(ptr), size, sizeof(size));
+}
+
+template <typename T> hipError_t HipMemoryManager::hipFree(T* ptr) {
+    return hipFreeWrapper(static_cast<void*>(ptr));
 }
 
 } // namespace hip
