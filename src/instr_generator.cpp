@@ -73,6 +73,8 @@ std::string InstrGenerator::generateIncludesPost(bool rollback) const {
                "hip::HipMemoryManager::getInstance().hipMalloc(x, y)\n"
                "#define hipFree(x) "
                "hip::HipMemoryManager::getInstance().hipFree(x)\n";
+    } else {
+        return "";
     }
 }
 
