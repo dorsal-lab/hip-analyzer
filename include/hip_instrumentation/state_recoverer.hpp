@@ -101,24 +101,6 @@ class StateRecoverer {
     std::vector<std::pair<TaggedPointer, uint8_t*>> saved_values;
 };
 
-template <typename T> void StateRecoverer::registerCallArgs(T* v) {
-    bool found = false;
-    TaggedPointer* tagged_ptr = nullptr;
-
-    for (auto& [ptr, cpu_ptr] : saved_values) {
-        if (ptr.ptr == static_cast<void*>(v)) {
-            found = true;
-            tagged_ptr = &ptr;
-        }
-    }
-
-    if (!found) {
-        // TODO : handle errors : report, crash ?
-    }
-
-    tagged_ptr->dirty = true;
-}
-
 /** \class HipMemoryManager
  * \brief Memory manager (singleton) to record hip malloc / free operations
  */
@@ -150,6 +132,18 @@ class HipMemoryManager {
      */
     template <typename T> hipError_t hipFree(T* ptr);
 
+    /** \fn getTaggedPtr
+     * \brief Returns the tagged pointer, if any, corresponding to an address
+     */
+    TaggedPointer& getTaggedPtr(void* ptr) {
+        try {
+            return alloc_map.at(ptr);
+        } catch (std::out_of_range e) {
+            throw std::runtime_error("HipMemoryManager::getTaggedPtr() : "
+                                     "Unregistered pointer access");
+        }
+    }
+
   private:
     HipMemoryManager() = default;
 
@@ -167,6 +161,15 @@ hipError_t HipMemoryManager::hipMalloc(T** ptr, size_t size) {
 
 template <typename T> hipError_t HipMemoryManager::hipFree(T* ptr) {
     return hipFreeWrapper(static_cast<void*>(ptr));
+}
+
+template <typename T> void StateRecoverer::registerCallArgs(T* ptr) {
+    TaggedPointer& tagged_ptr =
+        HipMemoryManager::getInstance().getTaggedPtr(ptr);
+
+    uint8_t* cpu_ptr = saveElement(ptr);
+    tagged_ptr.dirty = true;
+    saved_values.emplace_back(tagged_ptr, cpu_ptr);
 }
 
 } // namespace hip

@@ -45,12 +45,11 @@ int main() {
 
     // Save state
     hip::StateRecoverer recoverer;
-    recoverer.saveState({{gpu_values, n_elements}});
+    recoverer.registerCallArgs(gpu_values, n_elements);
 
     // Modify something
     cpu_values[0] = 2.f;
     commit();
-    recoverer.registerCallArgs(gpu_values, n_elements);
 
     // Assert that the copy was successful
     checkValue(gpu_values, 2.f);
@@ -58,6 +57,8 @@ int main() {
     // Rollback & check
     recoverer.rollback();
     checkValue(gpu_values, 1.f);
+
+    hip::check(hipFree(gpu_values));
 
     return 0;
 }
