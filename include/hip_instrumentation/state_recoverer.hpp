@@ -171,7 +171,7 @@ template <typename T> void StateRecoverer::registerCallArgs(T* ptr) {
     TaggedPointer& tagged_ptr =
         HipMemoryManager::getInstance().getTaggedPtr(ptr);
 
-    uint8_t* cpu_ptr = saveElement(ptr);
+    uint8_t* cpu_ptr = saveElement(tagged_ptr);
     tagged_ptr.dirty = true;
     saved_values.emplace_back(tagged_ptr, cpu_ptr);
 }
