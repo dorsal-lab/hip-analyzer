@@ -22,7 +22,7 @@ struct TaggedPointer {
     /** ctor
      */
     template <typename T>
-    TaggedPointer(const T* value_ptr, size_t array_size = 1u)
+    explicit TaggedPointer(const T* value_ptr, size_t array_size = 1u)
         : ptr{static_cast<const void*>(value_ptr)},
           size{array_size * sizeof(T)}, element_size{array_size} {}
 
