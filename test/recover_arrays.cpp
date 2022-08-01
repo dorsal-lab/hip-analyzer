@@ -55,6 +55,15 @@ int main() {
     recoverer.rollback();
     checkValue(gpu_values, 1.f);
 
+    // Check that const pointers are not saved
+    hip::StateRecoverer recoverer_const;
+    recoverer_const.registerCallArgs(const_cast<const float*>(gpu_values),
+                                     n_elements);
+    cpu_values[0] = 2.f;
+    commit();
+    recoverer_const.rollback();
+    checkValue(gpu_values, 2.f);
+
     hip::check(hipFree(gpu_values));
 
     return 0;

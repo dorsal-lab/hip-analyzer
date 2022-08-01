@@ -87,6 +87,7 @@ class StateRecoverer {
     }
 
     template <typename T> void registerCallArgs(T* value);
+    template <typename T> void registerCallArgs(const T* value) {}
     template <typename T> void registerCallArgs(T value) {}
 
   private:
