@@ -54,7 +54,7 @@ void StateRecoverer::rollback() const {
 std::unique_ptr<HipMemoryManager> HipMemoryManager::instance;
 
 HipMemoryManager::HipMemoryManager() {
-    so_handle = reinterpret_cast<char*>(dlopen("libamdhip64.so", RTLD_LAZY));
+    so_handle = dlopen("libamdhip64.so", RTLD_LAZY);
     if (!so_handle) {
         throw std::runtime_error("HipMemoryManager::HipMemoryManager() : Could "
                                  "not load shared object libamdhip64.so");

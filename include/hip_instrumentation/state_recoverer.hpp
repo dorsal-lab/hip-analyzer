@@ -150,7 +150,7 @@ class HipMemoryManager {
     hipError_t hipMallocWrapper(void** ptr, size_t size, size_t el_size);
     hipError_t hipFreeWrapper(void* ptr);
 
-    char* so_handle;
+    void* so_handle;
     hipError_t (*hipMallocHandler)(void** ptr, size_t size);
     hipError_t (*hipFreeHandler)(void* ptr);
 
