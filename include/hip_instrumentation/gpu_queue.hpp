@@ -1,4 +1,4 @@
-/** \file GpuQueue.hpp
+/** \file gpu_queue.hpp
  * \brief Data-parallel execution queue
  *
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
@@ -25,6 +25,22 @@ struct QueueInfo {
      * \brief creates a WaveQueue buffer
      */
     template <class EventType> static QueueInfo wave(Instrumenter& instr);
+
+    /** \fn offsets
+     * \brief Returns a vector of offsets in the
+     */
+    std::vector<size_t> offsets() const;
+
+    /** \fn queueSize
+     * \brief Returns the total number of elements to be allocated in the queue
+     */
+    size_t queueSize() const;
+
+  private:
+    QueueInfo();
+
+    bool isThread;
+    Instrumenter& instr;
 };
 
 /** \class ThreadQueue
@@ -52,7 +68,7 @@ template <class EventType> class ThreadQueue {
  */
 template <class EventType> class WaveQueue {
   public:
-    __device__ WaveQueue(EventType* storage);
+    __device__ WaveQueue(EventType* storage, size_t* offsets);
 
     /** \fn push_back
      * \brief Appends an event to the queue
@@ -61,13 +77,15 @@ template <class EventType> class WaveQueue {
 
   private:
     unsigned int wavefront_id;
+    EventType* storage_array;
     unsigned int curr_id = 0u;
 };
 
 // ----- Template definition ----- //
 
 template <class EventType>
-__device__ WaveQueue<EventType>::WaveQueue(EventType* storage) {
+__device__ WaveQueue<EventType>::WaveQueue(EventType* storage,
+                                           size_t* offsets) {
     // Compute how many waves per blocks there is
     unsigned int waves_per_block;
     if (blockDim.x % warpSize == 0) {

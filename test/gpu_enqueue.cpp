@@ -15,8 +15,8 @@ struct Event {
 
 constexpr auto NB_ELEMENTS = 8u;
 
-__global__ void enqueue_kernel(Event* e) {
-    hip::WaveQueue<Event> queue{e};
+__global__ void enqueue_kernel(Event* e, size_t* offsets) {
+    hip::WaveQueue<Event> queue{e, offsets};
 
     for (auto i = 0u; i < NB_ELEMENTS; ++i) {
         queue.push_back({i});
