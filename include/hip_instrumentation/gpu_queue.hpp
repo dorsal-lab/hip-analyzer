@@ -59,16 +59,18 @@ template <class EventType> class ThreadQueue {
     /** ctor
      * TODO : pass counter (size) requirements
      */
-    __device__ ThreadQueue(EventType* storage);
+    __device__ ThreadQueue(EventType* storage, size_t* offsets);
 
     /** \fn push_back
      * \brief Appends an event to the queue
      */
-    __device__ EventType& push_back(EventType&& event);
+    __device__ EventType& push_back(const EventType& event);
 
   private:
-    unsigned int thread_id;
-    unsigned int curr_id;
+    size_t thread_id;
+    size_t offset;
+    EventType* storage;
+    size_t curr_id = 0u;
 };
 
 /** \class WaveQueue
@@ -84,12 +86,29 @@ template <class EventType> class WaveQueue {
     __device__ EventType& push_back(EventType&& event);
 
   private:
-    unsigned int wavefront_id;
+    size_t wavefront_id;
     EventType* storage_array;
-    unsigned int curr_id = 0u;
+    size_t curr_id = 0u;
 };
 
 // ----- Template definition ----- //
+
+template <class EventType>
+__device__ ThreadQueue<EventType>::ThreadQueue(EventType* storage,
+                                               size_t* offsets) {
+    thread_id = blockIdx.x * blockDim.x + threadIdx.x;
+    offset = offsets[thread_id];
+}
+
+template <class EventType>
+__device__ EventType&
+ThreadQueue<EventType>::push_back(const EventType& event) {
+    storage[offset + curr_id] = event;
+    auto& ref = storage[offset + curr_id];
+    ++curr_id;
+
+    return ref;
+}
 
 template <class EventType>
 __device__ WaveQueue<EventType>::WaveQueue(EventType* storage,
@@ -109,7 +128,8 @@ __device__ WaveQueue<EventType>::WaveQueue(EventType* storage,
 
 template <class EventType>
 __device__ EventType& WaveQueue<EventType>::push_back(EventType&& event) {
-
+    if (threadIdx.x % warpSize == 0) {
+    }
     ++curr_id;
 }
 
