@@ -55,3 +55,20 @@ add_executable(
 )
 
 target_link_libraries(recover_arrays hip_instrumentation)
+
+# ----- gpu_queue ----- #
+
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue.o
+    COMMAND ${ROCM_PATH}/hip/bin/hipcc -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/gpu_queue.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue.o
+    DEPENDS 
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
+        ${CMAKE_SOURCE_DIR}/test/gpu_queue.cpp
+    VERBATIM
+)
+
+add_executable(gpu_queue ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue.o)
+target_link_libraries(gpu_queue hip_instrumentation)
+set_target_properties(gpu_queue PROPERTIES LINKER_LANGUAGE CXX)
