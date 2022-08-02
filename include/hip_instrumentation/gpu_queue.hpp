@@ -19,17 +19,21 @@ struct QueueInfo {
     /** \fn thread
      * \brief Creates a ThreadQueue buffer
      */
-    template <class EventType> static QueueInfo thread(Instrumenter& instr);
+    template <class EventType> static QueueInfo thread(Instrumenter& instr) {
+        return QueueInfo{instr, sizeof(EventType), true};
+    }
 
     /** \fn wave
      * \brief creates a WaveQueue buffer
      */
-    template <class EventType> static QueueInfo wave(Instrumenter& instr);
+    template <class EventType> static QueueInfo wave(Instrumenter& instr) {
+        return QueueInfo{instr, sizeof(EventType), false};
+    }
 
     /** \fn offsets
      * \brief Returns a vector of offsets in the
      */
-    std::vector<size_t> offsets() const;
+    const std::vector<size_t>& offsets() const { return offsets_vec; }
 
     /** \fn queueSize
      * \brief Returns the total number of elements to be allocated in the queue
@@ -37,10 +41,14 @@ struct QueueInfo {
     size_t queueSize() const;
 
   private:
-    QueueInfo();
+    QueueInfo(Instrumenter& instr, size_t elem_size, bool is_thread);
 
-    bool isThread;
+    void computeSize();
+
     Instrumenter& instr;
+    bool is_thread;
+    size_t elem_size;
+    std::vector<size_t> offsets_vec;
 };
 
 /** \class ThreadQueue
@@ -51,12 +59,12 @@ template <class EventType> class ThreadQueue {
     /** ctor
      * TODO : pass counter (size) requirements
      */
-    ThreadQueue(EventType* storage);
+    __device__ ThreadQueue(EventType* storage);
 
     /** \fn push_back
      * \brief Appends an event to the queue
      */
-    EventType& push_back(EventType&& event);
+    __device__ EventType& push_back(EventType&& event);
 
   private:
     unsigned int thread_id;

@@ -122,6 +122,8 @@ class Instrumenter {
     unsigned int reduceFlops(const counter_t* device_ptr,
                              hipStream_t stream = nullptr) const;
 
+    const KernelInfo& kernelInfo() const { return kernel_info; }
+
   private:
     /** \fn parseHeader
      * \brief Validate header from binary trace
