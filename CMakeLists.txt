@@ -80,12 +80,25 @@ add_custom_command(
     VERBATIM
 )
 
+add_custom_command(
+    OUTPUT ${CMAKE_BINARY_DIR}/gpu_queue.o
+    COMMAND ${ROCM_PATH}/hip/bin/hipcc -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/gpu_queue.cpp -std=c++20 -o ${CMAKE_BINARY_DIR}/gpu_queue.o
+    DEPENDS 
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/reduction_kernels.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
+        ${CMAKE_SOURCE_DIR}/src/gpu_queue.cpp
+    VERBATIM
+)
+
 add_library(hip_instrumentation
     src/hip_instrumentation.cpp
     src/basic_block.cpp
     src/gpu_info.cpp
     src/state_recoverer.cpp
     ${CMAKE_BINARY_DIR}/gpu_hip_instrumentation.o
+    ${CMAKE_BINARY_DIR}/gpu_queue.o
 )
 
 target_link_libraries(hip_instrumentation
