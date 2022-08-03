@@ -33,43 +33,43 @@ struct InstrGenerator {
 
     /** \brief Instrumentation for each basic block
      */
-    virtual std::string generateBlockCode(unsigned int id) const;
+    virtual std::string generateBlockCode(unsigned int id) const = 0;
 
     /** \brief Additional includes for the runtime
      */
-    virtual std::string generateIncludes() const;
+    virtual std::string generateIncludes() const = 0;
 
     /** \brief Additional includes, after all the others
      */
-    virtual std::string generateIncludesPost(bool rollback) const;
+    virtual std::string generateIncludesPost(bool rollback) const = 0;
 
     /** \brief Additional parameters for the instrumented kernel
      */
-    virtual std::string generateInstrumentationParms() const;
+    virtual std::string generateInstrumentationParms() const = 0;
 
     /** \brief Local variables for instrumentation (e.g. local counters)
      */
-    virtual std::string generateInstrumentationLocals() const;
+    virtual std::string generateInstrumentationLocals() const = 0;
 
     /** \brief Final code to be executed by the kernel : commit to device memory
      */
-    virtual std::string generateInstrumentationCommit() const;
+    virtual std::string generateInstrumentationCommit() const = 0;
 
     // ----- Host-side instrumentation ----- //
 
     /** \brief Device-side allocation & init of variables
      */
     virtual std::string generateInstrumentationInit(
-        std::optional<std::string> call_args = std::nullopt) const;
+        std::optional<std::string> call_args = std::nullopt) const = 0;
 
     /** \brief Additional kernel launch parameters
      */
-    virtual std::string generateInstrumentationLaunchParms() const;
+    virtual std::string generateInstrumentationLaunchParms() const = 0;
 
     /** \brief Final code to be executed, right after execution
      */
     virtual std::string
-    generateInstrumentationFinalize(bool rollback = false) const;
+    generateInstrumentationFinalize(bool rollback = false) const = 0;
 
     /** \brief Code to be added after the kernel definition, e.g. a second
      * kernel
@@ -87,10 +87,27 @@ struct InstrGenerator {
     std::string threads, blocks;
 
     std::string kernel_name;
+
+    virtual ~InstrGenerator() {}
 };
 
-struct MultipleExecutionInstrGenerator : public InstrGenerator {
-    virtual std::string generatePostKernel() const override;
+struct CfgCounterInstrGenerator : public InstrGenerator {
+    // ----- Device-side instrumentation ----- //
+    virtual std::string generateBlockCode(unsigned int id) const override;
+    virtual std::string generateIncludes() const override;
+    virtual std::string generateIncludesPost(bool rollback) const override;
+    virtual std::string generateInstrumentationParms() const override;
+    virtual std::string generateInstrumentationLocals() const override;
+    virtual std::string generateInstrumentationCommit() const override;
+
+    // ----- Host-side instrumentation ----- //
+
+    virtual std::string generateInstrumentationInit(
+        std::optional<std::string> call_args = std::nullopt) const override;
+    virtual std::string generateInstrumentationLaunchParms() const override;
+    virtual std::string
+    generateInstrumentationFinalize(bool rollback = false) const override;
+    virtual std::string generatePostKernel() const override { return ""; }
 };
 
 } // namespace hip

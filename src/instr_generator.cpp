@@ -53,7 +53,7 @@ void InstrGenerator::setGeometry(const clang::CallExpr& kernel_call,
     llvm::errs() << threads << '\n';
 }
 
-std::string InstrGenerator::generateBlockCode(unsigned int id) const {
+std::string CfgCounterInstrGenerator::generateBlockCode(unsigned int id) const {
     std::stringstream ss;
     ss << "/* BB " << id << " (" << bb_count << ") */" << '\n';
 
@@ -62,11 +62,12 @@ std::string InstrGenerator::generateBlockCode(unsigned int id) const {
     return ss.str();
 }
 
-std::string InstrGenerator::generateIncludes() const {
+std::string CfgCounterInstrGenerator::generateIncludes() const {
     return "#include \"hip_instrumentation/hip_instrumentation.hpp\"\n";
 }
 
-std::string InstrGenerator::generateIncludesPost(bool rollback) const {
+std::string
+CfgCounterInstrGenerator::generateIncludesPost(bool rollback) const {
     if (rollback) {
         // Is there really something to add, now that we're hijacking hipMalloc?
         return "";
@@ -75,14 +76,14 @@ std::string InstrGenerator::generateIncludesPost(bool rollback) const {
     }
 }
 
-std::string InstrGenerator::generateInstrumentationParms() const {
+std::string CfgCounterInstrGenerator::generateInstrumentationParms() const {
     std::stringstream ss;
     ss << ",/* Extra params */ uint8_t* _instr_ptr = nullptr";
 
     return ss.str();
 }
 
-std::string InstrGenerator::generateInstrumentationLocals() const {
+std::string CfgCounterInstrGenerator::generateInstrumentationLocals() const {
     std::stringstream ss;
 
     ss << "\n/* Instrumentation locals */\n";
@@ -96,7 +97,7 @@ std::string InstrGenerator::generateInstrumentationLocals() const {
     return ss.str();
 }
 
-std::string InstrGenerator::generateInstrumentationCommit() const {
+std::string CfgCounterInstrGenerator::generateInstrumentationCommit() const {
     std::stringstream ss;
 
     ss << "/* Finalize instrumentation */\n";
@@ -112,7 +113,7 @@ std::string InstrGenerator::generateInstrumentationCommit() const {
     return ss.str();
 }
 
-std::string InstrGenerator::generateInstrumentationInit(
+std::string CfgCounterInstrGenerator::generateInstrumentationInit(
     std::optional<std::string> call_args) const {
     std::stringstream ss;
 
@@ -136,7 +137,8 @@ std::string InstrGenerator::generateInstrumentationInit(
     return ss.str();
 }
 
-std::string InstrGenerator::generateInstrumentationLaunchParms() const {
+std::string
+CfgCounterInstrGenerator::generateInstrumentationLaunchParms() const {
     std::stringstream ss;
 
     ss << ",/* Extra parameters for kernel launch ( " << bb_count
@@ -146,7 +148,7 @@ std::string InstrGenerator::generateInstrumentationLaunchParms() const {
 }
 
 std::string
-InstrGenerator::generateInstrumentationFinalize(bool rollback) const {
+CfgCounterInstrGenerator::generateInstrumentationFinalize(bool rollback) const {
     std::stringstream ss;
 
     ss << "\n\n/* Finalize instrumentation : copy back data */\n";
@@ -160,12 +162,6 @@ InstrGenerator::generateInstrumentationFinalize(bool rollback) const {
     }
 
     return ss.str();
-}
-
-// ----- MultipleExecutionInstrGenerator ----- //
-
-std::string MultipleExecutionInstrGenerator::generatePostKernel() const {
-    return "";
 }
 
 }; // namespace hip

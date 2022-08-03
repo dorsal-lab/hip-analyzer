@@ -305,7 +305,6 @@ void KernelDuplicator::matchResult(
     const clang::ast_matchers::MatchFinder::MatchResult& Result) {
     auto lang_opt = Result.Context->getLangOpts();
     auto& source_manager = *Result.SourceManager;
-    InstrGenerator instr_generator;
 
     rewriter.setSourceMgr(source_manager, lang_opt);
 
@@ -354,6 +353,9 @@ void KernelDuplicator::matchResult(
                 llvm::toString(std::move(error)));
         }
 
+        // This technically adds nothing, but leave it for the moment just it
+        // case
+        /*
         error = reps.add({source_manager, range.getBegin(), 0,
                           instr_generator.generateIncludesPost(rollback)});
         if (error) {
@@ -361,6 +363,7 @@ void KernelDuplicator::matchResult(
                 "Could not insert pre-kernel preprocessor : " +
                 llvm::toString(std::move(error)));
         }
+        */
     }
 }
 
@@ -500,7 +503,7 @@ KernelCallInstrumenter::KernelCallInstrumenter(
     const std::string& kernel_name, const std::vector<hip::BasicBlock>& b,
     bool rollback)
     : kernel_name(kernel_name), rollback(rollback) {
-    instr_generator = std::make_unique<InstrGenerator>();
+    instr_generator = std::make_unique<CfgCounterInstrGenerator>();
     instr_generator->bb_count = b.size();
 }
 

@@ -59,10 +59,10 @@ class RewritingMatchCallback
  */
 class KernelCfgInstrumenter : public RewritingMatchCallback {
   public:
-    KernelCfgInstrumenter(const std::string& kernel_name,
-                          std::vector<hip::BasicBlock>& b,
-                          std::unique_ptr<hip::InstrGenerator> instr_gen =
-                              std::make_unique<hip::InstrGenerator>());
+    KernelCfgInstrumenter(
+        const std::string& kernel_name, std::vector<hip::BasicBlock>& b,
+        std::unique_ptr<hip::InstrGenerator> instr_gen =
+            std::make_unique<hip::CfgCounterInstrGenerator>());
 
     virtual void matchResult(
         const clang::ast_matchers::MatchFinder::MatchResult& Result) override;
