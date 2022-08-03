@@ -25,23 +25,33 @@ __global__ void enqueue_kernel(Event* e, size_t* offsets) {
     }
 }
 
+constexpr auto NB_THREADS = 64u;
+
 int main() {
     hip::init();
 
+    std::vector<size_t> offsets(NB_THREADS, 0u);
+    for (auto i = 0u; i < NB_THREADS; ++i) {
+        offsets[i] = NB_ELEMENTS * i;
+    }
+
     Event* storage;
-    hip::check(hipMalloc(&storage, sizeof(Event) * NB_ELEMENTS));
+    hip::check(hipMalloc(&storage, sizeof(Event) * NB_ELEMENTS * NB_THREADS));
 
-    size_t* offsets;
-    hip::check(hipMalloc(&offsets, sizeof(size_t) * NB_ELEMENTS));
-    hip::check(hipMemset(offsets, 0u, sizeof(size_t) * NB_ELEMENTS));
+    size_t* offsets_gpu;
+    hip::check(hipMalloc(&offsets_gpu, sizeof(size_t) * NB_THREADS));
 
-    enqueue_kernel<<<1, 1>>>(storage, offsets);
+    hip::check(hipMemcpy(offsets_gpu, offsets.data(),
+                         sizeof(size_t) * NB_THREADS, hipMemcpyHostToDevice));
+
+    enqueue_kernel<<<1, NB_THREADS>>>(storage, offsets_gpu);
     hip::check(hipDeviceSynchronize());
 
-    std::vector<Event> events_cpu(NB_ELEMENTS, {0});
+    std::vector<Event> events_cpu(NB_ELEMENTS * NB_THREADS, {0});
 
     hip::check(hipMemcpy(events_cpu.data(), storage,
-                         sizeof(Event) * NB_ELEMENTS, hipMemcpyDeviceToHost));
+                         sizeof(Event) * NB_ELEMENTS * NB_THREADS,
+                         hipMemcpyDeviceToHost));
 
     for (auto& e : events_cpu) {
         std::cout << e.value << '\n';
