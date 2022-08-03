@@ -99,7 +99,7 @@ hipError_t HipMemoryManager::hipFreeWrapper(void* ptr) {
 
 HipMemoryManager::~HipMemoryManager() {
     for (auto& [ptr, tagged_ptr] : alloc_map) {
-        std::cout << "HipMemoryManager::~HipMemoryManager : unfreed object "
+        std::cout << "HipMemoryManager::~HipMemoryManager() : unfreed object "
                   << ptr << '\n';
     }
 }
