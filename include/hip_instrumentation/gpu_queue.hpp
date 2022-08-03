@@ -85,11 +85,12 @@ template <class EventType> class WaveQueue {
     /** \fn push_back
      * \brief Appends an event to the queue
      */
-    __device__ EventType& push_back(EventType&& event);
+    __device__ EventType& push_back(const EventType& event);
 
   private:
     size_t wavefront_id;
-    EventType* storage_array;
+    size_t offset;
+    EventType* storage;
     size_t curr_id = 0u;
 };
 
@@ -115,7 +116,7 @@ ThreadQueue<EventType>::push_back(const EventType& event) {
 
 template <class EventType>
 __device__ WaveQueue<EventType>::WaveQueue(EventType* storage, size_t* offsets)
-    : storage_array(storage) {
+    : storage(storage) {
     // Compute how many waves per blocks there is
     unsigned int waves_per_block;
     if (blockDim.x % warpSize == 0) {
@@ -127,13 +128,18 @@ __device__ WaveQueue<EventType>::WaveQueue(EventType* storage, size_t* offsets)
     auto wave_in_block = threadIdx.x % warpSize;
 
     wavefront_id = blockIdx.x * waves_per_block + wave_in_block;
+    offset = offsets[wavefront_id];
 }
 
 template <class EventType>
-__device__ EventType& WaveQueue<EventType>::push_back(EventType&& event) {
+__device__ EventType& WaveQueue<EventType>::push_back(const EventType& event) {
+    auto* ptr = &storage[offset + curr_id];
     if (threadIdx.x % warpSize == 0) {
+        *ptr = event;
+        ++curr_id;
     }
-    ++curr_id;
+
+    return *ptr;
 }
 
 } // namespace hip

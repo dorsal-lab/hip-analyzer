@@ -15,8 +15,9 @@ struct Event {
 
 constexpr auto NB_ELEMENTS = 8u;
 
+template <class Queue>
 __global__ void enqueue_kernel(Event* e, size_t* offsets) {
-    hip::ThreadQueue<Event> queue{e, offsets};
+    Queue queue{e, offsets};
 
     for (auto i = 0u; i < NB_ELEMENTS; ++i) {
         Event e{i};
@@ -35,6 +36,8 @@ int main() {
         offsets[i] = NB_ELEMENTS * i;
     }
 
+    // ThreadQueue test
+
     Event* storage;
     hip::check(hipMalloc(&storage, sizeof(Event) * NB_ELEMENTS * NB_THREADS));
 
@@ -44,10 +47,29 @@ int main() {
     hip::check(hipMemcpy(offsets_gpu, offsets.data(),
                          sizeof(size_t) * NB_THREADS, hipMemcpyHostToDevice));
 
-    enqueue_kernel<<<1, NB_THREADS>>>(storage, offsets_gpu);
+    enqueue_kernel<hip::ThreadQueue<Event>>
+        <<<1, NB_THREADS>>>(storage, offsets_gpu);
     hip::check(hipDeviceSynchronize());
 
     std::vector<Event> events_cpu(NB_ELEMENTS * NB_THREADS, {0});
+
+    hip::check(hipMemcpy(events_cpu.data(), storage,
+                         sizeof(Event) * NB_ELEMENTS * NB_THREADS,
+                         hipMemcpyDeviceToHost));
+
+    for (auto& e : events_cpu) {
+        std::cout << e.value << '\n';
+    }
+
+    // WaveQueue test
+
+    hip::check(
+        hipMemset(storage, 0u, sizeof(Event) * NB_ELEMENTS * NB_THREADS));
+
+    // Basically run the same test, but with more blocks as to create more
+    // wavefronts
+    enqueue_kernel<hip::WaveQueue<Event>>
+        <<<NB_THREADS, NB_THREADS>>>(storage, offsets_gpu);
 
     hip::check(hipMemcpy(events_cpu.data(), storage,
                          sizeof(Event) * NB_ELEMENTS * NB_THREADS,
