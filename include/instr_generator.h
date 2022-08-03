@@ -110,4 +110,28 @@ struct CfgCounterInstrGenerator : public InstrGenerator {
     virtual std::string generatePostKernel() const override { return ""; }
 };
 
+struct EventRecordInstrGenerator : public InstrGenerator {
+    EventRecordInstrGenerator(bool is_thread = true) : is_thread(is_thread) {}
+
+    // ----- Device-side instrumentation ----- //
+    virtual std::string generateBlockCode(unsigned int id) const override;
+    virtual std::string generateIncludes() const override;
+    virtual std::string generateIncludesPost(bool rollback) const override;
+    virtual std::string generateInstrumentationParms() const override;
+    virtual std::string generateInstrumentationLocals() const override;
+    virtual std::string generateInstrumentationCommit() const override;
+
+    // ----- Host-side instrumentation ----- //
+
+    virtual std::string generateInstrumentationInit(
+        std::optional<std::string> call_args = std::nullopt) const override;
+    virtual std::string generateInstrumentationLaunchParms() const override;
+    virtual std::string
+    generateInstrumentationFinalize(bool rollback = false) const override;
+    virtual std::string generatePostKernel() const override { return ""; }
+
+  private:
+    bool is_thread;
+};
+
 } // namespace hip

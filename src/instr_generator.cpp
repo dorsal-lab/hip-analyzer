@@ -53,6 +53,8 @@ void InstrGenerator::setGeometry(const clang::CallExpr& kernel_call,
     llvm::errs() << threads << '\n';
 }
 
+// ----- CfgCounterInstrGenerator ----- //
+
 std::string CfgCounterInstrGenerator::generateBlockCode(unsigned int id) const {
     std::stringstream ss;
     ss << "/* BB " << id << " (" << bb_count << ") */" << '\n';
@@ -156,6 +158,107 @@ CfgCounterInstrGenerator::generateInstrumentationFinalize(bool rollback) const {
     ss << "hip::check(hipDeviceSynchronize());\n"
        << "_" << kernel_name << "_instr.fromDevice(_" << kernel_name
        << "_ptr);\n";
+
+    if (rollback) {
+        ss << "_" << kernel_name << "_recoverer.rollback();\n";
+    }
+
+    return ss.str();
+}
+
+// ----- EventRecordInstrGenerator ----- //
+
+std::string
+EventRecordInstrGenerator::generateBlockCode(unsigned int id) const {
+    std::stringstream ss;
+    ss << "/* BB " << id << " (" << bb_count << ") */" << '\n';
+
+    ss << "_queue.push_back({" << bb_count << "});\n";
+
+    return ss.str();
+}
+
+std::string EventRecordInstrGenerator::generateIncludes() const {
+    return "#include \"hip_instrumentation/hip_instrumentation.hpp\"\n"
+           "#include \"hip_instrumentation/gpu_queue.hpp\"\n";
+}
+
+std::string
+EventRecordInstrGenerator::generateIncludesPost(bool rollback) const {
+    return "";
+}
+
+std::string EventRecordInstrGenerator::generateInstrumentationParms() const {
+    std::stringstream ss;
+    ss << ",/* Extra params */ hip::Event* _event_storage, size_t* "
+          "_event_offsets";
+
+    return ss.str();
+}
+
+std::string EventRecordInstrGenerator::generateInstrumentationLocals() const {
+    std::stringstream ss;
+
+    ss << "\n/* Instrumentation locals */\n";
+
+    if (is_thread) {
+        ss << "hip::ThreadQueue<hip::Event> _queue{_event_storage, "
+              "_event_offsets};\n";
+    } else {
+        ss << "hip::WaveQueue<hip::Event> _queue{_event_storage, "
+              "_event_offsets};\n";
+    }
+
+    return ss.str();
+}
+
+std::string EventRecordInstrGenerator::generateInstrumentationCommit() const {
+    std::stringstream ss;
+
+    ss << "/* Finalize instrumentation */\n";
+
+    // Print output
+
+    // Nothing to do : the queue writes to global memory
+
+    return ss.str();
+}
+
+std::string EventRecordInstrGenerator::generateInstrumentationInit(
+    std::optional<std::string> call_args) const {
+    std::stringstream ss;
+
+    ss << "/* Instrumentation variables, hipMalloc, etc. */\n\n";
+
+    if (call_args.has_value()) {
+        // The call args MUST have already been recorded in order to launch an
+        // event record instrumentation.
+    }
+
+    // Just as kernel info and instrumenter must already exist
+
+    // TODO : create queue buffers
+
+    return ss.str();
+}
+
+std::string
+EventRecordInstrGenerator::generateInstrumentationLaunchParms() const {
+    std::stringstream ss;
+
+    ss << ",/* Extra parameters for kernel launch ( " << bb_count
+       << " )*/ _event_storage, _event_offsets";
+
+    return ss.str();
+}
+
+std::string EventRecordInstrGenerator::generateInstrumentationFinalize(
+    bool rollback) const {
+    std::stringstream ss;
+
+    ss << "\n\n/* Finalize instrumentation : copy back data */\n";
+
+    // TODO
 
     if (rollback) {
         ss << "_" << kernel_name << "_recoverer.rollback();\n";
