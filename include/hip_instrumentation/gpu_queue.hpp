@@ -50,6 +50,28 @@ struct QueueInfo {
      */
     size_t totalSize() const { return queueLength() * elem_size; }
 
+    /** \fn allocBuffer
+     * \brief Allocates the queue buffer on the device
+     */
+    template <class EventType> EventType* allocBuffer() const {
+        EventType* ptr;
+        hip::check(hipMalloc(&ptr, totalSize()));
+        hip::check(hipMemset(ptr, 0u, totalSize()));
+        return ptr;
+    }
+
+    /** \fn allocOffsets
+     * \brief Allocates the offsets list on the device
+     */
+    size_t* allocOffsets() const {
+        size_t* ptr;
+        hip::check(hipMalloc(&ptr, parallelism() * sizeof(size_t)));
+        hip::check(hipMemcpy(ptr, offsets_vec.data(),
+                             parallelism() * sizeof(size_t),
+                             hipMemcpyHostToDevice));
+        return ptr;
+    }
+
   private:
     QueueInfo(Instrumenter& instr, size_t elem_size, bool is_thread);
 
