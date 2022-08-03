@@ -55,9 +55,11 @@ struct KernelInfo {
  * loadBin)
  */
 class Instrumenter {
+  public:
+    /** \brief Counter underlying type
+     */
     using counter_t = uint8_t;
 
-  public:
     /** \brief ctor
      */
     Instrumenter(KernelInfo& kernel_info);
