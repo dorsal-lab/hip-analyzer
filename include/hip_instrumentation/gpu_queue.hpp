@@ -66,6 +66,8 @@ template <class EventType> class ThreadQueue {
      */
     __device__ EventType& push_back(const EventType& event);
 
+    __device__ size_t index() const { return curr_id; }
+
   private:
     size_t thread_id;
     size_t offset;
@@ -95,7 +97,8 @@ template <class EventType> class WaveQueue {
 
 template <class EventType>
 __device__ ThreadQueue<EventType>::ThreadQueue(EventType* storage,
-                                               size_t* offsets) {
+                                               size_t* offsets)
+    : storage(storage) {
     thread_id = blockIdx.x * blockDim.x + threadIdx.x;
     offset = offsets[thread_id];
 }
@@ -103,16 +106,16 @@ __device__ ThreadQueue<EventType>::ThreadQueue(EventType* storage,
 template <class EventType>
 __device__ EventType&
 ThreadQueue<EventType>::push_back(const EventType& event) {
-    storage[offset + curr_id] = event;
-    auto& ref = storage[offset + curr_id];
-    ++curr_id;
+    auto* ptr = &storage[offset + curr_id];
+    *ptr = event;
 
-    return ref;
+    ++curr_id;
+    return *ptr;
 }
 
 template <class EventType>
-__device__ WaveQueue<EventType>::WaveQueue(EventType* storage,
-                                           size_t* offsets) {
+__device__ WaveQueue<EventType>::WaveQueue(EventType* storage, size_t* offsets)
+    : storage_array(storage) {
     // Compute how many waves per blocks there is
     unsigned int waves_per_block;
     if (blockDim.x % warpSize == 0) {

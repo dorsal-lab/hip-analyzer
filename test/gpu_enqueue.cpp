@@ -19,7 +19,9 @@ __global__ void enqueue_kernel(Event* e, size_t* offsets) {
     hip::ThreadQueue<Event> queue{e, offsets};
 
     for (auto i = 0u; i < NB_ELEMENTS; ++i) {
-        queue.push_back({i});
+        Event e{i};
+        queue.push_back(e);
+        // printf("%d\n", e.value);
     }
 }
 
