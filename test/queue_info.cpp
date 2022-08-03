@@ -21,8 +21,8 @@ struct Event {
 };
 
 int main() {
-    constexpr auto blocks = 64u;
-    constexpr auto threads = 64u;
+    constexpr auto blocks = 128;
+    constexpr auto threads = 128u;
 
     hip::KernelInfo ki("", 1, blocks, threads);
     hip::Instrumenter instr(ki);
@@ -38,6 +38,8 @@ int main() {
 
     // Now we can generate the queue info and verify that it's correct
 
+    // Test thread queue
+
     auto thread_queue_info = hip::QueueInfo::thread<Event>(instr);
 
     auto offsets = thread_queue_info.offsets();
@@ -45,7 +47,24 @@ int main() {
         std::cout << offset << '\n';
     }
 
-    std::cout << "Total queue size : " << thread_queue_info.queueSize() << '\n';
+    std::cout << "Total queue length : " << thread_queue_info.queueLength()
+              << '\n';
+
+    std::cout << "Total queues : " << thread_queue_info.parallelism() << '\n';
+
+    // Wave queue
+
+    auto wave_queue_info = hip::QueueInfo::wave<Event>(instr);
+
+    auto offsets_wave = wave_queue_info.offsets();
+    for (auto& offset : offsets_wave) {
+        std::cout << offset << '\n';
+    }
+
+    std::cout << "Total queue length : " << wave_queue_info.queueLength()
+              << '\n';
+
+    std::cout << "Total queues : " << wave_queue_info.parallelism() << '\n';
 
     // Free memory
 

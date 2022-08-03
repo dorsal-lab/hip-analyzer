@@ -90,6 +90,6 @@ void QueueInfo::computeSize() {
     // last thread of the last block
 }
 
-size_t QueueInfo::queueSize() const { return offsets_vec.back(); }
+size_t QueueInfo::queueLength() const { return offsets_vec.back(); }
 
 } // namespace hip

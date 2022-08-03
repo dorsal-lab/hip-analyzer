@@ -35,10 +35,20 @@ struct QueueInfo {
      */
     const std::vector<size_t>& offsets() const { return offsets_vec; }
 
+    /** \fn parallelism
+     * \brief Returns the number of parallel queues effectively allocated
+     */
+    size_t parallelism() const { return offsets_vec.size() - 1; }
+
     /** \fn queueSize
      * \brief Returns the total number of elements to be allocated in the queue
      */
-    size_t queueSize() const;
+    size_t queueLength() const;
+
+    /** \fn totalSize
+     * \brief Returns the total size (in bytes) of the queue buffer
+     */
+    size_t totalSize() const { return queueLength() * elem_size; }
 
   private:
     QueueInfo(Instrumenter& instr, size_t elem_size, bool is_thread);
