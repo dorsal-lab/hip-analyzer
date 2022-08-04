@@ -138,8 +138,10 @@ int main(int argc, const char** argv) {
                                                    err, include_original_call))
             .process(
                 hip::actions::TraceBasicBlocks(traced_kernel_name, blocks, err))
-            .process(hip::actions::DuplicateKernelCall(
-                kernel, traced_kernel_name, err));
+            .process(hip::actions::DuplicateKernelCall(kernel,
+                                                       traced_kernel_name, err))
+            .process(
+                hip::actions::TraceKernelCall(traced_kernel_name, blocks, err));
     }
 
     actions

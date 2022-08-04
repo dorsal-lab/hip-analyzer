@@ -501,9 +501,10 @@ void hip::KernelCallInstrumenter::addKernelCallDecoration(
 
 KernelCallInstrumenter::KernelCallInstrumenter(
     const std::string& kernel_name, const std::vector<hip::BasicBlock>& b,
-    bool rollback)
-    : kernel_name(kernel_name), rollback(rollback) {
-    instr_generator = std::make_unique<CfgCounterInstrGenerator>();
+    bool rollback, std::unique_ptr<hip::InstrGenerator> instr_gen)
+    : kernel_name(kernel_name), rollback(rollback),
+      instr_generator(std::move(instr_gen)) {
+    instr_generator->kernel_name = kernel_name;
     instr_generator->bb_count = b.size();
 }
 

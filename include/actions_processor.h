@@ -222,6 +222,20 @@ class InstrumentKernelCall : public Action {
     bool do_rollback = false;
 };
 
+class TraceKernelCall : public Action {
+  public:
+    TraceKernelCall(const std::string& kernel,
+                    const std::vector<hip::BasicBlock>& blocks, int& err)
+        : kernel(kernel), blocks(blocks), err(err) {}
+
+    virtual std::string operator()(clang::tooling::ClangTool& tool) override;
+
+  private:
+    const std::string& kernel;
+    const std::vector<hip::BasicBlock>& blocks;
+    int& err;
+};
+
 } // namespace actions
 
 } // namespace hip

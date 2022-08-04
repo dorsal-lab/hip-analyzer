@@ -163,6 +163,20 @@ std::string InstrumentKernelCall::operator()(clang::tooling::ClangTool& tool) {
     return instrumenter.getOutputBuffer();
 }
 
+std::string TraceKernelCall::operator()(clang::tooling::ClangTool& tool) {
+    clang::ast_matchers::MatchFinder finder;
+    auto kernel_call_matcher = hip::kernelCallMatcher(kernel);
+
+    auto instr_generator = std::make_unique<hip::EventRecordInstrGenerator>();
+    KernelCallInstrumenter instrumenter(kernel, blocks, true,
+                                        std::move(instr_generator));
+
+    finder.addMatcher(kernel_call_matcher, &instrumenter);
+
+    err |= tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
+    return instrumenter.getOutputBuffer();
+}
+
 std::string DuplicateKernelCall::operator()(clang::tooling::ClangTool& tool) {
     clang::ast_matchers::MatchFinder finder;
     auto kernel_call_matcher = hip::kernelCallMatcher(original);
