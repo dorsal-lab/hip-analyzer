@@ -109,6 +109,30 @@ std::string InstrumentBasicBlocks::getInstrumentedKernelName(
     return kernel_name + "_bb";
 }
 
+std::string TraceBasicBlocks::operator()(clang::tooling::ClangTool& tool) {
+    // Kernel matcher
+    clang::ast_matchers::MatchFinder finder;
+    auto kernel_matcher = hip::kernelMatcher(kernel);
+
+    // Instrument basic blocks
+    auto tracing_instr_generator =
+        std::make_unique<hip::EventRecordInstrGenerator>();
+    auto kernel_instrumenter = std::make_unique<hip::KernelCfgInstrumenter>(
+        kernel, blocks, std::move(tracing_instr_generator));
+
+    /* auto kernel_call_instrumenter = hip::makeCudaCallInstrumenter(
+    kernel_name.getValue(), output_file.getValue()); */
+
+    finder.addMatcher(kernel_matcher, kernel_instrumenter.get());
+    err |= tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
+    return kernel_instrumenter->getOutputBuffer();
+}
+
+std::string
+TraceBasicBlocks::getInstrumentedKernelName(const std::string& kernel_name) {
+    return kernel_name + "_traced";
+}
+
 std::string AnalyzeIR::operator()(clang::tooling::ClangTool& tool) {
     auto codegen = makeLLVMAction(kernel, blocks);
     err |= tool.run(codegen.get());

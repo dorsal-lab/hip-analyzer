@@ -123,6 +123,26 @@ class InstrumentBasicBlocks : public Action {
     int& err;
 };
 
+class TraceBasicBlocks : public Action {
+  public:
+    TraceBasicBlocks(const std::string& kernel_name,
+                     std::vector<hip::BasicBlock>& blocks, int& err)
+        : kernel(kernel_name), blocks(blocks), err(err) {}
+
+    virtual std::string operator()(clang::tooling::ClangTool& tool) override;
+
+    /** \fn getInstrumentedKernelName
+     * \brief Returns the name of the kernel with traced bblocks
+     */
+    static std::string
+    getInstrumentedKernelName(const std::string& kernel_name);
+
+  private:
+    const std::string& kernel;
+    std::vector<hip::BasicBlock>& blocks;
+    int& err;
+};
+
 /** \class AnalyzeIR
  * \brief Compiles the kernel to LLVM IR and performs a more fine-grained
  * analysis of the basic blocks, to extract more precise informations (flops,

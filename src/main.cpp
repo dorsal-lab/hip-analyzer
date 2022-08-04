@@ -29,12 +29,19 @@ static llvm::cl::extrahelp
     CommonHelp(clang::tooling::CommonOptionsParser::HelpMessage);
 
 static llvm::cl::extrahelp MoreHelp("\nTODO: Extra help\n");
+
 static llvm::cl::opt<std::string>
     kernel_name("k", llvm::cl::desc("Specify kernel name"),
                 llvm::cl::value_desc("kernel"), llvm::cl::Required);
+
+static llvm::cl::opt<bool> trace("trace",
+                                 llvm::cl::desc("Enable finer tracing"),
+                                 llvm::cl::value_desc("Trace kernel"));
+
 static llvm::cl::opt<std::string>
     output_file("o", llvm::cl::desc("Output file path"),
                 llvm::cl::value_desc("output"), llvm::cl::Required);
+
 static llvm::cl::opt<std::string>
     database_file("db", llvm::cl::desc("Output database path"),
                   llvm::cl::value_desc("database"),
@@ -119,6 +126,20 @@ int main(int argc, const char** argv) {
     } else {
         actions.process(
             hip::actions::ReplaceKernelCall(kernel, instrumented_bb_name, err));
+    }
+
+    if (trace) {
+        // Duplicate again the kernel, this time with the trace-d version
+        auto traced_kernel_name =
+            hip::actions::TraceBasicBlocks::getInstrumentedKernelName(kernel);
+
+        actions
+            .process(hip::actions::DuplicateKernel(kernel, traced_kernel_name,
+                                                   err, include_original_call))
+            .process(
+                hip::actions::TraceBasicBlocks(traced_kernel_name, blocks, err))
+            .process(hip::actions::DuplicateKernelCall(
+                kernel, traced_kernel_name, err));
     }
 
     actions
