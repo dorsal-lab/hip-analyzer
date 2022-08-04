@@ -6,6 +6,9 @@
 
 #pragma once
 
+#ifndef HIP_HIP_UTILS_HPP_
+#define HIP_HIP_UTILS_HPP_
+
 #include "hip/hip_runtime.h"
 
 // Std includes
@@ -32,3 +35,5 @@ inline std::unique_ptr<hipDeviceProp_t> init(int device = 0) {
 }
 
 } // namespace hip
+
+#endif
