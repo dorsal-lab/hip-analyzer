@@ -23,6 +23,15 @@ static std::string rocm_path = ROCM_PATH_STR;
 static std::string rocm_path = "/opt/rocm";
 #endif
 
+#ifdef HIP_ANALYZER_INCLUDE_PATH
+#define HIP_ANALYZER_INCLUDE_PATH_STR #HIP_ANALYZER_INCLUDE_PATH
+static std::string include_path = HIP_ANALYZER_INCLUDE_PATH_STR;
+#else
+static std::string current_file_path = __FILE__;
+static std::string include_path =
+    current_file_path.substr(0u, current_file_path.rfind('/')) + "/../include";
+#endif
+
 static llvm::cl::OptionCategory llvmClCategory("HipAnalyzer options");
 
 static llvm::cl::extrahelp
@@ -91,6 +100,7 @@ int main(int argc, const char** argv) {
     appendFlag(db, "--cuda-device-only");
     appendFlag(db, "-I" + rocm_path + "/hip/bin/include");
     appendFlag(db, "-gline-directives-only");
+    appendFlag(db, "-I" + include_path);
 
     // Instrumentation info
 
