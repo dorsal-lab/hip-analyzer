@@ -174,4 +174,23 @@ __device__ EventType& WaveQueue<EventType>::push_back(const EventType& event) {
     return *ptr;
 }
 
+// Sample event classes
+
+/** \struct Event
+ * \brief Contains just the basic block id
+ */
+struct Event {
+    size_t bb;
+};
+
+/** \struct TaggedEvent
+ * \brief Event, with an associated timestamp
+ */
+struct TaggedEvent {
+    TaggedEvent(size_t bb) : bb(bb) {
+        // TODO : fetch GPU timestamp, asm?
+    }
+    size_t bb;
+};
+
 } // namespace hip

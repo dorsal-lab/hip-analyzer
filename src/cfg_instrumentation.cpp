@@ -228,6 +228,8 @@ void hip::KernelCfgInstrumenter::matchResult(
         addLocals(match, source_manager, lang_opt);
 
         addCommit(match, source_manager, lang_opt);
+
+        addIncludes(source_manager, lang_opt);
     }
 }
 
@@ -435,7 +437,7 @@ void KernelCallDuplicator::matchResult(
     }
 }
 
-void hip::KernelCallInstrumenter::addIncludes(
+void hip::KernelCfgInstrumenter::addIncludes(
     clang::SourceManager& source_manager, clang::LangOptions& lang_opt) {
     // match->getSourceRange().dump(source_manager);
     auto file_begin_loc =
@@ -516,8 +518,6 @@ void KernelCallInstrumenter::matchResult(
     rewriter.setSourceMgr(source_manager, lang_opt);
     if (const auto* match =
             Result.Nodes.getNodeAs<clang::CUDAKernelCallExpr>(kernel_name)) {
-
-        addIncludes(source_manager, lang_opt);
 
         // For now, only the CUDA-style kernel launch is supported (like
         // kernel<<<...>>>) as parsing macros (which hipLaunchKernelGGL is)

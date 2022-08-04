@@ -69,6 +69,12 @@ class KernelCfgInstrumenter : public RewritingMatchCallback {
 
   protected:
     /**
+     * \brief Add runtime includes
+     */
+    void addIncludes(clang::SourceManager& source_manager,
+                     clang::LangOptions& lang_opt);
+
+    /**
      * \brief Extra parameters instrumentation
      */
     void addExtraParameters(const clang::FunctionDecl* match,
@@ -159,12 +165,6 @@ class KernelCallInstrumenter : public RewritingMatchCallback {
         const clang::ast_matchers::MatchFinder::MatchResult& Result) override;
 
   protected:
-    /**
-     * \brief Add runtime includes
-     */
-    void addIncludes(clang::SourceManager& source_manager,
-                     clang::LangOptions& lang_opt);
-
     /**
      * \brief Kernel call adjustments
      */
