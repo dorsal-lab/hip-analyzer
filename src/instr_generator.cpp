@@ -180,7 +180,8 @@ EventRecordInstrGenerator::generateBlockCode(unsigned int id) const {
 
 std::string EventRecordInstrGenerator::generateIncludes() const {
     return "#include \"hip_instrumentation/hip_instrumentation.hpp\"\n"
-           "#include \"hip_instrumentation/gpu_queue.hpp\"\n";
+           "#include \"hip_instrumentation/gpu_queue.hpp\"\n"
+           "#include \"hip_instrumentation/state_recoverer.hpp\"\n";
 }
 
 std::string
@@ -190,8 +191,11 @@ EventRecordInstrGenerator::generateIncludesPost(bool rollback) const {
 
 std::string EventRecordInstrGenerator::generateInstrumentationParms() const {
     std::stringstream ss;
-    ss << ",/* Extra params */ hip::Event* _event_storage, size_t* "
-          "_event_offsets";
+
+    // Must have default parameters overload, otherwise the kernel call won't
+    // compile
+    ss << ",/* Extra params */ hip::Event* _event_storage = nullptr, size_t* "
+          "_event_offsets = nullptr";
 
     return ss.str();
 }

@@ -148,18 +148,20 @@ int main(int argc, const char** argv) {
                                                    err, include_original_call))
             .process(
                 hip::actions::TraceBasicBlocks(traced_kernel_name, blocks, err))
-            .process(hip::actions::DuplicateKernelCall(kernel,
-                                                       traced_kernel_name, err))
-            .process(
-                hip::actions::TraceKernelCall(traced_kernel_name, blocks, err));
+            .process(hip::actions::DuplicateKernelCall(
+                kernel, traced_kernel_name, err));
     }
 
     actions
         // Add the necessary tools to instrument the kernel call
-        .process(hip::actions::InstrumentKernelCall(
-            instrumented_bb_name, blocks, err, include_original_call))
-        // Analyze the original IR to get better info on the kernel execution
-        .observeOriginal(hip::actions::AnalyzeIR(kernel, blocks, err));
+        .process(hip::actions::InstrumentKernelCall(kernel, blocks, err,
+                                                    include_original_call));
+
+    if (trace) {
+        actions.process(hip::actions::TraceKernelCall(kernel, blocks, err));
+    }
+    // Analyze the original IR to get better info on the kernel execution
+    actions.observeOriginal(hip::actions::AnalyzeIR(kernel, blocks, err));
 
     saveDatabase(blocks, database_file.getValue());
 

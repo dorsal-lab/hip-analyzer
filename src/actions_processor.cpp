@@ -153,9 +153,10 @@ std::string ReplaceKernelCall::operator()(clang::tooling::ClangTool& tool) {
 
 std::string InstrumentKernelCall::operator()(clang::tooling::ClangTool& tool) {
     clang::ast_matchers::MatchFinder finder;
-    auto kernel_call_matcher = hip::kernelCallMatcher(kernel);
+    auto kernel_call_matcher = hip::kernelCallMatcher(instrumented_kernel);
 
-    KernelCallInstrumenter instrumenter(kernel, blocks, do_rollback);
+    KernelCallInstrumenter instrumenter(kernel, instrumented_kernel, blocks,
+                                        do_rollback);
 
     finder.addMatcher(kernel_call_matcher, &instrumenter);
 
@@ -165,11 +166,11 @@ std::string InstrumentKernelCall::operator()(clang::tooling::ClangTool& tool) {
 
 std::string TraceKernelCall::operator()(clang::tooling::ClangTool& tool) {
     clang::ast_matchers::MatchFinder finder;
-    auto kernel_call_matcher = hip::kernelCallMatcher(kernel);
+    auto kernel_call_matcher = hip::kernelCallMatcher(instrumented_kernel);
 
     auto instr_generator = std::make_unique<hip::EventRecordInstrGenerator>();
-    KernelCallInstrumenter instrumenter(kernel, blocks, true,
-                                        std::move(instr_generator));
+    KernelCallInstrumenter instrumenter(kernel, instrumented_kernel, blocks,
+                                        true, std::move(instr_generator));
 
     finder.addMatcher(kernel_call_matcher, &instrumenter);
 

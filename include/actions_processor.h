@@ -107,7 +107,8 @@ class InstrumentBasicBlocks : public Action {
   public:
     InstrumentBasicBlocks(const std::string& kernel_name,
                           std::vector<hip::BasicBlock>& blocks, int& err)
-        : kernel(kernel_name), blocks(blocks), err(err) {}
+        : kernel(kernel_name), blocks(blocks), err(err),
+          instrumented_kernel(getInstrumentedKernelName(kernel_name)) {}
 
     virtual std::string operator()(clang::tooling::ClangTool& tool) override;
 
@@ -119,6 +120,7 @@ class InstrumentBasicBlocks : public Action {
 
   private:
     const std::string& kernel;
+    std::string instrumented_kernel;
     std::vector<hip::BasicBlock>& blocks;
     int& err;
 };
@@ -211,12 +213,15 @@ class InstrumentKernelCall : public Action {
     InstrumentKernelCall(const std::string& kernel,
                          const std::vector<hip::BasicBlock>& blocks, int& err,
                          bool rollback = false)
-        : kernel(kernel), blocks(blocks), err(err), do_rollback(rollback) {}
+        : kernel(kernel), blocks(blocks), err(err), do_rollback(rollback),
+          instrumented_kernel(
+              InstrumentBasicBlocks::getInstrumentedKernelName(kernel)) {}
 
     virtual std::string operator()(clang::tooling::ClangTool& tool) override;
 
   private:
     const std::string& kernel;
+    std::string instrumented_kernel;
     const std::vector<hip::BasicBlock>& blocks;
     int& err;
     bool do_rollback = false;
@@ -226,12 +231,15 @@ class TraceKernelCall : public Action {
   public:
     TraceKernelCall(const std::string& kernel,
                     const std::vector<hip::BasicBlock>& blocks, int& err)
-        : kernel(kernel), blocks(blocks), err(err) {}
+        : kernel(kernel), blocks(blocks), err(err),
+          instrumented_kernel(
+              TraceBasicBlocks::getInstrumentedKernelName(kernel)) {}
 
     virtual std::string operator()(clang::tooling::ClangTool& tool) override;
 
   private:
     const std::string& kernel;
+    std::string instrumented_kernel;
     const std::vector<hip::BasicBlock>& blocks;
     int& err;
 };

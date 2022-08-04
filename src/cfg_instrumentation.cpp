@@ -502,10 +502,11 @@ void hip::KernelCallInstrumenter::addKernelCallDecoration(
 }
 
 KernelCallInstrumenter::KernelCallInstrumenter(
-    const std::string& kernel_name, const std::vector<hip::BasicBlock>& b,
-    bool rollback, std::unique_ptr<hip::InstrGenerator> instr_gen)
-    : kernel_name(kernel_name), rollback(rollback),
-      instr_generator(std::move(instr_gen)) {
+    const std::string& kernel_name, const std::string& instrumented_name,
+    const std::vector<hip::BasicBlock>& b, bool rollback,
+    std::unique_ptr<hip::InstrGenerator> instr_gen)
+    : kernel_name(kernel_name), instrumented_name(instrumented_name),
+      rollback(rollback), instr_generator(std::move(instr_gen)) {
     instr_generator->kernel_name = kernel_name;
     instr_generator->bb_count = b.size();
 }
@@ -516,8 +517,8 @@ void KernelCallInstrumenter::matchResult(
     auto& source_manager = *Result.SourceManager;
 
     rewriter.setSourceMgr(source_manager, lang_opt);
-    if (const auto* match =
-            Result.Nodes.getNodeAs<clang::CUDAKernelCallExpr>(kernel_name)) {
+    if (const auto* match = Result.Nodes.getNodeAs<clang::CUDAKernelCallExpr>(
+            instrumented_name)) {
 
         // For now, only the CUDA-style kernel launch is supported (like
         // kernel<<<...>>>) as parsing macros (which hipLaunchKernelGGL is)

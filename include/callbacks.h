@@ -156,8 +156,8 @@ class KernelCallDuplicator : public RewritingMatchCallback {
 class KernelCallInstrumenter : public RewritingMatchCallback {
   public:
     KernelCallInstrumenter(
-        const std::string& kernel_name, const std::vector<hip::BasicBlock>& b,
-        bool rollback = false,
+        const std::string& kernel_name, const std::string& instrumented_name,
+        const std::vector<hip::BasicBlock>& b, bool rollback = false,
         std::unique_ptr<hip::InstrGenerator> instr_gen =
             std::make_unique<hip::CfgCounterInstrGenerator>());
 
@@ -174,6 +174,7 @@ class KernelCallInstrumenter : public RewritingMatchCallback {
 
   private:
     const std::string& kernel_name;
+    const std::string& instrumented_name;
     std::unique_ptr<hip::InstrGenerator> instr_generator;
     bool rollback;
 };
