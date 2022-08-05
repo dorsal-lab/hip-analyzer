@@ -243,8 +243,8 @@ std::string EventRecordInstrGenerator::generateInstrumentationInit(
 
     // TODO : pass parameters for wave queue
 
-    ss << "auto _queue_info = hip::QueueInfo::thread(_" << kernel_name
-       << "_instr);\n";
+    ss << "auto _queue_info = hip::QueueInfo::thread<hip::Event>(_"
+       << kernel_name << "_instr);\n";
 
     ss << "auto _event_storage = _queue_info.allocBuffer<hip::Event>();\n"
        << "auto _event_offsets = _queue_info.allocOffsets();\n";
