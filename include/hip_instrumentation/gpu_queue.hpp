@@ -20,6 +20,7 @@ struct QueueInfo {
      * \brief Creates a ThreadQueue buffer
      */
     template <class EventType> static QueueInfo thread(Instrumenter& instr) {
+        static_assert(std::is_trivially_copyable_v<EventType>);
         return QueueInfo{instr, sizeof(EventType), true};
     }
 
@@ -27,6 +28,7 @@ struct QueueInfo {
      * \brief creates a WaveQueue buffer
      */
     template <class EventType> static QueueInfo wave(Instrumenter& instr) {
+        static_assert(std::is_trivially_copyable_v<EventType>);
         return QueueInfo{instr, sizeof(EventType), false};
     }
 
@@ -132,6 +134,7 @@ template <class EventType>
 __device__ ThreadQueue<EventType>::ThreadQueue(EventType* storage,
                                                size_t* offsets)
     : storage(storage) {
+    static_assert(std::is_trivially_copyable_v<EventType>);
     thread_id = blockIdx.x * blockDim.x + threadIdx.x;
     offset = offsets[thread_id];
 }
@@ -149,6 +152,7 @@ ThreadQueue<EventType>::push_back(const EventType& event) {
 template <class EventType>
 __device__ WaveQueue<EventType>::WaveQueue(EventType* storage, size_t* offsets)
     : storage(storage) {
+    static_assert(std::is_trivially_copyable_v<EventType>);
     // Compute how many waves per blocks there is
     unsigned int waves_per_block;
     if (blockDim.x % warpSize == 0) {
