@@ -8,8 +8,11 @@
 #include "hip_instrumentation/hip_utils.hpp"
 
 #include <chrono>
+#include <condition_variable>
 #include <fstream>
 #include <iostream>
+#include <mutex>
+#include <queue>
 #include <sstream>
 
 // Jsoncpp (shipped with ubuntu & debian)
@@ -20,6 +23,84 @@
 #include "roctracer.h"
 
 namespace hip {
+
+namespace {
+
+/** \class TraceManager
+ * \brief Singleton manager to record traces and save them to the filesystem
+ */
+class HipTraceManager {
+  public:
+    using Counters = std::vector<Instrumenter::counter_t>;
+
+    HipTraceManager(const HipTraceManager&) = delete;
+    HipTraceManager operator=(const HipTraceManager&) = delete;
+    ~HipTraceManager();
+
+    static HipTraceManager& getInstance() {
+        if (instance.get() == nullptr) {
+            instance = std::unique_ptr<HipTraceManager>(new HipTraceManager());
+        }
+
+        return *instance;
+    }
+
+    void registerCounters(Instrumenter& instr, Counters&& counters);
+
+  private:
+    HipTraceManager();
+
+    void runThread();
+
+    static std::unique_ptr<HipTraceManager> instance;
+
+    /** \brief Thread writing to the file system
+     */
+    std::unique_ptr<std::thread> fs_thread;
+    std::atomic_flag cont = true;
+    std::mutex mutex;
+    std::condition_variable cond;
+    std::queue<Counters> queue;
+};
+
+} // namespace
+
+std::unique_ptr<HipTraceManager> HipTraceManager::instance;
+
+HipTraceManager::HipTraceManager() {
+    // Startup thread
+    fs_thread = std::make_unique<std::thread>([this]() { runThread(); });
+}
+
+HipTraceManager::~HipTraceManager() {
+    cont.clear();
+    fs_thread->join();
+}
+
+void HipTraceManager::registerCounters(Instrumenter& instr,
+                                       Counters&& counters) {
+    std::lock_guard lock{mutex};
+
+    queue.push(std::move(counters));
+    // TODO : more stuff ?
+
+    cond.notify_one();
+}
+
+void HipTraceManager::runThread() {
+    while (true) {
+        // Acquire mutex
+        std::unique_lock<std::mutex> lock(mutex);
+        cond.wait(lock, [&]() { return cont.test_and_set(); });
+
+        if (!cont.test_and_set()) {
+            return;
+        }
+
+        std::vector<Counters> counters{std::move(queue.front())};
+        queue.pop();
+    }
+}
 
 // GCN Assembly
 
