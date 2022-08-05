@@ -155,9 +155,17 @@ CfgCounterInstrGenerator::generateInstrumentationFinalize(bool rollback) const {
 
     ss << "\n\n/* Finalize instrumentation : copy back data */\n";
 
+    // Fetch data from device
+
     ss << "hip::check(hipDeviceSynchronize());\n"
        << "_" << kernel_name << "_instr.fromDevice(_" << kernel_name
        << "_ptr);\n";
+
+    ss << "_" << kernel_name << "_instr.dumpBin();\n";
+
+    // Free memory
+
+    ss << "hip::check(hipFree(_" << kernel_name << "_ptr));\n\n";
 
     if (rollback) {
         ss << "_" << kernel_name << "_recoverer.rollback();\n";
@@ -269,6 +277,11 @@ std::string EventRecordInstrGenerator::generateInstrumentationFinalize(
     ss << "\n\n/* Finalize instrumentation : copy back data */\n";
 
     // TODO
+
+    // Free device memory
+
+    ss << "hip::check(hipFree(_event_storage));\n"
+          "hip::check(hipFree(_event_offsets));\n";
 
     if (rollback) {
         ss << "_" << kernel_name << "_recoverer.rollback();\n";
