@@ -63,6 +63,34 @@ class HipTraceManager {
     std::queue<std::pair<Counters, KernelInfo>> queue;
 };
 
+/** \brief Small header to validate the trace type
+ */
+constexpr auto hiptrace_name = "hiptrace";
+
+std::ostream& dumpTraceBin(std::ostream& out,
+                           HipTraceManager::Counters& counters,
+                           KernelInfo& kernel_info, uint64_t stamp,
+                           std::pair<uint64_t, uint64_t> interval) {
+    using counter_t = HipTraceManager::Counters::value_type;
+
+    // Write header
+
+    // Like "hiptrace,<kernel name>,<num
+    // counters>,<stamp>,<stamp_begin>,<stamp_end>,<counter size>\n"
+
+    out << hiptrace_name << ',' << kernel_info.name << ','
+        << kernel_info.instr_size << ',' << stamp << ',' << interval.first
+        << ',' << interval.second << ','
+        << static_cast<unsigned int>(sizeof(counter_t)) << '\n';
+
+    // Write binary dump of counters
+
+    out.write(reinterpret_cast<const char*>(counters.data()),
+              counters.size() * sizeof(counter_t));
+
+    return out;
+}
+
 } // namespace
 
 std::unique_ptr<HipTraceManager> HipTraceManager::instance;
@@ -89,7 +117,7 @@ void HipTraceManager::registerCounters(Instrumenter& instr,
 
 /** \brief Small header to validate the trace type
  */
-constexpr auto hiptrace_managed_name = "hiptrace_aggregate";
+constexpr auto hiptrace_managed_name = "hiptrace_managed";
 
 void HipTraceManager::runThread() {
     // Init output file
@@ -102,6 +130,9 @@ void HipTraceManager::runThread() {
     filename << "hiptrace_" << stamp << ".hiptrace";
 
     std::ofstream out{filename.str(), std::ostream::binary};
+
+    // Managed header
+    out << hiptrace_managed_name << '\n';
 
     while (true) {
         Counters counters;
@@ -285,10 +316,6 @@ void Instrumenter::dumpCsv(const std::string& filename_in) {
     out.close();
 }
 
-/** \brief Small header to validate the trace type
- */
-constexpr auto hiptrace_name = "hiptrace";
-
 void Instrumenter::dumpBin(const std::string& filename_in) {
     std::string filename;
 
@@ -305,20 +332,7 @@ void Instrumenter::dumpBin(const std::string& filename_in) {
             "Instrumenter::dumpBin() : Could not open output file " + filename);
     }
 
-    // Write header
-
-    // Like "hiptrace,<kernel name>,<num
-    // counters>,<stamp>,<stamp_begin>,<stamp_end>,<counter size>\n"
-
-    out << hiptrace_name << ',' << kernel_info.name << ','
-        << kernel_info.instr_size << ',' << stamp << ',' << stamp_begin << ','
-        << stamp_end << ',' << static_cast<unsigned int>(sizeof(counter_t))
-        << '\n';
-
-    // Write binary dump of counters
-
-    out.write(reinterpret_cast<const char*>(host_counters.data()),
-              host_counters.size() * sizeof(counter_t));
+    dumpTraceBin(out, host_counters, kernel_info, stamp, getInterval());
 
     out.close();
 

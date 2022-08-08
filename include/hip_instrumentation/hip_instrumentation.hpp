@@ -130,9 +130,22 @@ class Instrumenter {
     unsigned int reduceFlops(const counter_t* device_ptr,
                              hipStream_t stream = nullptr) const;
 
+    /** \fn kernelInfo
+     * \brief Returns a ref to the kernel information
+     */
     const KernelInfo& kernelInfo() const { return kernel_info; }
 
+    /** \fn getStamp
+     * \brief Returns the Instrumenter timestamp (construction)
+     */
     uint64_t getStamp() const { return stamp; }
+
+    /** \fn getInterval
+     * \brief Returns the kernel execution time
+     */
+    std::pair<uint64_t, uint64_t> getInterval() const {
+        return std::make_pair(stamp_begin, stamp_end);
+    }
 
   private:
     /** \fn parseHeader
