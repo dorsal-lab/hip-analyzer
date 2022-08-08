@@ -32,6 +32,8 @@ namespace {
 class HipTraceManager {
   public:
     using Counters = std::vector<Instrumenter::counter_t>;
+    using QueuePayload = std::tuple<Counters, KernelInfo, uint64_t,
+                                    std::pair<uint64_t, uint64_t>>;
 
     HipTraceManager(const HipTraceManager&) = delete;
     HipTraceManager operator=(const HipTraceManager&) = delete;
@@ -60,7 +62,7 @@ class HipTraceManager {
     bool cont = true;
     std::mutex mutex;
     std::condition_variable cond;
-    std::queue<std::pair<Counters, KernelInfo>> queue;
+    std::queue<QueuePayload> queue;
 };
 
 /** \brief Small header to validate the trace type
@@ -109,7 +111,8 @@ HipTraceManager::~HipTraceManager() {
 void HipTraceManager::registerCounters(Instrumenter& instr,
                                        Counters&& counters) {
     std::lock_guard lock{mutex};
-    queue.push({std::move(counters), instr.kernelInfo()});
+    queue.push({std::move(counters), instr.kernelInfo(), instr.getStamp(),
+                instr.getInterval()});
     // TODO : more stuff ?
 
     cond.notify_one();
@@ -131,6 +134,12 @@ void HipTraceManager::runThread() {
 
     std::ofstream out{filename.str(), std::ostream::binary};
 
+    if (!out.is_open()) {
+        throw std::runtime_error(
+            "HipTraceManager::runThread() : Could not open output file " +
+            filename.str());
+    }
+
     // Managed header
     out << hiptrace_managed_name << '\n';
 
@@ -139,6 +148,8 @@ void HipTraceManager::runThread() {
         std::unique_ptr<KernelInfo>
             kernel_info; // Must be allocated when copied because of the
                          // constness
+        uint64_t stamp;
+        std::pair<uint64_t, uint64_t> interval;
 
         // Thread-sensitive part, perform all moves / copies
         {
@@ -150,13 +161,18 @@ void HipTraceManager::runThread() {
                 return;
             }
 
-            auto& [counters_queue, kernel_info_queue] = queue.front();
+            auto& [counters_queue, kernel_info_queue, stamp_queue,
+                   interval_queue] = queue.front();
 
             counters = std::move(counters_queue);
             kernel_info = std::make_unique<KernelInfo>(kernel_info_queue);
+            stamp = stamp_queue;
+            interval = interval_queue;
 
             queue.pop();
         }
+
+        dumpTraceBin(out, counters, *kernel_info, stamp, interval);
     }
 }
 
