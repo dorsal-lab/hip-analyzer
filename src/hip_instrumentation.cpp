@@ -113,7 +113,6 @@ void HipTraceManager::registerCounters(Instrumenter& instr,
     std::lock_guard lock{mutex};
     queue.push({std::move(counters), instr.kernelInfo(), instr.getStamp(),
                 instr.getInterval()});
-    // TODO : more stuff ?
 
     cond.notify_one();
 }

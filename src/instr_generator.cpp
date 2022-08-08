@@ -161,7 +161,7 @@ CfgCounterInstrGenerator::generateInstrumentationFinalize(bool rollback) const {
        << "_" << kernel_name << "_instr.fromDevice(_" << kernel_name
        << "_ptr);\n";
 
-    ss << "_" << kernel_name << "_instr.dumpBin();\n";
+    ss << "_" << kernel_name << "_instr.record();\n";
 
     // Free memory
 
