@@ -15,6 +15,7 @@
 #include <mutex>
 #include <queue>
 #include <sstream>
+#include <variant>
 
 // Jsoncpp (shipped with ubuntu & debian)
 
@@ -33,8 +34,9 @@ namespace {
 class HipTraceManager {
   public:
     using Counters = std::vector<Instrumenter::counter_t>;
-    using QueuePayload = std::tuple<Counters, KernelInfo, uint64_t,
-                                    std::pair<uint64_t, uint64_t>>;
+    using CountersQueuePayload = std::tuple<Counters, KernelInfo, uint64_t,
+                                            std::pair<uint64_t, uint64_t>>;
+    using EventsQueuePayload = std::tuple<std::vector<std::byte>, size_t>;
 
     HipTraceManager(const HipTraceManager&) = delete;
     HipTraceManager operator=(const HipTraceManager&) = delete;
@@ -65,7 +67,7 @@ class HipTraceManager {
     bool cont = true;
     std::mutex mutex;
     std::condition_variable cond;
-    std::queue<QueuePayload> queue;
+    std::queue<std::variant<CountersQueuePayload, EventsQueuePayload>> queue;
 };
 
 /** \brief Small header to validate the trace type
@@ -136,8 +138,8 @@ HipTraceManager::~HipTraceManager() {
 void HipTraceManager::registerCounters(Instrumenter& instr,
                                        Counters&& counters) {
     std::lock_guard lock{mutex};
-    queue.push({std::move(counters), instr.kernelInfo(), instr.getStamp(),
-                instr.getInterval()});
+    queue.push({CountersQueuePayload{std::move(counters), instr.kernelInfo(),
+                                     instr.getStamp(), instr.getInterval()}});
 
     cond.notify_one();
 }
@@ -145,6 +147,7 @@ void HipTraceManager::registerCounters(Instrumenter& instr,
 void HipTraceManager::registerQueue(QueueInfo& queue,
                                     std::vector<std::byte>&& queue_data) {
     std::lock_guard lock{mutex};
+
     // TODO
     cond.notify_one();
 }
@@ -192,13 +195,20 @@ void HipTraceManager::runThread() {
                 return;
             }
 
-            auto& [counters_queue, kernel_info_queue, stamp_queue,
-                   interval_queue] = queue.front();
+            auto& front = queue.front();
 
-            counters = std::move(counters_queue);
-            kernel_info = std::make_unique<KernelInfo>(kernel_info_queue);
-            stamp = stamp_queue;
-            interval = interval_queue;
+            if (std::holds_alternative<CountersQueuePayload>(front)) {
+                auto& [counters_queue, kernel_info_queue, stamp_queue,
+                       interval_queue] = std::get<CountersQueuePayload>(front);
+
+                counters = std::move(counters_queue);
+                kernel_info = std::make_unique<KernelInfo>(kernel_info_queue);
+                stamp = stamp_queue;
+                interval = interval_queue;
+
+            } else {
+                // TODO : visit other possibility
+            }
 
             queue.pop();
         }
@@ -315,8 +325,8 @@ Instrumenter::counter_t* Instrumenter::toDevice() {
 }
 
 void Instrumenter::fromDevice(void* device_ptr) {
-    // Likewise, the fromDevice method is executed right after the end of the
-    // kernel launch
+    // Likewise, the fromDevice method is executed right after the end of
+    // the kernel launch
 
     stamp_end = getRoctracerStamp();
 
@@ -435,8 +445,8 @@ size_t Instrumenter::loadCsv(const std::string& filename) {
         std::cout << static_cast<unsigned int>(host_counters[line_no]) << '\n';
         ++line_no;
 
-        // We can discard the rest of the information, since it is implied by
-        // the kernel call geometry
+        // We can discard the rest of the information, since it is implied
+        // by the kernel call geometry
     }
 
     return line_no;
