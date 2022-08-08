@@ -89,3 +89,21 @@ add_custom_command(
 add_executable(queue_info ${CMAKE_CURRENT_BINARY_DIR}/queue_info.o)
 target_link_libraries(queue_info hip_instrumentation)
 set_target_properties(queue_info PROPERTIES LINKER_LANGUAGE CXX)
+
+
+# ----- gpu_queue_full ----- #
+
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_full.o
+    COMMAND ${ROCM_PATH}/hip/bin/hipcc -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/gpu_queue_full.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_full.o
+    DEPENDS 
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
+        ${CMAKE_SOURCE_DIR}/test/gpu_queue_full.cpp
+    VERBATIM
+)
+
+add_executable(gpu_queue_full ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_full.o)
+target_link_libraries(gpu_queue_full hip_instrumentation)
+set_target_properties(gpu_queue_full PROPERTIES LINKER_LANGUAGE CXX)
