@@ -57,10 +57,10 @@ class HipTraceManager {
     /** \brief Thread writing to the file system
      */
     std::unique_ptr<std::thread> fs_thread;
-    std::atomic_flag cont = true;
+    bool cont = true;
     std::mutex mutex;
     std::condition_variable cond;
-    std::queue<Counters> queue;
+    std::queue<std::pair<Counters, KernelInfo>> queue;
 };
 
 } // namespace
@@ -73,32 +73,59 @@ HipTraceManager::HipTraceManager() {
 }
 
 HipTraceManager::~HipTraceManager() {
-    cont.clear();
+    cont = false;
+    cond.notify_one();
     fs_thread->join();
 }
 
 void HipTraceManager::registerCounters(Instrumenter& instr,
                                        Counters&& counters) {
     std::lock_guard lock{mutex};
-
-    queue.push(std::move(counters));
+    queue.push({std::move(counters), instr.kernelInfo()});
     // TODO : more stuff ?
 
     cond.notify_one();
 }
 
+/** \brief Small header to validate the trace type
+ */
+constexpr auto hiptrace_managed_name = "hiptrace_aggregate";
+
 void HipTraceManager::runThread() {
+    // Init output file
+    auto now = std::chrono::steady_clock::now();
+    uint64_t stamp = std::chrono::duration_cast<std::chrono::microseconds>(
+                         now.time_since_epoch())
+                         .count();
+
+    std::stringstream filename;
+    filename << "hiptrace_" << stamp << ".hiptrace";
+
+    std::ofstream out{filename.str(), std::ostream::binary};
+
     while (true) {
-        // Acquire mutex
-        std::unique_lock<std::mutex> lock(mutex);
-        cond.wait(lock, [&]() { return cont.test_and_set(); });
+        Counters counters;
+        std::unique_ptr<KernelInfo>
+            kernel_info; // Must be allocated when copied because of the
+                         // constness
 
-        if (!cont.test_and_set()) {
-            return;
+        // Thread-sensitive part, perform all moves / copies
+        {
+            // Acquire mutex
+            std::unique_lock<std::mutex> lock(mutex);
+            cond.wait(lock, [&]() { return queue.size() != 0 || !cont; });
+
+            if (!cont) {
+                return;
+            }
+
+            auto& [counters_queue, kernel_info_queue] = queue.front();
+
+            counters = std::move(counters_queue);
+            kernel_info = std::make_unique<KernelInfo>(kernel_info_queue);
+
+            queue.pop();
         }
-
-        std::vector<Counters> counters{std::move(queue.front())};
-        queue.pop();
     }
 }
 
@@ -435,6 +462,12 @@ Instrumenter::loadDatabase(const std::string& filename_in) {
     blocks = BasicBlock::fromJsonArray(filename);
 
     return blocks;
+}
+
+void Instrumenter::record() {
+    auto& trace_manager = HipTraceManager::getInstance();
+
+    trace_manager.registerCounters(*this, std::move(host_counters));
 }
 
 } // namespace hip

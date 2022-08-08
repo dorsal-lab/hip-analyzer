@@ -107,6 +107,7 @@ target_link_libraries(hip_instrumentation
     roctracer64
     rocprofiler64
     dl
+    pthread
 )
 
 

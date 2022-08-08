@@ -112,6 +112,12 @@ class Instrumenter {
      */
     size_t loadBin(const std::string& filename);
 
+    /** \fn record
+     * \brief Delegates the counters to the trace manager, which will handle how
+     * it will be saved in the filesystem
+     */
+    void record();
+
     // ----- Post-instrumentation reduce ----- //
 
     /** \fn reduceFlops
@@ -125,6 +131,8 @@ class Instrumenter {
                              hipStream_t stream = nullptr) const;
 
     const KernelInfo& kernelInfo() const { return kernel_info; }
+
+    uint64_t getStamp() const { return stamp; }
 
   private:
     /** \fn parseHeader
