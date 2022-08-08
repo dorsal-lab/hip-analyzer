@@ -6,6 +6,7 @@
 
 #include "hip_instrumentation/hip_instrumentation.hpp"
 #include "hip_instrumentation/hip_utils.hpp"
+#include "hip_instrumentation/queue_info.hpp"
 
 #include <chrono>
 #include <condition_variable>
@@ -49,6 +50,8 @@ class HipTraceManager {
 
     void registerCounters(Instrumenter& instr, Counters&& counters);
 
+    void registerQueue(QueueInfo& queue, std::vector<std::byte>&& queue_data);
+
   private:
     HipTraceManager();
 
@@ -67,7 +70,11 @@ class HipTraceManager {
 
 /** \brief Small header to validate the trace type
  */
-constexpr auto hiptrace_name = "hiptrace";
+constexpr auto hiptrace_counters_name = "hiptrace_counters";
+
+/** \brief Hiptrace event trace type
+ */
+constexpr auto hiptrace_events_name = "hiptrace_events";
 
 std::ostream& dumpTraceBin(std::ostream& out,
                            HipTraceManager::Counters& counters,
@@ -77,10 +84,10 @@ std::ostream& dumpTraceBin(std::ostream& out,
 
     // Write header
 
-    // Like "hiptrace,<kernel name>,<num
+    // Like "hiptrace_counters,<kernel name>,<num
     // counters>,<stamp>,<stamp_begin>,<stamp_end>,<counter size>\n"
 
-    out << hiptrace_name << ',' << kernel_info.name << ','
+    out << hiptrace_counters_name << ',' << kernel_info.name << ','
         << kernel_info.instr_size << ',' << stamp << ',' << interval.first
         << ',' << interval.second << ','
         << static_cast<unsigned int>(sizeof(counter_t)) << '\n';
@@ -89,6 +96,24 @@ std::ostream& dumpTraceBin(std::ostream& out,
 
     out.write(reinterpret_cast<const char*>(counters.data()),
               counters.size() * sizeof(counter_t));
+
+    return out;
+}
+
+std::ostream& dumpEventsBin(std::ostream& out,
+                            std::vector<std::byte>& queue_data,
+                            size_t event_size) {
+
+    // Write header, but we don't need to include as much info as before since
+    // this is
+
+    // Like "hiptrace_events,<event_size>,<total_size>\n"
+    out << hiptrace_events_name << ',' << static_cast<unsigned int>(event_size)
+        << ',' << queue_data.size() << '\n';
+
+    // Binary dump
+    out.write(reinterpret_cast<const char*>(queue_data.data()),
+              queue_data.size());
 
     return out;
 }
@@ -114,6 +139,13 @@ void HipTraceManager::registerCounters(Instrumenter& instr,
     queue.push({std::move(counters), instr.kernelInfo(), instr.getStamp(),
                 instr.getInterval()});
 
+    cond.notify_one();
+}
+
+void HipTraceManager::registerQueue(QueueInfo& queue,
+                                    std::vector<std::byte>&& queue_data) {
+    std::lock_guard lock{mutex};
+    // TODO
     cond.notify_one();
 }
 
@@ -426,7 +458,7 @@ bool Instrumenter::parseHeader(const std::string& header) {
     };
 
     auto trace_type = get_token();
-    if (trace_type != hiptrace_name) {
+    if (trace_type != hiptrace_counters_name) {
         return false;
     }
 
@@ -497,6 +529,12 @@ void Instrumenter::record() {
     auto& trace_manager = HipTraceManager::getInstance();
 
     trace_manager.registerCounters(*this, std::move(host_counters));
+}
+
+void QueueInfo::record() {
+    auto& trace_manager = HipTraceManager::getInstance();
+
+    trace_manager.registerQueue(*this, std::move(cpu_queue));
 }
 
 } // namespace hip

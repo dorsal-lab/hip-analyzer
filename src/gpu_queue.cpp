@@ -90,6 +90,12 @@ void QueueInfo::computeSize() {
     // last thread of the last block
 }
 
+void QueueInfo::fromDevice(void* ptr) {
+    cpu_queue.resize(totalSize());
+    hip::check(
+        hipMemcpy(cpu_queue.data(), ptr, totalSize(), hipMemcpyDeviceToHost));
+}
+
 size_t QueueInfo::queueLength() const { return offsets_vec.back(); }
 
 } // namespace hip
