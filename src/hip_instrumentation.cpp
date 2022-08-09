@@ -109,7 +109,7 @@ std::ostream& dumpEventsBin(std::ostream& out,
                             size_t event_size) {
 
     // Write header, but we don't need to include as much info as before since
-    // this is
+    // this is the logical next step after the counter dump
 
     // Like "hiptrace_events,<event_size>,<total_size>\n"
     out << hiptrace_events_name << ',' << static_cast<unsigned int>(event_size)
@@ -214,7 +214,8 @@ void HipTraceManager::runThread() {
                     dumpTraceBin(out, std::get<0>(val), std::get<1>(val),
                                  std::get<2>(val), std::get<3>(val));
                 } else if constexpr (std::is_same_v<T, EventsQueuePayload>) {
-                    // TODO
+                    auto& events = std::get<0>(val);
+                    dumpEventsBin(out, events, std::get<2>(val));
                 } else {
                     static_assert(always_false_v<T>, "Non-exhaustive visitor");
                 }
