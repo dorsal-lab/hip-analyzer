@@ -36,7 +36,9 @@ class HipTraceManager {
     using Counters = std::vector<Instrumenter::counter_t>;
     using CountersQueuePayload = std::tuple<Counters, KernelInfo, uint64_t,
                                             std::pair<uint64_t, uint64_t>>;
-    using EventsQueuePayload = std::tuple<std::vector<std::byte>, size_t>;
+    using EventsQueuePayload =
+        std::tuple<std::vector<std::byte>, std::vector<size_t>, size_t>;
+    using Payload = std::variant<CountersQueuePayload, EventsQueuePayload>;
 
     HipTraceManager(const HipTraceManager&) = delete;
     HipTraceManager operator=(const HipTraceManager&) = delete;
@@ -67,7 +69,7 @@ class HipTraceManager {
     bool cont = true;
     std::mutex mutex;
     std::condition_variable cond;
-    std::queue<std::variant<CountersQueuePayload, EventsQueuePayload>> queue;
+    std::queue<Payload> queue;
 };
 
 /** \brief Small header to validate the trace type
@@ -144,17 +146,24 @@ void HipTraceManager::registerCounters(Instrumenter& instr,
     cond.notify_one();
 }
 
-void HipTraceManager::registerQueue(QueueInfo& queue,
+void HipTraceManager::registerQueue(QueueInfo& queue_info,
                                     std::vector<std::byte>&& queue_data) {
     std::lock_guard lock{mutex};
 
-    // TODO
+    std::vector offsets(queue_info.offsets().begin(),
+                        queue_info.offsets().end());
+
+    queue.push({EventsQueuePayload{std::move(queue_data), std::move(offsets),
+                                   queue_info.elemSize()}});
+
     cond.notify_one();
 }
 
 /** \brief Small header to validate the trace type
  */
 constexpr auto hiptrace_managed_name = "hiptrace_managed";
+
+template <class> inline constexpr bool always_false_v = false;
 
 void HipTraceManager::runThread() {
     // Init output file
@@ -178,12 +187,7 @@ void HipTraceManager::runThread() {
     out << hiptrace_managed_name << '\n';
 
     while (true) {
-        Counters counters;
-        std::unique_ptr<KernelInfo>
-            kernel_info; // Must be allocated when copied because of the
-                         // constness
-        uint64_t stamp;
-        std::pair<uint64_t, uint64_t> interval;
+        std::unique_ptr<Payload> payload;
 
         // Thread-sensitive part, perform all moves / copies
         {
@@ -197,23 +201,25 @@ void HipTraceManager::runThread() {
 
             auto& front = queue.front();
 
-            if (std::holds_alternative<CountersQueuePayload>(front)) {
-                auto& [counters_queue, kernel_info_queue, stamp_queue,
-                       interval_queue] = std::get<CountersQueuePayload>(front);
-
-                counters = std::move(counters_queue);
-                kernel_info = std::make_unique<KernelInfo>(kernel_info_queue);
-                stamp = stamp_queue;
-                interval = interval_queue;
-
-            } else {
-                // TODO : visit other possibility
-            }
+            payload = std::make_unique<Payload>(std::move(front));
 
             queue.pop();
         }
 
-        dumpTraceBin(out, counters, *kernel_info, stamp, interval);
+        // Some template magic for you
+        std::visit(
+            [&](auto&& val) {
+                using T = std::decay_t<decltype(val)>;
+                if constexpr (std::is_same_v<T, CountersQueuePayload>) {
+                    dumpTraceBin(out, std::get<0>(val), std::get<1>(val),
+                                 std::get<2>(val), std::get<3>(val));
+                } else if constexpr (std::is_same_v<T, EventsQueuePayload>) {
+                    // TODO
+                } else {
+                    static_assert(always_false_v<T>, "Non-exhaustive visitor");
+                }
+            },
+            *payload);
     }
 }
 

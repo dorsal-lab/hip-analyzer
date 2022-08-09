@@ -52,6 +52,11 @@ struct QueueInfo {
      */
     size_t totalSize() const { return queueLength() * elem_size; }
 
+    /** \fn elemSize
+     * \brief Returns the size of one element
+     */
+    size_t elemSize() const { return elem_size; }
+
     /** \fn allocBuffer
      * \brief Allocates the queue buffer on the device
      */
