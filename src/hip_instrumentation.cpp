@@ -96,6 +96,13 @@ std::ostream& dumpTraceBin(std::ostream& out,
         << ',' << interval.second << ','
         << static_cast<unsigned int>(sizeof(counter_t)) << '\n';
 
+    // Kernel call configuration
+
+    out << kernel_info.blocks.x << ',' << kernel_info.blocks.y << ','
+        << kernel_info.blocks.z << ',' << kernel_info.threads_per_blocks.x
+        << ',' << kernel_info.threads_per_blocks.y << ','
+        << kernel_info.threads_per_blocks.z << '\n';
+
     // Write binary dump of counters
 
     out.write(reinterpret_cast<const char*>(counters.data()),
@@ -251,10 +258,10 @@ std::string KernelInfo::json() {
     auto b_x = blocks.x, b_y = blocks.y, b_z = blocks.z;
 
     // Sorry about this monstruosity, but trust me it works (I think?)
-    ss << "{ \"name\": \"" << name << "\", \"bblocks\": " << basic_blocks
-       << ",\"geometry\": {\"threads\": {\"x\": " << t_x << ", \"y\": " << t_y
-       << ", \"z\": " << t_z << "}, \"blocks\": {\"x\": " << b_x
-       << ", \"y\": " << b_y << ", \"z\": " << b_z << "}}}";
+    ss << "{\"name\":\"" << name << "\",\"bblocks\":" << basic_blocks
+       << ",\"geometry\":{\"threads\":{\"x\":" << t_x << ",\"y\":" << t_y
+       << ",\"z\":" << t_z << "},\"blocks\":{\"x\":" << b_x << ",\"y\":" << b_y
+       << ",\"z\":" << b_z << "}}}";
 
     return ss.str();
 }
