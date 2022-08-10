@@ -74,11 +74,15 @@ class HipTraceManager {
 
 /** \brief Small header to validate the trace type
  */
-constexpr auto hiptrace_counters_name = "hiptrace_counters";
+constexpr std::string_view hiptrace_counters_name = "hiptrace_counters";
 
 /** \brief Hiptrace event trace type
  */
-constexpr auto hiptrace_events_name = "hiptrace_events";
+constexpr std::string_view hiptrace_events_name = "hiptrace_events";
+
+/** \brief Hiptrace begin kernel info
+ */
+constexpr std::string_view hiptrace_geometry = "kernel_info";
 
 std::ostream& dumpTraceBin(std::ostream& out,
                            HipTraceManager::Counters& counters,
@@ -94,11 +98,15 @@ std::ostream& dumpTraceBin(std::ostream& out,
     out << hiptrace_counters_name << ',' << kernel_info.name << ','
         << kernel_info.instr_size << ',' << stamp << ',' << interval.first
         << ',' << interval.second << ','
-        << static_cast<unsigned int>(sizeof(counter_t)) << '\n';
+        << static_cast<unsigned int>(sizeof(counter_t));
 
     // Kernel call configuration
 
-    out << kernel_info.blocks.x << ',' << kernel_info.blocks.y << ','
+    // "kernel_info,<bblocks>,<blockDim.x>,<blockDim.y>,<blockDim.z>,
+    // <threadDim.x>,<threadDim.y>,<threadDim.z>\n"
+
+    out << hiptrace_geometry << kernel_info.basic_blocks << ','
+        << kernel_info.blocks.x << ',' << kernel_info.blocks.y << ','
         << kernel_info.blocks.z << ',' << kernel_info.threads_per_blocks.x
         << ',' << kernel_info.threads_per_blocks.y << ','
         << kernel_info.threads_per_blocks.z << '\n';
