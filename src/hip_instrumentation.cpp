@@ -98,14 +98,14 @@ std::ostream& dumpTraceBin(std::ostream& out,
     out << hiptrace_counters_name << ',' << kernel_info.name << ','
         << kernel_info.instr_size << ',' << stamp << ',' << interval.first
         << ',' << interval.second << ','
-        << static_cast<unsigned int>(sizeof(counter_t));
+        << static_cast<unsigned int>(sizeof(counter_t)) << ',';
 
     // Kernel call configuration
 
     // "kernel_info,<bblocks>,<blockDim.x>,<blockDim.y>,<blockDim.z>,
     // <threadDim.x>,<threadDim.y>,<threadDim.z>\n"
 
-    out << hiptrace_geometry << kernel_info.basic_blocks << ','
+    out << hiptrace_geometry << ',' << kernel_info.basic_blocks << ','
         << kernel_info.blocks.x << ',' << kernel_info.blocks.y << ','
         << kernel_info.blocks.z << ',' << kernel_info.threads_per_blocks.x
         << ',' << kernel_info.threads_per_blocks.y << ','

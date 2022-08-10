@@ -55,4 +55,9 @@ int main() {
 
     queue_cpu.fromDevice(storage);
     queue_cpu.record();
+
+    hip::check(hipFree(storage));
+    hip::check(hipFree(offsets));
+
+    return 0;
 }
