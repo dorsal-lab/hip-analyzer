@@ -21,7 +21,8 @@ struct QueueInfo {
      */
     template <class EventType> static QueueInfo thread(Instrumenter& instr) {
         static_assert(std::is_trivially_copyable_v<EventType>);
-        return QueueInfo{instr, sizeof(EventType), true};
+        return QueueInfo{instr, sizeof(EventType), true,
+                         EventType::description};
     }
 
     /** \fn wave
@@ -29,7 +30,8 @@ struct QueueInfo {
      */
     template <class EventType> static QueueInfo wave(Instrumenter& instr) {
         static_assert(std::is_trivially_copyable_v<EventType>);
-        return QueueInfo{instr, sizeof(EventType), false};
+        return QueueInfo{instr, sizeof(EventType), false,
+                         EventType::description};
     }
 
     /** \fn offsets
@@ -56,6 +58,11 @@ struct QueueInfo {
      * \brief Returns the size of one element
      */
     size_t elemSize() const { return elem_size; }
+
+    /** \fn getDesc
+     * \brief Returns the queue type description, from EventType::description
+     */
+    const std::string& getDesc() const { return type_desc; }
 
     /** \fn allocBuffer
      * \brief Allocates the queue buffer on the device
@@ -90,7 +97,8 @@ struct QueueInfo {
     void record();
 
   private:
-    QueueInfo(Instrumenter& instr, size_t elem_size, bool is_thread);
+    QueueInfo(Instrumenter& instr, size_t elem_size, bool is_thread,
+              const std::string& type_desc);
 
     void computeSize();
 
@@ -99,6 +107,7 @@ struct QueueInfo {
     size_t elem_size;
     std::vector<size_t> offsets_vec;
     std::vector<std::byte> cpu_queue;
+    const std::string& type_desc;
 };
 
 } // namespace hip

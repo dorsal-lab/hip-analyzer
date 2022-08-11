@@ -16,10 +16,6 @@ __global__ void fill_values(counter_t* counters, size_t size, counter_t value) {
     }
 }
 
-struct Event {
-    unsigned int value;
-};
-
 int main() {
     constexpr auto blocks = 128;
     constexpr auto threads = 128u;
@@ -40,7 +36,7 @@ int main() {
 
     // Test thread queue
 
-    auto thread_queue_info = hip::QueueInfo::thread<Event>(instr);
+    auto thread_queue_info = hip::QueueInfo::thread<hip::Event>(instr);
 
     auto offsets = thread_queue_info.offsets();
     for (auto& offset : offsets) {
@@ -54,7 +50,7 @@ int main() {
 
     // Wave queue
 
-    auto wave_queue_info = hip::QueueInfo::wave<Event>(instr);
+    auto wave_queue_info = hip::QueueInfo::wave<hip::Event>(instr);
 
     auto offsets_wave = wave_queue_info.offsets();
     for (auto& offset : offsets_wave) {

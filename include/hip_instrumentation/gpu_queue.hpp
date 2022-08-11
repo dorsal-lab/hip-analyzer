@@ -105,6 +105,16 @@ __device__ EventType& WaveQueue<EventType>::push_back(const EventType& event) {
     return *ptr;
 }
 
+template <typename T, typename... Args> std::string HipEventFields() {
+    if constexpr (sizeof...(Args) > 0) {
+        return HipEventFields<T>() + ',' + HipEventFields<Args...>();
+    } else {
+        std::stringstream ss;
+        ss << typeid(T).name() << ',' << sizeof(T);
+        return ss.str();
+    }
+}
+
 // Sample event classes
 
 /** \struct Event
@@ -112,6 +122,8 @@ __device__ EventType& WaveQueue<EventType>::push_back(const EventType& event) {
  */
 struct Event {
     size_t bb;
+
+    static std::string description;
 };
 
 /** \struct TaggedEvent
@@ -122,6 +134,9 @@ struct TaggedEvent {
         // TODO : fetch GPU timestamp, asm?
     }
     size_t bb;
+    uint64_t stamp;
+
+    static std::string description;
 };
 
 } // namespace hip

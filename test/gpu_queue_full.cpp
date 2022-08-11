@@ -10,7 +10,11 @@
 
 struct Event {
     char c;
+
+    static std::string description;
 };
+
+std::string Event::description = hip::HipEventFields<decltype(Event::c)>();
 
 constexpr auto NB_ELEMENTS = 8u;
 
