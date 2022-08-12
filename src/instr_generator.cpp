@@ -59,7 +59,7 @@ std::string CfgCounterInstrGenerator::generateBlockCode(unsigned int id) const {
     std::stringstream ss;
     ss << "/* BB " << id << " (" << bb_count << ") */" << '\n';
 
-    ss << "_bb_counters[" << bb_count << "][threadIdx.x] += 1;\n";
+    ss << "_bb_counters[" << bb_count << "] += 1;\n";
 
     return ss.str();
 }
@@ -90,11 +90,11 @@ std::string CfgCounterInstrGenerator::generateInstrumentationLocals() const {
 
     ss << "\n/* Instrumentation locals */\n";
 
-    ss << "__shared__ uint8_t _bb_counters[" << bb_count << "][64];\n"
-       << "unsigned int _bb_count = " << bb_count << ";\n"
+    ss << "uint8_t _bb_counters[" << bb_count << "];\n"
+       << "size_t _bb_count = " << bb_count << ";\n"
        << "#pragma unroll"
           "\nfor(auto i = 0u; i < _bb_count; ++i) { "
-          "_bb_counters[i][threadIdx.x] = 0; }\n";
+          "_bb_counters[i] = 0; }\n";
 
     return ss.str();
 }
@@ -106,10 +106,10 @@ std::string CfgCounterInstrGenerator::generateInstrumentationCommit() const {
 
     // Print output
 
-    ss << "    int id = threadIdx.x;\n"
+    ss << "    size_t id = threadIdx.x;\n"
           "    for (auto i = 0u; i < _bb_count; ++i) {\n"
           "        _instr_ptr[blockIdx.x * blockDim.x * _bb_count + "
-          "threadIdx.x * _bb_count + i] = _bb_counters[i][threadIdx.x]\n;"
+          "id * _bb_count + i] = _bb_counters[i]\n;"
           "    }\n";
 
     return ss.str();
