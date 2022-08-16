@@ -124,6 +124,7 @@ struct Event {
     size_t bb;
 
     static std::string description;
+    static std::string name;
 };
 
 /** \struct TaggedEvent
@@ -137,6 +138,7 @@ struct TaggedEvent {
     uint64_t stamp;
 
     static std::string description;
+    static std::string name;
 };
 
 } // namespace hip

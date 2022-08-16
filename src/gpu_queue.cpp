@@ -11,9 +11,9 @@
 namespace hip {
 
 QueueInfo::QueueInfo(Instrumenter& instr, size_t elem_size, bool is_thread,
-                     const std::string& type_desc)
+                     const std::string& type_desc, const std::string& type_name)
     : is_thread(is_thread), elem_size(elem_size), instr(instr),
-      type_desc(type_desc) {
+      type_desc(type_desc), type_name(type_name) {
     computeSize();
 }
 
@@ -100,11 +100,13 @@ void QueueInfo::fromDevice(void* ptr) {
 
 size_t QueueInfo::queueLength() const { return offsets_vec.back(); }
 
-std::string Event::description =
-    "Event" + HipEventFields<decltype(Event::bb)>();
+std::string Event::description = HipEventFields<decltype(Event::bb)>();
+
+std::string Event::name = "Event";
 
 std::string TaggedEvent::description =
-    "TaggedEvent" +
     HipEventFields<decltype(TaggedEvent::bb), decltype(TaggedEvent::bb)>();
+
+std::string TaggedEvent::name = "TaggedEvent";
 
 } // namespace hip

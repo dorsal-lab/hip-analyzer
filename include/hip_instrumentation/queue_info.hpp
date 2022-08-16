@@ -21,8 +21,12 @@ struct QueueInfo {
      */
     template <class EventType> static QueueInfo thread(Instrumenter& instr) {
         static_assert(std::is_trivially_copyable_v<EventType>);
-        return QueueInfo{instr, sizeof(EventType), true,
-                         EventType::description};
+        static_assert(
+            std::is_same_v<decltype(EventType::description), std::string>);
+        static_assert(std::is_same_v<decltype(EventType::name), std::string>);
+
+        return QueueInfo{instr, sizeof(EventType), true, EventType::description,
+                         EventType::name};
     }
 
     /** \fn wave
@@ -30,8 +34,12 @@ struct QueueInfo {
      */
     template <class EventType> static QueueInfo wave(Instrumenter& instr) {
         static_assert(std::is_trivially_copyable_v<EventType>);
+        static_assert(
+            std::is_same_v<decltype(EventType::description), std::string>);
+        static_assert(std::is_same_v<decltype(EventType::name), std::string>);
+
         return QueueInfo{instr, sizeof(EventType), false,
-                         EventType::description};
+                         EventType::description, EventType::name};
     }
 
     /** \fn offsets
@@ -63,6 +71,11 @@ struct QueueInfo {
      * \brief Returns the queue type description, from EventType::description
      */
     const std::string& getDesc() const { return type_desc; }
+
+    /** \fn getName
+     * \brief Returns the queue type name (ref to static member)
+     */
+    const std::string& getName() const { return type_name; }
 
     /** \fn allocBuffer
      * \brief Allocates the queue buffer on the device
@@ -98,7 +111,7 @@ struct QueueInfo {
 
   private:
     QueueInfo(Instrumenter& instr, size_t elem_size, bool is_thread,
-              const std::string& type_desc);
+              const std::string& type_desc, const std::string& type_name);
 
     void computeSize();
 
@@ -108,6 +121,7 @@ struct QueueInfo {
     std::vector<size_t> offsets_vec;
     std::vector<std::byte> cpu_queue;
     const std::string& type_desc;
+    const std::string& type_name;
 };
 
 } // namespace hip

@@ -38,7 +38,7 @@ class HipTraceManager {
                                             std::pair<uint64_t, uint64_t>>;
     using EventsQueuePayload =
         std::tuple<std::vector<std::byte>, std::vector<size_t>, size_t,
-                   std::string_view>;
+                   std::string_view, std::string_view>;
     using Payload = std::variant<CountersQueuePayload, EventsQueuePayload>;
 
     HipTraceManager(const HipTraceManager&) = delete;
@@ -126,15 +126,16 @@ std::ostream& dumpTraceBin(std::ostream& out,
 
 std::ostream& dumpEventsBin(std::ostream& out,
                             std::vector<std::byte>& queue_data,
-                            size_t event_size, std::string_view event_desc) {
+                            size_t event_size, std::string_view event_desc,
+                            std::string_view event_name) {
 
     // Write header, but we don't need to include as much info as before since
     // this is the logical next step after the counter dump
 
     // Like "hiptrace_events,<event_size>,<total_size>\n"
     out << hiptrace_events_name << ',' << static_cast<unsigned int>(event_size)
-        << ',' << queue_data.size() << ',' << hiptrace_event_fields << ','
-        << event_desc << '\n';
+        << ',' << queue_data.size() << ',' << event_name << ','
+        << hiptrace_event_fields << ',' << event_desc << '\n';
 
     // Binary dump
     out.write(reinterpret_cast<const char*>(queue_data.data()),
@@ -174,9 +175,9 @@ void HipTraceManager::registerQueue(QueueInfo& queue_info,
     std::vector offsets(queue_info.offsets().begin(),
                         queue_info.offsets().end());
 
-    queue.push(
-        {EventsQueuePayload{std::move(queue_data), std::move(offsets),
-                            queue_info.elemSize(), queue_info.getDesc()}});
+    queue.push({EventsQueuePayload{std::move(queue_data), std::move(offsets),
+                                   queue_info.elemSize(), queue_info.getDesc(),
+                                   queue_info.getName()}});
 
     cond.notify_one();
 }
@@ -238,7 +239,7 @@ void HipTraceManager::runThread() {
                 } else if constexpr (std::is_same_v<T, EventsQueuePayload>) {
                     auto& events = std::get<0>(val);
                     dumpEventsBin(out, events, std::get<2>(val),
-                                  std::get<3>(val));
+                                  std::get<3>(val), std::get<4>(val));
                 } else {
                     static_assert(always_false_v<T>, "Non-exhaustive visitor");
                 }

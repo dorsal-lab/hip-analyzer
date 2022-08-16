@@ -8,13 +8,17 @@
 
 #include "hip_instrumentation/gpu_queue.hpp"
 
-struct Event {
+struct TestEvent {
     char c;
 
     static std::string description;
+    static std::string name;
 };
 
-std::string Event::description = hip::HipEventFields<decltype(Event::c)>();
+std::string TestEvent::description =
+    hip::HipEventFields<decltype(TestEvent::c)>();
+
+std::string TestEvent::name = "TestEvent";
 
 constexpr auto NB_ELEMENTS = 8u;
 
@@ -22,8 +26,8 @@ __global__ void fill_counters(uint8_t* counters) {
     counters[threadIdx.x] = NB_ELEMENTS;
 }
 
-__global__ void enqueue(Event* storage, size_t* offsets) {
-    hip::ThreadQueue<Event> queue{storage, offsets};
+__global__ void enqueue(TestEvent* storage, size_t* offsets) {
+    hip::ThreadQueue<TestEvent> queue{storage, offsets};
 
     for (auto i = 0u; i < NB_ELEMENTS; ++i) {
         queue.push_back({static_cast<char>('a' + i)});
@@ -48,8 +52,8 @@ int main() {
     instr.fromDevice(gpu_counters);
     hip::check(hipFree(gpu_counters));
 
-    auto queue_cpu = hip::QueueInfo::thread<Event>(instr);
-    auto storage = queue_cpu.allocBuffer<Event>();
+    auto queue_cpu = hip::QueueInfo::thread<TestEvent>(instr);
+    auto storage = queue_cpu.allocBuffer<TestEvent>();
     auto offsets = queue_cpu.allocOffsets();
 
     instr.record();
