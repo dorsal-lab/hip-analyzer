@@ -154,6 +154,17 @@ HipTraceManager::HipTraceManager() {
 }
 
 HipTraceManager::~HipTraceManager() {
+    // Wait for completion
+
+    auto not_empty = [this]() {
+        std::lock_guard lock{mutex};
+        return queue.size() != 0;
+    };
+
+    while (not_empty()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
     cont = false;
     cond.notify_one();
     fs_thread->join();
