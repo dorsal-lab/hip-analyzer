@@ -34,11 +34,19 @@ namespace {
 class HipTraceManager {
   public:
     using Counters = std::vector<Instrumenter::counter_t>;
+
+    // <Counters data> - <kernel launch info> - <stamp> - <pair of roctracer
+    // stamp>
     using CountersQueuePayload = std::tuple<Counters, KernelInfo, uint64_t,
                                             std::pair<uint64_t, uint64_t>>;
+
+    // <queue date> - <offsets> - <event size> - <event description (types,
+    // sizes)> - <event type name>
     using EventsQueuePayload =
         std::tuple<std::vector<std::byte>, std::vector<size_t>, size_t,
                    std::string_view, std::string_view>;
+
+    // Either a counters payload or an events payload
     using Payload = std::variant<CountersQueuePayload, EventsQueuePayload>;
 
     HipTraceManager(const HipTraceManager&) = delete;

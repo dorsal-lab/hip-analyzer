@@ -23,6 +23,11 @@ void QueueInfo::computeSize() {
     auto& kernel = instr.kernelInfo();
     auto& counters = instr.data();
 
+    if (counters.empty()) {
+        throw std::runtime_error("hip::QueueInfo::computeSize() : Empty "
+                                 "counters, have they been moved out ?");
+    }
+
     auto thread_stride = kernel.basic_blocks;
     auto blocks_stride = kernel.total_threads_per_blocks;
 
@@ -100,13 +105,15 @@ void QueueInfo::fromDevice(void* ptr) {
 
 size_t QueueInfo::queueLength() const { return offsets_vec.back(); }
 
+// Standard events
+
 std::string Event::description = HipEventFields<decltype(Event::bb)>();
 
-std::string Event::name = "Event";
+std::string Event::name = "hip::Event";
 
 std::string TaggedEvent::description =
     HipEventFields<decltype(TaggedEvent::bb), decltype(TaggedEvent::bb)>();
 
-std::string TaggedEvent::name = "TaggedEvent";
+std::string TaggedEvent::name = "hip::TaggedEvent";
 
 } // namespace hip
