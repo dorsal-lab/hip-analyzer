@@ -10,6 +10,8 @@
 
 #include "queue_info.hpp"
 
+#include "cuda_wrappers/new"
+
 namespace hip {
 
 /** \class ThreadQueue
@@ -139,6 +141,8 @@ template <typename T, typename... Args> std::string HipEventFields() {
 struct Event {
     size_t bb;
 
+    __device__ Event(size_t bb) : bb(bb) {}
+
     static std::string description;
     static std::string name;
 };
@@ -150,6 +154,7 @@ struct TaggedEvent {
     __device__ TaggedEvent(size_t bb) : bb(bb) {
         asm volatile("s_memrealtime %0" : "=s"(stamp) :);
     }
+
     size_t bb;
     uint64_t stamp;
 
