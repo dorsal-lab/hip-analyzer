@@ -131,8 +131,8 @@ struct Event {
  * \brief Event, with an associated timestamp
  */
 struct TaggedEvent {
-    TaggedEvent(size_t bb) : bb(bb) {
-        // TODO : fetch GPU timestamp, asm?
+    __device__ TaggedEvent(size_t bb) : bb(bb) {
+        asm volatile("s_memrealtime %0" : "=s"(stamp) :);
     }
     size_t bb;
     uint64_t stamp;
