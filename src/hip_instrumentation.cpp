@@ -134,16 +134,24 @@ std::ostream& dumpTraceBin(std::ostream& out,
 
 std::ostream& dumpEventsBin(std::ostream& out,
                             std::vector<std::byte>& queue_data,
-                            size_t event_size, std::string_view event_desc,
+                            std::vector<size_t>& offsets, size_t event_size,
+                            std::string_view event_desc,
                             std::string_view event_name) {
 
     // Write header, but we don't need to include as much info as before since
     // this is the logical next step after the counter dump
 
+    auto num_offsets = offsets.size() - 1;
+
     // Like "hiptrace_events,<event_size>,<total_size>\n"
     out << hiptrace_events_name << ',' << static_cast<unsigned int>(event_size)
-        << ',' << queue_data.size() << ',' << event_name << ','
+        << ',' << num_offsets << ',' << event_name << ','
         << hiptrace_event_fields << ',' << event_desc << '\n';
+
+    // Binary dump of offsets
+
+    out.write(reinterpret_cast<const char*>(offsets.data()),
+              num_offsets * sizeof(size_t));
 
     // Binary dump
     out.write(reinterpret_cast<const char*>(queue_data.data()),
@@ -253,12 +261,13 @@ void HipTraceManager::runThread() {
             [&](auto&& val) {
                 using T = std::decay_t<decltype(val)>;
                 if constexpr (std::is_same_v<T, CountersQueuePayload>) {
-                    dumpTraceBin(out, std::get<0>(val), std::get<1>(val),
-                                 std::get<2>(val), std::get<3>(val));
+                    auto& [counters, kernel_info, stamp, rocm_stamp] = val;
+
+                    dumpTraceBin(out, counters, kernel_info, stamp, rocm_stamp);
                 } else if constexpr (std::is_same_v<T, EventsQueuePayload>) {
-                    auto& events = std::get<0>(val);
-                    dumpEventsBin(out, events, std::get<2>(val),
-                                  std::get<3>(val), std::get<4>(val));
+                    auto& [events, offsets, size, desc, name] = val;
+
+                    dumpEventsBin(out, events, offsets, size, desc, name);
                 } else {
                     static_assert(always_false_v<T>, "Non-exhaustive visitor");
                 }
