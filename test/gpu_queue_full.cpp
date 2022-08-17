@@ -30,7 +30,7 @@ __global__ void enqueue(TestEvent* storage, size_t* offsets) {
     hip::ThreadQueue<TestEvent> queue{storage, offsets};
 
     for (auto i = 0u; i < NB_ELEMENTS; ++i) {
-        queue.push_back({static_cast<char>('a' + i)});
+        queue.emplace_back(TestEvent{static_cast<char>('a' + i)});
     }
 }
 

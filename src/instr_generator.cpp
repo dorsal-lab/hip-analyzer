@@ -181,7 +181,7 @@ EventRecordInstrGenerator::generateBlockCode(unsigned int id) const {
     std::stringstream ss;
     ss << "/* BB " << id << " (" << bb_count << ") */" << '\n';
 
-    ss << "_queue.push_back({" << bb_count << "});\n";
+    ss << "_queue.emplace_back(" << bb_count << ");\n";
 
     return ss.str();
 }

@@ -25,7 +25,12 @@ template <class EventType> class ThreadQueue {
     /** \fn push_back
      * \brief Appends an event to the queue
      */
-    __device__ EventType& push_back(const EventType& event);
+    __device__ EventType& push_back(const EventType& event) {
+        return emplace_back(event);
+    }
+
+    template <typename... Args>
+    __device__ EventType& emplace_back(Args&&... args);
 
     __device__ size_t index() const { return curr_id; }
 
@@ -46,7 +51,14 @@ template <class EventType> class WaveQueue {
     /** \fn push_back
      * \brief Appends an event to the queue
      */
-    __device__ EventType& push_back(const EventType& event);
+    __device__ EventType& push_back(const EventType& event) {
+        return emplace_back(event);
+    }
+
+    template <typename... Args>
+    __device__ EventType& emplace_back(Args&&... args);
+
+    __device__ size_t index() const { return curr_id; }
 
   private:
     size_t wavefront_id;
@@ -67,10 +79,12 @@ __device__ ThreadQueue<EventType>::ThreadQueue(EventType* storage,
 }
 
 template <class EventType>
-__device__ EventType&
-ThreadQueue<EventType>::push_back(const EventType& event) {
+template <typename... Args>
+__device__ EventType& ThreadQueue<EventType>::emplace_back(Args&&... args) {
     auto* ptr = &storage[offset + curr_id];
-    *ptr = event;
+
+    // Placement new
+    new (ptr) EventType(std::forward<Args>(args)...);
 
     ++curr_id;
     return *ptr;
@@ -95,10 +109,12 @@ __device__ WaveQueue<EventType>::WaveQueue(EventType* storage, size_t* offsets)
 }
 
 template <class EventType>
-__device__ EventType& WaveQueue<EventType>::push_back(const EventType& event) {
+template <typename... Args>
+__device__ EventType& WaveQueue<EventType>::emplace_back(Args&&... args) {
     auto* ptr = &storage[offset + curr_id];
     if (threadIdx.x % warpSize == 0) {
-        *ptr = event;
+        // Placement new
+        new (ptr) EventType(std::forward<Args>(args)...);
         ++curr_id;
     }
 
