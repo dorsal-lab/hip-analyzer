@@ -151,7 +151,9 @@ std::ostream& dumpEventsBin(std::ostream& out,
     // Binary dump of offsets
 
     out.write(reinterpret_cast<const char*>(offsets.data()),
-              num_offsets * sizeof(size_t));
+              offsets.size() *
+                  sizeof(size_t)); // need to keep the last offset (the end) to
+                                   // know where the end is
 
     // Binary dump
     out.write(reinterpret_cast<const char*>(queue_data.data()),
