@@ -18,7 +18,7 @@ __global__ void enqueue(hip::TaggedEvent* storage, size_t* offsets) {
     hip::WaveQueue<hip::TaggedEvent> queue{storage, offsets};
 
     for (auto i = 0u; i < NB_ELEMENTS; ++i) {
-        queue.emplace_back(i);
+        queue.emplace_back(hip::TaggedEvent(i));
     }
 }
 
