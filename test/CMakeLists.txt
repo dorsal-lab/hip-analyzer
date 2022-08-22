@@ -91,19 +91,36 @@ target_link_libraries(queue_info hip_instrumentation)
 set_target_properties(queue_info PROPERTIES LINKER_LANGUAGE CXX)
 
 
-# ----- gpu_queue_full ----- #
+# ----- gpu_queue_thread ----- #
 
 add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_full.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/gpu_queue_full.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_full.o
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_thread.o
+    COMMAND ${ROCM_PATH}/hip/bin/hipcc -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/gpu_queue_thread.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_thread.o
     DEPENDS 
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
-        ${CMAKE_SOURCE_DIR}/test/gpu_queue_full.cpp
+        ${CMAKE_SOURCE_DIR}/test/gpu_queue_thread.cpp
     VERBATIM
 )
 
-add_executable(gpu_queue_full ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_full.o)
-target_link_libraries(gpu_queue_full hip_instrumentation)
-set_target_properties(gpu_queue_full PROPERTIES LINKER_LANGUAGE CXX)
+add_executable(gpu_queue_thread ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_thread.o)
+target_link_libraries(gpu_queue_thread hip_instrumentation)
+set_target_properties(gpu_queue_thread PROPERTIES LINKER_LANGUAGE CXX)
+
+# ----- gpu_queue_wave ----- #
+
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_wave.o
+    COMMAND ${ROCM_PATH}/hip/bin/hipcc -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/gpu_queue_wave.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_wave.o
+    DEPENDS 
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
+        ${CMAKE_SOURCE_DIR}/test/gpu_queue_wave.cpp
+    VERBATIM
+)
+
+add_executable(gpu_queue_wave ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_wave.o)
+target_link_libraries(gpu_queue_wave hip_instrumentation)
+set_target_properties(gpu_queue_wave PROPERTIES LINKER_LANGUAGE CXX)
