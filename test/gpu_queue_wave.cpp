@@ -26,7 +26,7 @@ int main() {
     hip::init();
 
     constexpr auto blocks = 1u;
-    constexpr auto threads = 64u;
+    constexpr auto threads = 256u;
 
     hip::KernelInfo ki{"", 1, blocks, threads};
     hip::Instrumenter instr{ki};

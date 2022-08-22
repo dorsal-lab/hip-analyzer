@@ -104,7 +104,7 @@ __device__ WaveQueue<EventType>::WaveQueue(EventType* storage, size_t* offsets)
         waves_per_block = blockDim.x / warpSize + 1;
     }
 
-    auto wave_in_block = threadIdx.x % warpSize;
+    auto wave_in_block = threadIdx.x / warpSize;
 
     wavefront_id = blockIdx.x * waves_per_block + wave_in_block;
     offset = offsets[wavefront_id];

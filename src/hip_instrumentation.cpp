@@ -40,11 +40,11 @@ class HipTraceManager {
     using CountersQueuePayload = std::tuple<Counters, KernelInfo, uint64_t,
                                             std::pair<uint64_t, uint64_t>>;
 
-    // <queue date> - <offsets> - <event size> - <event description (types,
+    // <queue data> - <offsets> - <event size> - <event description (types,
     // sizes)> - <event type name>
     using EventsQueuePayload =
         std::tuple<std::vector<std::byte>, std::vector<size_t>, size_t,
-                   std::string_view, std::string_view>;
+                   std::string, std::string>;
 
     // Either a counters payload or an events payload
     using Payload = std::variant<CountersQueuePayload, EventsQueuePayload>;
@@ -143,7 +143,8 @@ std::ostream& dumpEventsBin(std::ostream& out,
 
     auto num_offsets = offsets.size() - 1;
 
-    // Like "hiptrace_events,<event_size>,<total_size>\n"
+    // Like "hiptrace_events,<event_size>,<queue_parallelism>,<event
+    // name>,[<mangled_type>,<type_size>,...]\n
     out << hiptrace_events_name << ',' << static_cast<unsigned int>(event_size)
         << ',' << num_offsets << ',' << event_name << ','
         << hiptrace_event_fields << ',' << event_desc << '\n';
