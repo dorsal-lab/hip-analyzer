@@ -14,11 +14,11 @@ __global__ void fill_counters(uint8_t* counters) {
     counters[threadIdx.x] = NB_ELEMENTS;
 }
 
-__global__ void enqueue(hip::TaggedEvent* storage, size_t* offsets) {
-    hip::WaveQueue<hip::TaggedEvent> queue{storage, offsets};
+__global__ void enqueue(hip::WaveState* storage, size_t* offsets) {
+    hip::WaveQueue<hip::WaveState> queue{storage, offsets};
 
     for (auto i = 0u; i < NB_ELEMENTS; ++i) {
-        queue.emplace_back(hip::TaggedEvent(i));
+        queue.emplace_back(hip::WaveState(i));
     }
 }
 
@@ -40,8 +40,8 @@ int main() {
     instr.fromDevice(gpu_counters);
     hip::check(hipFree(gpu_counters));
 
-    auto queue_cpu = hip::QueueInfo::wave<hip::TaggedEvent>(instr);
-    auto storage = queue_cpu.allocBuffer<hip::TaggedEvent>();
+    auto queue_cpu = hip::QueueInfo::wave<hip::WaveState>(instr);
+    auto storage = queue_cpu.allocBuffer<hip::WaveState>();
     auto offsets = queue_cpu.allocOffsets();
 
     instr.record();

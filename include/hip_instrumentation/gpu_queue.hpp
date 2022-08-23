@@ -133,6 +133,37 @@ template <typename T, typename... Args> std::string HipEventFields() {
     }
 }
 
+namespace gcnasm {
+
+/** \fn get_hw_id
+ * \brief Returns the value of the harware id register
+ */
+inline __device__ uint32_t get_hw_id() {
+    uint32_t hw_id;
+    asm volatile("s_getreg_b32 %0, hwreg(HW_REG_HW_ID)" : "=s"(hw_id) :);
+
+    return hw_id;
+}
+
+/** \fn get_exec
+ * \brief Returns the value of the EXEC register (execution mask)
+ */
+inline __device__ uint64_t get_exec() {
+    uint64_t exec;
+    asm volatile("s_mov_b64 %0, exec" : "=s"(exec) :);
+
+    return exec;
+}
+
+inline __device__ uint64_t get_stamp() {
+    uint64_t stamp;
+    asm volatile("s_memrealtime %0" : "=s"(stamp) :);
+
+    return stamp;
+}
+
+} // namespace gcnasm
+
 // Sample event classes
 
 /** \struct Event
@@ -151,9 +182,7 @@ struct Event {
  * \brief Event, with an associated timestamp
  */
 struct TaggedEvent {
-    __device__ TaggedEvent(size_t bb) : bb(bb) {
-        asm volatile("s_memrealtime %0" : "=s"(stamp) :);
-    }
+    __device__ TaggedEvent(size_t bb) : bb(bb) { stamp = gcnasm::get_stamp(); }
 
     size_t bb;
     uint64_t stamp;
@@ -162,25 +191,20 @@ struct TaggedEvent {
     static std::string name;
 };
 
-namespace gcnasm {
+struct WaveState {
+    __device__ WaveState(size_t bb) : bb(bb) {
+        stamp = gcnasm::get_stamp();
+        exec = gcnasm::get_exec();
+        hw_id = gcnasm::get_hw_id();
+    }
 
-/** \fn get_hw_id
- * \brief Returns the value of the harware id register
- */
-inline __device__ uint32_t get_hw_id() {
-    uint32_t hw_id;
-    asm volatile("s_getreg_b32 %0, hwreg(HW_REG_HW_ID)" : "=s"(hw_id) :);
-
-    return hw_id;
-}
-
-inline __device__ uint64_t get_exec() {
+    size_t bb;
+    uint64_t stamp;
     uint64_t exec;
-    asm volatile("s_mov_b64 %0, exec" : "=s"(exec) :);
+    uint32_t hw_id;
 
-    return exec;
-}
-
-} // namespace gcnasm
+    static std::string description;
+    static std::string name;
+};
 
 } // namespace hip

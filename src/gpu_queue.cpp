@@ -112,8 +112,14 @@ std::string Event::description = HipEventFields<decltype(Event::bb)>();
 std::string Event::name = "hip::Event";
 
 std::string TaggedEvent::description =
-    HipEventFields<decltype(TaggedEvent::bb), decltype(TaggedEvent::bb)>();
+    HipEventFields<decltype(TaggedEvent::bb), decltype(TaggedEvent::stamp)>();
 
 std::string TaggedEvent::name = "hip::TaggedEvent";
+
+std::string WaveState::description =
+    HipEventFields<decltype(WaveState::bb), decltype(WaveState::stamp),
+                   decltype(WaveState::exec), decltype(WaveState::hw_id)>();
+
+std::string WaveState::name = "hip::WaveState";
 
 } // namespace hip
