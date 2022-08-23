@@ -162,4 +162,25 @@ struct TaggedEvent {
     static std::string name;
 };
 
+namespace gcnasm {
+
+/** \fn get_hw_id
+ * \brief Returns the value of the harware id register
+ */
+inline __device__ uint32_t get_hw_id() {
+    uint32_t hw_id;
+    asm volatile("s_getreg_b32 %0, hwreg(HW_REG_HW_ID)" : "=s"(hw_id) :);
+
+    return hw_id;
+}
+
+inline __device__ uint64_t get_exec() {
+    uint64_t exec;
+    asm volatile("s_mov_b64 %0, exec" : "=s"(exec) :);
+
+    return exec;
+}
+
+} // namespace gcnasm
+
 } // namespace hip
