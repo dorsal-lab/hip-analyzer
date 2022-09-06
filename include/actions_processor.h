@@ -125,11 +125,15 @@ class InstrumentBasicBlocks : public Action {
     int& err;
 };
 
+enum class TraceType { None, Event, TaggedEvent, WaveState };
+
 class TraceBasicBlocks : public Action {
   public:
     TraceBasicBlocks(const std::string& kernel_name,
-                     std::vector<hip::BasicBlock>& blocks, int& err)
-        : kernel(kernel_name), blocks(blocks), err(err) {}
+                     std::vector<hip::BasicBlock>& blocks, int& err,
+                     TraceType trace_type)
+        : kernel(kernel_name), blocks(blocks), err(err),
+          trace_type(trace_type) {}
 
     virtual std::string operator()(clang::tooling::ClangTool& tool) override;
 
@@ -143,6 +147,7 @@ class TraceBasicBlocks : public Action {
     const std::string& kernel;
     std::vector<hip::BasicBlock>& blocks;
     int& err;
+    TraceType trace_type;
 };
 
 /** \class AnalyzeIR

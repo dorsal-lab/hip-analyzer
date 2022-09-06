@@ -115,8 +115,29 @@ std::string TraceBasicBlocks::operator()(clang::tooling::ClangTool& tool) {
     auto kernel_matcher = hip::kernelMatcher(kernel);
 
     // Instrument basic blocks
-    auto tracing_instr_generator =
-        std::make_unique<hip::EventRecordInstrGenerator>();
+    std::unique_ptr<InstrGenerator> tracing_instr_generator;
+
+    switch (trace_type) {
+    case TraceType::Event:
+        tracing_instr_generator =
+            std::make_unique<hip::EventRecordInstrGenerator>();
+        break;
+    case TraceType::TaggedEvent:
+        tracing_instr_generator =
+            std::make_unique<hip::EventRecordInstrGenerator>(
+                true, "hip::TaggedEvent");
+        break;
+    case TraceType::WaveState:
+        tracing_instr_generator =
+            std::make_unique<hip::EventRecordInstrGenerator>(false,
+                                                             "hip::WaveState");
+        break;
+    case TraceType::None:
+        throw std::runtime_error(
+            "hip::actions::TraceBasicBlocks::() : Logic error : tracing, but "
+            "TraceType::None received");
+    }
+
     auto kernel_instrumenter = std::make_unique<hip::KernelCfgInstrumenter>(
         kernel, blocks, std::move(tracing_instr_generator));
 

@@ -32,34 +32,50 @@ static std::string include_path =
     current_file_path.substr(0u, current_file_path.rfind('/')) + "/../include";
 #endif
 
+// ----- LLVM CommandLine options ----- //
+
 static llvm::cl::OptionCategory llvmClCategory("HipAnalyzer options");
-
-static llvm::cl::extrahelp
-    CommonHelp(clang::tooling::CommonOptionsParser::HelpMessage);
-
-static llvm::cl::extrahelp MoreHelp("\nTODO: Extra help\n");
 
 static llvm::cl::opt<std::string>
     kernel_name("k", llvm::cl::desc("Specify kernel name"),
-                llvm::cl::value_desc("kernel"), llvm::cl::Required);
-
-static llvm::cl::opt<bool> trace("trace",
-                                 llvm::cl::desc("Enable finer tracing"),
-                                 llvm::cl::value_desc("Trace kernel"));
+                llvm::cl::value_desc("kernel"), llvm::cl::Required,
+                llvm::cl::cat(llvmClCategory));
 
 static llvm::cl::opt<std::string>
     output_file("o", llvm::cl::desc("Output file path"),
-                llvm::cl::value_desc("output"), llvm::cl::Required);
+                llvm::cl::value_desc("output"), llvm::cl::Required,
+                llvm::cl::cat(llvmClCategory));
 
 static llvm::cl::opt<std::string>
     database_file("db", llvm::cl::desc("Output database path"),
                   llvm::cl::value_desc("database"),
-                  llvm::cl::init(hip::default_database));
+                  llvm::cl::init(hip::default_database),
+                  llvm::cl::cat(llvmClCategory));
 
 static llvm::cl::opt<bool> include_original_call(
     "d",
     llvm::cl::desc("Duplicate : Keep a call to the original, non-instrumented "
-                   "kernel with memory rollback"));
+                   "kernel with memory rollback"),
+    llvm::cl::cat(llvmClCategory));
+
+static llvm::cl::opt<hip::actions::TraceType> trace_type(
+    llvm::cl::desc("Trace type"),
+    llvm::cl::values(clEnumValN(hip::actions::TraceType::None, "no-trace",
+                                "Do not add tracing"),
+                     clEnumValN(hip::actions::TraceType::Event, "trace",
+                                "Thread basic block tracing"),
+                     clEnumValN(hip::actions::TraceType::TaggedEvent,
+                                "trace-tagged",
+                                "Thread basic block tracing with timestamp"),
+                     clEnumValN(hip::actions::TraceType::WaveState,
+                                "trace-wave", "Wavefront status tracing")),
+    llvm::cl::init(hip::actions::TraceType::None),
+    llvm::cl::cat(llvmClCategory));
+
+static llvm::cl::extrahelp
+    CommonHelp(clang::tooling::CommonOptionsParser::HelpMessage);
+
+// static llvm::cl::extrahelp MoreHelp("\nTODO: Extra help\n");
 
 // ----- Utils ----- //
 
@@ -138,6 +154,8 @@ int main(int argc, const char** argv) {
             hip::actions::ReplaceKernelCall(kernel, instrumented_bb_name, err));
     }
 
+    bool trace = (trace_type.getValue() != hip::actions::TraceType::None);
+
     if (trace) {
         // Duplicate again the kernel, this time with the trace-d version
         auto traced_kernel_name =
@@ -146,8 +164,8 @@ int main(int argc, const char** argv) {
         actions
             .process(hip::actions::DuplicateKernel(kernel, traced_kernel_name,
                                                    err, include_original_call))
-            .process(
-                hip::actions::TraceBasicBlocks(traced_kernel_name, blocks, err))
+            .process(hip::actions::TraceBasicBlocks(traced_kernel_name, blocks,
+                                                    err, trace_type.getValue()))
             .process(hip::actions::DuplicateKernelCall(
                 kernel, traced_kernel_name, err));
     }
