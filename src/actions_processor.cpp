@@ -75,6 +75,26 @@ ActionsProcessor& ActionsProcessor::observeOriginal(
 
 namespace actions {
 
+std::unique_ptr<InstrGenerator> make_tracer(TraceType trace_type) {
+    switch (trace_type) {
+    case TraceType::Event:
+        return std::make_unique<hip::EventRecordInstrGenerator>();
+
+    case TraceType::TaggedEvent:
+        return std::make_unique<hip::EventRecordInstrGenerator>(
+            true, "hip::TaggedEvent");
+
+    case TraceType::WaveState:
+        return std::make_unique<hip::EventRecordInstrGenerator>(
+            false, "hip::WaveState");
+
+    case TraceType::None:
+        throw std::runtime_error(
+            "hip::actions::TraceBasicBlocks::() : Logic error : tracing, but "
+            "TraceType::None received");
+    }
+}
+
 std::string DuplicateKernel::operator()(clang::tooling::ClangTool& tool) {
     // Kernel matcher
     clang::ast_matchers::MatchFinder finder;
@@ -115,28 +135,7 @@ std::string TraceBasicBlocks::operator()(clang::tooling::ClangTool& tool) {
     auto kernel_matcher = hip::kernelMatcher(kernel);
 
     // Instrument basic blocks
-    std::unique_ptr<InstrGenerator> tracing_instr_generator;
-
-    switch (trace_type) {
-    case TraceType::Event:
-        tracing_instr_generator =
-            std::make_unique<hip::EventRecordInstrGenerator>();
-        break;
-    case TraceType::TaggedEvent:
-        tracing_instr_generator =
-            std::make_unique<hip::EventRecordInstrGenerator>(
-                true, "hip::TaggedEvent");
-        break;
-    case TraceType::WaveState:
-        tracing_instr_generator =
-            std::make_unique<hip::EventRecordInstrGenerator>(false,
-                                                             "hip::WaveState");
-        break;
-    case TraceType::None:
-        throw std::runtime_error(
-            "hip::actions::TraceBasicBlocks::() : Logic error : tracing, but "
-            "TraceType::None received");
-    }
+    auto tracing_instr_generator = make_tracer(trace_type);
 
     auto kernel_instrumenter = std::make_unique<hip::KernelCfgInstrumenter>(
         kernel, blocks, std::move(tracing_instr_generator));
@@ -189,7 +188,8 @@ std::string TraceKernelCall::operator()(clang::tooling::ClangTool& tool) {
     clang::ast_matchers::MatchFinder finder;
     auto kernel_call_matcher = hip::kernelCallMatcher(instrumented_kernel);
 
-    auto instr_generator = std::make_unique<hip::EventRecordInstrGenerator>();
+    auto instr_generator = make_tracer(trace_type);
+
     KernelCallInstrumenter instrumenter(kernel, instrumented_kernel, blocks,
                                         true, std::move(instr_generator));
 

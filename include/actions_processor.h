@@ -130,8 +130,8 @@ enum class TraceType { None, Event, TaggedEvent, WaveState };
 class TraceBasicBlocks : public Action {
   public:
     TraceBasicBlocks(const std::string& kernel_name,
-                     std::vector<hip::BasicBlock>& blocks, int& err,
-                     TraceType trace_type)
+                     std::vector<hip::BasicBlock>& blocks, TraceType trace_type,
+                     int& err)
         : kernel(kernel_name), blocks(blocks), err(err),
           trace_type(trace_type) {}
 
@@ -235,8 +235,9 @@ class InstrumentKernelCall : public Action {
 class TraceKernelCall : public Action {
   public:
     TraceKernelCall(const std::string& kernel,
-                    const std::vector<hip::BasicBlock>& blocks, int& err)
-        : kernel(kernel), blocks(blocks), err(err),
+                    const std::vector<hip::BasicBlock>& blocks,
+                    TraceType trace_type, int& err)
+        : kernel(kernel), blocks(blocks), trace_type(trace_type), err(err),
           instrumented_kernel(
               TraceBasicBlocks::getInstrumentedKernelName(kernel)) {}
 
@@ -245,6 +246,7 @@ class TraceKernelCall : public Action {
   private:
     const std::string& kernel;
     std::string instrumented_kernel;
+    TraceType trace_type;
     const std::vector<hip::BasicBlock>& blocks;
     int& err;
 };

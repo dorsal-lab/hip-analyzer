@@ -165,7 +165,7 @@ int main(int argc, const char** argv) {
             .process(hip::actions::DuplicateKernel(kernel, traced_kernel_name,
                                                    err, include_original_call))
             .process(hip::actions::TraceBasicBlocks(traced_kernel_name, blocks,
-                                                    err, trace_type.getValue()))
+                                                    trace_type.getValue(), err))
             .process(hip::actions::DuplicateKernelCall(
                 kernel, traced_kernel_name, err));
     }
@@ -176,7 +176,8 @@ int main(int argc, const char** argv) {
                                                     include_original_call));
 
     if (trace) {
-        actions.process(hip::actions::TraceKernelCall(kernel, blocks, err));
+        actions.process(hip::actions::TraceKernelCall(
+            kernel, blocks, trace_type.getValue(), err));
     }
     // Analyze the original IR to get better info on the kernel execution
     actions.observeOriginal(hip::actions::AnalyzeIR(kernel, blocks, err));
