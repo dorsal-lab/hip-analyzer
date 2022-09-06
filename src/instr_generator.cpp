@@ -202,7 +202,8 @@ std::string EventRecordInstrGenerator::generateInstrumentationParms() const {
 
     // Must have default parameters overload, otherwise the kernel call won't
     // compile
-    ss << ",/* Extra params */ hip::Event* _event_storage = nullptr, size_t* "
+    ss << ",/* Extra params */ " << event_type
+       << "* _event_storage = nullptr, size_t* "
           "_event_offsets = nullptr";
 
     return ss.str();
@@ -213,13 +214,8 @@ std::string EventRecordInstrGenerator::generateInstrumentationLocals() const {
 
     ss << "\n/* Instrumentation locals */\n";
 
-    if (is_thread) {
-        ss << "hip::ThreadQueue<hip::Event> _queue{_event_storage, "
-              "_event_offsets};\n";
-    } else {
-        ss << "hip::WaveQueue<hip::Event> _queue{_event_storage, "
-              "_event_offsets};\n";
-    }
+    ss << queue_type << '<' << event_type
+       << "> _queue{_event_storage, _event_offsets};\n";
 
     return ss.str();
 }
@@ -232,6 +228,10 @@ std::string EventRecordInstrGenerator::generateInstrumentationCommit() const {
     // Print output
 
     // Nothing to do : the queue writes to global memory
+
+    if (!is_thread) {
+        ss << "_queue.emplace_back(-1);\n";
+    }
 
     return ss.str();
 }
@@ -249,13 +249,12 @@ std::string EventRecordInstrGenerator::generateInstrumentationInit(
 
     // Just as kernel info and instrumenter must already exist
 
-    // TODO : pass parameters for wave queue
+    std::string queue_info_type = is_thread ? "thread" : "wave";
+    ss << "auto _queue_info = hip::QueueInfo::" << queue_info_type << '<'
+       << event_type << ">(_" << kernel_name << "_instr);\n";
 
-    ss << "auto _queue_info = hip::QueueInfo::thread<hip::Event>(_"
-       << kernel_name << "_instr);\n";
-
-    ss << "auto _event_storage = _queue_info.allocBuffer<hip::Event>();\n"
-       << "auto _event_offsets = _queue_info.allocOffsets();\n";
+    ss << "auto _event_storage = _queue_info.allocBuffer<" << event_type
+       << ">();\nauto _event_offsets = _queue_info.allocOffsets();\n";
 
     return ss.str();
 }

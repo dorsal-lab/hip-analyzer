@@ -82,6 +82,7 @@ add_custom_command(
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/queue_info.hpp
         ${CMAKE_SOURCE_DIR}/test/queue_info.cpp
     VERBATIM
 )
@@ -100,6 +101,7 @@ add_custom_command(
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/queue_info.hpp
         ${CMAKE_SOURCE_DIR}/test/gpu_queue_thread.cpp
     VERBATIM
 )
@@ -117,6 +119,7 @@ add_custom_command(
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/queue_info.hpp
         ${CMAKE_SOURCE_DIR}/test/gpu_queue_wave.cpp
     VERBATIM
 )

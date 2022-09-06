@@ -19,27 +19,31 @@ struct QueueInfo {
     /** \fn thread
      * \brief Creates a ThreadQueue buffer
      */
-    template <class EventType> static QueueInfo thread(Instrumenter& instr) {
+    template <class EventType>
+    static QueueInfo thread(Instrumenter& instr, size_t extra_size = 0u) {
         static_assert(std::is_trivially_copyable_v<EventType>);
         static_assert(
             std::is_same_v<decltype(EventType::description), std::string>);
         static_assert(std::is_same_v<decltype(EventType::name), std::string>);
 
-        return QueueInfo{instr, sizeof(EventType), true, EventType::description,
-                         EventType::name};
+        return QueueInfo{
+            instr,           sizeof(EventType), true, EventType::description,
+            EventType::name, extra_size};
     }
 
     /** \fn wave
      * \brief creates a WaveQueue buffer
      */
-    template <class EventType> static QueueInfo wave(Instrumenter& instr) {
+    template <class EventType>
+    static QueueInfo wave(Instrumenter& instr, size_t extra_size = 0u) {
         static_assert(std::is_trivially_copyable_v<EventType>);
         static_assert(
             std::is_same_v<decltype(EventType::description), std::string>);
         static_assert(std::is_same_v<decltype(EventType::name), std::string>);
 
-        return QueueInfo{instr, sizeof(EventType), false,
-                         EventType::description, EventType::name};
+        return QueueInfo{instr,           sizeof(EventType),
+                         false,           EventType::description,
+                         EventType::name, extra_size};
     }
 
     /** \fn offsets
@@ -111,13 +115,15 @@ struct QueueInfo {
 
   private:
     QueueInfo(Instrumenter& instr, size_t elem_size, bool is_thread,
-              const std::string& type_desc, const std::string& type_name);
+              const std::string& type_desc, const std::string& type_name,
+              size_t extra_size);
 
     void computeSize();
 
     Instrumenter& instr;
     bool is_thread;
     size_t elem_size;
+    size_t extra_size;
     std::vector<size_t> offsets_vec;
     std::vector<std::byte> cpu_queue;
     const std::string& type_desc;

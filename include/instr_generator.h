@@ -111,7 +111,15 @@ struct CfgCounterInstrGenerator : public InstrGenerator {
 };
 
 struct EventRecordInstrGenerator : public InstrGenerator {
-    EventRecordInstrGenerator(bool is_thread = true) : is_thread(is_thread) {}
+    EventRecordInstrGenerator(bool is_thread = true,
+                              const std::string& event_type = "hip::Event")
+        : is_thread(is_thread), event_type(event_type) {
+        if (is_thread) {
+            queue_type = "hip::ThreadQueue";
+        } else {
+            queue_type = "hip::WaveQueue";
+        }
+    }
 
     // ----- Device-side instrumentation ----- //
     virtual std::string generateBlockCode(unsigned int id) const override;
@@ -132,6 +140,8 @@ struct EventRecordInstrGenerator : public InstrGenerator {
 
   private:
     bool is_thread;
+    std::string event_type;
+    std::string queue_type;
 };
 
 } // namespace hip

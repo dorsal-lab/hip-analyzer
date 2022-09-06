@@ -11,9 +11,10 @@
 namespace hip {
 
 QueueInfo::QueueInfo(Instrumenter& instr, size_t elem_size, bool is_thread,
-                     const std::string& type_desc, const std::string& type_name)
+                     const std::string& type_desc, const std::string& type_name,
+                     size_t extra_size)
     : is_thread(is_thread), elem_size(elem_size), instr(instr),
-      type_desc(type_desc), type_name(type_name) {
+      type_desc(type_desc), type_name(type_name), extra_size(extra_size) {
     computeSize();
 }
 
@@ -45,7 +46,8 @@ void QueueInfo::computeSize() {
                 // For each thread, compute the number of events to record
                 for (auto bb = 0u; bb < kernel.basic_blocks; ++bb) {
                     nb_events += counters[block * blocks_stride +
-                                          thread * thread_stride + bb];
+                                          thread * thread_stride + bb] +
+                                 extra_size;
                 }
 
                 // Append to the vector of offsets
@@ -63,7 +65,7 @@ void QueueInfo::computeSize() {
         auto wave = 0u;
         auto commit_wave = [&]() {
             nb_events += std::accumulate(max_per_bblock.begin(),
-                                         max_per_bblock.end(), 0u);
+                                         max_per_bblock.end(), extra_size);
             offsets_vec.push_back(nb_events);
 
             max_per_bblock = std::vector<size_t>{kernel.basic_blocks, 0u};

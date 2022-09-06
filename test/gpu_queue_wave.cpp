@@ -20,6 +20,8 @@ __global__ void enqueue(hip::WaveState* storage, size_t* offsets) {
     for (auto i = 0u; i < NB_ELEMENTS; ++i) {
         queue.emplace_back(hip::WaveState(i));
     }
+
+    queue.emplace_back(-1);
 }
 
 int main() {
@@ -40,7 +42,7 @@ int main() {
     instr.fromDevice(gpu_counters);
     hip::check(hipFree(gpu_counters));
 
-    auto queue_cpu = hip::QueueInfo::wave<hip::WaveState>(instr);
+    auto queue_cpu = hip::QueueInfo::wave<hip::WaveState>(instr, 1u);
     auto storage = queue_cpu.allocBuffer<hip::WaveState>();
     auto offsets = queue_cpu.allocOffsets();
 
