@@ -275,7 +275,9 @@ std::string EventRecordInstrGenerator::generateInstrumentationFinalize(
 
     ss << "\n\n/* Finalize instrumentation : copy back data */\n";
 
-    // TODO
+    ss << "hip::check(hipDeviceSynchronize());\n";
+    ss << "_queue_info.fromDevice(_event_storage);\n";
+    ss << "_queue_info.record();\n";
 
     // Free device memory
 
