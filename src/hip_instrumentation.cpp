@@ -108,6 +108,10 @@ std::ostream& dumpTraceBin(std::ostream& out,
     // Like "hiptrace_counters,<kernel name>,<num
     // counters>,<stamp>,<stamp_begin>,<stamp_end>,<counter size>\n"
 
+#ifdef HIPANALYZER_BIN_OFFSETS
+    std::cout << "Counters @ " << out.tellp() << '\n';
+#endif
+
     out << hiptrace_counters_name << ',' << kernel_info.name << ','
         << kernel_info.instr_size << ',' << stamp << ',' << interval.first
         << ',' << interval.second << ','
@@ -126,6 +130,10 @@ std::ostream& dumpTraceBin(std::ostream& out,
 
     // Write binary dump of counters
 
+#ifdef HIPANALYZER_BIN_OFFSETS
+    std::cout << "\tData @ " << out.tellp() << '\n';
+#endif
+
     out.write(reinterpret_cast<const char*>(counters.data()),
               counters.size() * sizeof(counter_t));
 
@@ -143,6 +151,10 @@ std::ostream& dumpEventsBin(std::ostream& out,
 
     auto num_offsets = offsets.size() - 1;
 
+#ifdef HIPANALYZER_BIN_OFFSETS
+    std::cout << "Events @ " << out.tellp() << '\n';
+#endif
+
     // Like "hiptrace_events,<event_size>,<queue_parallelism>,<event
     // name>,[<mangled_type>,<type_size>,...]\n
     out << hiptrace_events_name << ',' << static_cast<unsigned int>(event_size)
@@ -150,6 +162,9 @@ std::ostream& dumpEventsBin(std::ostream& out,
         << hiptrace_event_fields << ',' << event_desc << '\n';
 
     // Binary dump of offsets
+#ifdef HIPANALYZER_BIN_OFFSETS
+    std::cout << "\tOffsets @ " << out.tellp() << '\n';
+#endif
 
     out.write(reinterpret_cast<const char*>(offsets.data()),
               offsets.size() *
@@ -157,6 +172,11 @@ std::ostream& dumpEventsBin(std::ostream& out,
                                    // know where the end is
 
     // Binary dump
+
+#ifdef HIPANALYZER_BIN_OFFSETS
+    std::cout << "\tQueue @ " << out.tellp() << '\n';
+#endif
+
     out.write(reinterpret_cast<const char*>(queue_data.data()),
               queue_data.size());
 

@@ -46,9 +46,10 @@ void QueueInfo::computeSize() {
                 // For each thread, compute the number of events to record
                 for (auto bb = 0u; bb < kernel.basic_blocks; ++bb) {
                     nb_events += counters[block * blocks_stride +
-                                          thread * thread_stride + bb] +
-                                 extra_size;
+                                          thread * thread_stride + bb];
                 }
+
+                nb_events += extra_size;
 
                 // Append to the vector of offsets
                 offsets_vec.push_back(nb_events);
@@ -63,6 +64,7 @@ void QueueInfo::computeSize() {
         std::vector<size_t> max_per_bblock{kernel.basic_blocks, 0u};
 
         auto wave = 0u;
+
         auto commit_wave = [&]() {
             nb_events += std::accumulate(max_per_bblock.begin(),
                                          max_per_bblock.end(), extra_size);
