@@ -1,5 +1,6 @@
 # Hip Analyzer tests
 
+project(hip-analyzer-tests LANGUAGES C CXX)
 
 # ----- block_db ----- #
 

@@ -7,16 +7,22 @@ set(CMAKE_CXX_FLAGS "-fno-rtti")
 
 # ---- Paths setup ----- #
 
-set(ROCM_LLVM ${ROCM_PATH}/llvm/)
-set(CMAKE_PREFIX_PATH ${ROCM_LLVM} ${CMAKE_PREFIX_PATH})
+string(REPLACE ":" ";" CMAKE_PREFIX_PATH "$ENV{CMAKE_PREFIX_PATH}")
+string(REPLACE ":" ";" CMAKE_LIBRARY_PATH "$ENV{CMAKE_LIBRARY_PATH}")
+
+
+set(ROCM_LLVM ${ROCM_PATH}/llvm)
+list(APPEND CMAKE_PREFIX_PATH "${ROCM_PATH};${ROCM_PATH}/hip;${ROCM_LLVM}")
 set(CLANG_INSTALL_PREFIX ${ROCM_LLVM})
-set(CMAKE_LIBRARY_PATH ${ROCM_LLVM}/lib)
+list(APPEND CMAKE_LIBRARY_PATH "${ROCM_LLVM}/lib")
+list(APPEND CMAKE_MODULE_PATH "${ROCM_LLVM}/lib/cmake/llvm")
+
+message(${CMAKE_PREFIX_PATH})
 
 # ----- Packages ----- #
 
 # HIP
 
-list(APPEND CMAKE_PREFIX_PATH ${ROCM_PATH} ${ROCM_PATH}/hip)
 find_package(hip)
 
 # LLVM & Clang
@@ -108,6 +114,7 @@ target_link_libraries(hip_instrumentation
     rocprofiler64
     dl
     pthread
+    Terminfo::terminfo
 )
 
 
