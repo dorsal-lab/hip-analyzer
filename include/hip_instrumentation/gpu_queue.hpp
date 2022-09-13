@@ -57,6 +57,11 @@ template <class EventType> class WaveQueue {
         return emplace_back(event);
     }
 
+    /**
+     * \warning Emplacing seems to cause problems when the constructor calls
+     * assembly primitives, use caution or prefer a simple copy construction
+     * (ie. construct with emplace_back(hip::Event([...])) or push_back)
+     */
     template <typename... Args>
     __device__ EventType& emplace_back(Args&&... args);
 

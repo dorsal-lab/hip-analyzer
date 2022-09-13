@@ -181,7 +181,7 @@ EventRecordInstrGenerator::generateBlockCode(unsigned int id) const {
     std::stringstream ss;
     ss << "/* BB " << id << " (" << bb_count << ") */" << '\n';
 
-    ss << "_queue.emplace_back(" << bb_count << ");\n";
+    ss << "_queue.push_back(" << event_type << '{' << bb_count << "});\n";
 
     return ss.str();
 }
@@ -230,7 +230,7 @@ std::string EventRecordInstrGenerator::generateInstrumentationCommit() const {
     // Nothing to do : the queue writes to global memory
 
     if (!is_thread) {
-        ss << "_queue.emplace_back(-1);\n";
+        ss << "_queue.push_back(" << event_type << "(-1));\n";
     }
 
     return ss.str();

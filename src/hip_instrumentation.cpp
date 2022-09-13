@@ -22,7 +22,7 @@
 #include <json/json.h>
 
 #include "rocprofiler/rocprofiler.h"
-#include "roctracer.h"
+#include "roctracer/roctracer.h"
 
 namespace hip {
 

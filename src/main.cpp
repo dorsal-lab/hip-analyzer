@@ -117,6 +117,7 @@ int main(int argc, const char** argv) {
     appendFlag(db, "-I" + rocm_path + "/hip/bin/include");
     appendFlag(db, "-gline-directives-only");
     appendFlag(db, "-I" + include_path);
+    appendFlag(db, "-I" + rocm_path + "/llvm/lib/clang/14.0.0/include");
 
     // Instrumentation info
 
