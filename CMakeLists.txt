@@ -73,6 +73,20 @@ target_link_libraries(hip-analyzer
     jsoncpp
 )
 
+# LLVM Pass
+
+add_library(
+    hip-analyzer-pass SHARED
+    src/pass/hip_analyzer_pass.cpp
+)
+
+target_link_libraries(
+    hip-analyzer-pass
+    LLVMCore
+    LLVMAnalysis
+)
+
+
 # Instrumentation library
 
 add_custom_command(
