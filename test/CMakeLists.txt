@@ -61,7 +61,7 @@ target_link_libraries(recover_arrays hip_instrumentation)
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gpu_enqueue.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/gpu_enqueue.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/gpu_enqueue.o
+    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/gpu_enqueue.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/gpu_enqueue.o
     DEPENDS 
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
@@ -78,7 +78,7 @@ set_target_properties(gpu_enqueue PROPERTIES LINKER_LANGUAGE CXX)
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/queue_info.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/queue_info.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/queue_info.o
+    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/queue_info.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/queue_info.o
     DEPENDS 
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
@@ -97,7 +97,7 @@ set_target_properties(queue_info PROPERTIES LINKER_LANGUAGE CXX)
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_thread.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/gpu_queue_thread.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_thread.o
+    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/gpu_queue_thread.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_thread.o
     DEPENDS 
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
@@ -115,7 +115,7 @@ set_target_properties(gpu_queue_thread PROPERTIES LINKER_LANGUAGE CXX)
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_wave.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/gpu_queue_wave.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_wave.o
+    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/gpu_queue_wave.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_wave.o
     DEPENDS 
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp

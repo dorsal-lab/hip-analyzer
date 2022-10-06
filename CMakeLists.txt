@@ -3,7 +3,7 @@ project(hip-analyzer LANGUAGES C CXX)
 
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_FLAGS "-fno-rtti")
+list(APPEND CMAKE_CXX_FLAGS "-fPIE -fno-rtti")
 
 # ---- Paths setup ----- #
 
@@ -11,8 +11,11 @@ string(REPLACE ":" ";" CMAKE_PREFIX_PATH "$ENV{CMAKE_PREFIX_PATH}")
 string(REPLACE ":" ";" CMAKE_LIBRARY_PATH "$ENV{CMAKE_LIBRARY_PATH}")
 
 
-set(ROCM_LLVM ${ROCM_PATH}/llvm)
-list(APPEND CMAKE_PREFIX_PATH "${ROCM_PATH};${ROCM_PATH}/hip;${ROCM_LLVM}")
+if(NOT DEFINED ROCM_LLVM)
+    set(ROCM_LLVM ${ROCM_PATH}/llvm)
+endif()
+
+list(APPEND CMAKE_PREFIX_PATH "${ROCM_LLVM};${ROCM_PATH};${ROCM_PATH}/hip")
 set(CLANG_INSTALL_PREFIX ${ROCM_LLVM})
 list(APPEND CMAKE_LIBRARY_PATH "${ROCM_LLVM}/lib")
 list(APPEND CMAKE_MODULE_PATH "${ROCM_LLVM}/lib/cmake/llvm")
@@ -32,10 +35,11 @@ link_directories(BEFORE ${ROCM_LLVM}/lib ${ROCM_PATH}/lib)
 set(LLVM_LINK_COMPONENTS support)
 find_package(Clang REQUIRED)
 find_package(LLVM CONFIG REQUIRED)
+message(${LLVM_INSTALL_PREFIX})
 
 include_directories(
     include
-    ${ROCM_PATH}/llvm/include
+    ${ROCM_LLVM}/include
     ${ROCM_PATH}/roctracer/include
     ${ROCM_PATH}/include/hsa
 )
@@ -61,15 +65,22 @@ add_executable(hip-analyzer
 )
 
 target_link_libraries(hip-analyzer
+    clangToolingCore
     clangTooling
     clangFrontend
     clangAST
     clangASTMatchers
+    clangAnalysis
     clangBasic
     clangSerialization
     clangCodeGen
+    clangRewrite
+    clangLex
     LLVMAnalysis
+    LLVMFrontendOpenMP
+    LLVMObject
     LLVMCore
+    LLVMSupport
     jsoncpp
 )
 
@@ -82,7 +93,9 @@ add_library(
 
 target_link_libraries(
     hip-analyzer-pass
+    LLVMPasses
     LLVMCore
+    LLVMSupport
     LLVMAnalysis
 )
 
@@ -91,7 +104,7 @@ target_link_libraries(
 
 add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/gpu_hip_instrumentation.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/gpu_functions.cpp -std=c++20 -o ${CMAKE_BINARY_DIR}/gpu_hip_instrumentation.o
+    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/gpu_functions.cpp -std=c++20 -o ${CMAKE_BINARY_DIR}/gpu_hip_instrumentation.o
     DEPENDS 
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/reduction_kernels.hpp
@@ -102,7 +115,7 @@ add_custom_command(
 
 add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/gpu_queue.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/gpu_queue.cpp -std=c++20 -o ${CMAKE_BINARY_DIR}/gpu_queue.o
+    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/gpu_queue.cpp -std=c++20 -o ${CMAKE_BINARY_DIR}/gpu_queue.o
     DEPENDS 
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
@@ -117,6 +130,7 @@ add_library(hip_instrumentation
     src/basic_block.cpp
     src/gpu_info.cpp
     src/state_recoverer.cpp
+    src/hip_instrumentation_cbindings.cpp
     ${CMAKE_BINARY_DIR}/gpu_hip_instrumentation.o
     ${CMAKE_BINARY_DIR}/gpu_queue.o
 )
