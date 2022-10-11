@@ -11,6 +11,14 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
+#include "llvm/Support/CommandLine.h"
+
+#include "hip_instrumentation/basic_block.hpp"
+
+static llvm::cl::opt<std::string>
+    kernel_name("kernel-name", llvm::cl::desc("Specify kernel name"),
+                llvm::cl::value_desc("kernel"));
+
 namespace hip {
 
 namespace {
@@ -18,7 +26,8 @@ namespace {
 /** \struct AnalysisPass
  * \brief CFG Analysis pass, read cfg and gather static analysis information
  */
-struct AnalysisPass : public llvm::FunctionPass {
+class AnalysisPass : public llvm::FunctionPass {
+  public:
     static char ID;
 
     AnalysisPass() : llvm::FunctionPass(ID) {}
@@ -28,26 +37,57 @@ struct AnalysisPass : public llvm::FunctionPass {
         fn.print(llvm::dbgs(), nullptr);
         return false;
     }
+
+    const std::vector<hip::BasicBlock>& getBlocks() { return blocks; }
+
+  private:
+    std::vector<hip::BasicBlock> blocks;
 };
 
-struct CfgInstrumentationPass : public llvm::FunctionPass {
+struct CfgInstrumentationPass : public llvm::ModulePass {
     static char ID;
 
-    CfgInstrumentationPass() : llvm::FunctionPass(ID) {}
+    CfgInstrumentationPass() : llvm::ModulePass(ID) {}
 
-    virtual bool runOnFunction(llvm::Function& fn) override { return false; }
+    virtual bool runOnModule(llvm::Module& mod) override {
+        bool modified = false;
+        for (auto& f : mod.functions()) {
+            if (f.isDeclaration()) {
+                continue;
+            }
+
+            llvm::errs() << "Function " << f.getName() << '\n';
+
+            f.print(llvm::dbgs(), nullptr);
+            modified |= instrumentFunction(f);
+        }
+
+        return modified;
+    }
+
+    virtual bool instrumentFunction(llvm::Function& f) {
+        auto& blocks = getAnalysis<AnalysisPass>(f).getBlocks();
+
+        return false;
+    }
 
     virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override {
         Info.addRequired<AnalysisPass>();
     }
 };
 
-struct TracingPass : public llvm::FunctionPass {
+struct TracingPass : public llvm::ModulePass {
     static char ID;
 
-    TracingPass() : llvm::FunctionPass(ID) {}
+    TracingPass() : llvm::ModulePass(ID) {}
 
-    virtual bool runOnFunction(llvm::Function& fn) override { return false; }
+    virtual bool runOnModule(llvm::Module& fn) override { return false; }
+
+    virtual bool instrumentFunction(llvm::Function& f) {
+        auto& blocks = getAnalysis<AnalysisPass>(f).getBlocks();
+
+        return false;
+    }
 
     virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override {
         Info.addRequired<AnalysisPass>();
@@ -75,8 +115,8 @@ static void registerTracingPass(const llvm::PassManagerBuilder&,
 } // namespace
 
 static llvm::RegisterPass<AnalysisPass>
-    RegisterAnalysisPass("hip-analyzer", "Hip-Analyzer analysis pass", false,
-                         false);
+    RegisterAnalysisPass("hip-analyzer", "Hip-Analyzer analysis pass", true,
+                         true);
 
 static llvm::RegisterPass<CfgInstrumentationPass>
     RegisterCfgCountersPass("hip-analyzer-counters",
