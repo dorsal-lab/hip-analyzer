@@ -7,6 +7,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
@@ -19,7 +20,7 @@ struct HipAnalyzerPass : public llvm::ModulePass {
 
     virtual bool runOnModule(llvm::Module& mod) {
         llvm::errs() << "Module " << mod.getName() << '\n';
-        mod.dump();
+        mod.print(llvm::dbgs(), nullptr);
         return false;
     }
 };
