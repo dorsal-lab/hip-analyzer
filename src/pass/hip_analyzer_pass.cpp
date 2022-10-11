@@ -11,32 +11,91 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
+namespace hip {
+
 namespace {
 
-struct HipAnalyzerPass : public llvm::ModulePass {
+/** \struct AnalysisPass
+ * \brief CFG Analysis pass, read cfg and gather static analysis information
+ */
+struct AnalysisPass : public llvm::FunctionPass {
     static char ID;
 
-    HipAnalyzerPass() : llvm::ModulePass(ID) {}
+    AnalysisPass() : llvm::FunctionPass(ID) {}
 
-    virtual bool runOnModule(llvm::Module& mod) {
-        llvm::errs() << "Module " << mod.getName() << '\n';
-        mod.print(llvm::dbgs(), nullptr);
+    virtual bool runOnFunction(llvm::Function& fn) {
+        llvm::errs() << "Function " << fn.getName() << '\n';
+        fn.print(llvm::dbgs(), nullptr);
         return false;
     }
 };
 
-char HipAnalyzerPass::ID = 0;
+struct CfgInstrumentationPass : public llvm::FunctionPass {
+    static char ID;
 
-static void registerHipAnalyzerPass(const llvm::PassManagerBuilder&,
-                                    llvm::legacy::PassManagerBase& PM) {
-    PM.add(new HipAnalyzerPass());
+    CfgInstrumentationPass() : llvm::FunctionPass(ID) {}
+
+    virtual bool runOnFunction(llvm::Function& fn) override { return false; }
+
+    virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override {
+        Info.addRequired<AnalysisPass>();
+    }
+};
+
+struct TracingPass : public llvm::FunctionPass {
+    static char ID;
+
+    TracingPass() : llvm::FunctionPass(ID) {}
+
+    virtual bool runOnFunction(llvm::Function& fn) override { return false; }
+
+    virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override {
+        Info.addRequired<AnalysisPass>();
+    }
+};
+
+char AnalysisPass::ID = 0;
+char CfgInstrumentationPass::ID = 1;
+char TracingPass::ID = 2;
+
+static void registerAnalysisPass(const llvm::PassManagerBuilder&,
+                                 llvm::legacy::PassManagerBase& PM) {
+    PM.add(new AnalysisPass());
 }
 
-static llvm::RegisterPass<HipAnalyzerPass>
-    Pass("hip-analyzer", "Hip-Analyzer instrumentation", false, false);
+static void registerCfgPass(const llvm::PassManagerBuilder&,
+                            llvm::legacy::PassManagerBase& PM) {
+    PM.add(new CfgInstrumentationPass());
+}
+static void registerTracingPass(const llvm::PassManagerBuilder&,
+                                llvm::legacy::PassManagerBase& PM) {
+    PM.add(new TracingPass());
+}
 
 } // namespace
 
+static llvm::RegisterPass<AnalysisPass>
+    RegisterAnalysisPass("hip-analyzer", "Hip-Analyzer analysis pass", false,
+                         false);
+
+static llvm::RegisterPass<CfgInstrumentationPass>
+    RegisterCfgCountersPass("hip-analyzer-counters",
+                            "Hip-Analyzer cfg counters pass", false, false);
+
+static llvm::RegisterPass<TracingPass>
+    RegisterTracingPass("hip-analyzer-tracing", "Hip-Analyzer tracing pass",
+                        false, false);
+
+} // namespace hip
+
 static llvm::RegisterStandardPasses
-    registerPass(llvm::PassManagerBuilder::EP_EarlyAsPossible,
-                 registerHipAnalyzerPass);
+    registerAnalysisPass(llvm::PassManagerBuilder::EP_EarlyAsPossible,
+                         hip::registerAnalysisPass);
+
+static llvm::RegisterStandardPasses
+    registerCfgPass(llvm::PassManagerBuilder::EP_EarlyAsPossible,
+                    hip::registerCfgPass);
+
+static llvm::RegisterStandardPasses
+    registerTracingPass(llvm::PassManagerBuilder::EP_EarlyAsPossible,
+                        hip::registerTracingPass);
