@@ -40,10 +40,10 @@ class AnalysisPass : public llvm::FunctionPass {
         return false;
     }
 
-    const std::vector<hip::BasicBlock>& getBlocks() { return blocks; }
+    const std::vector<hip::InstrumentedBlock>& getBlocks() { return blocks; }
 
   private:
-    std::vector<hip::BasicBlock> blocks;
+    std::vector<hip::InstrumentedBlock> blocks;
 };
 
 void setInsertPointPastAllocas(llvm::IRBuilderBase& builder,
@@ -75,9 +75,10 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
 
     virtual bool instrumentFunction(llvm::Function& f) {
         auto& blocks = getAnalysis<AnalysisPass>(f).getBlocks();
+        auto& context = f.getContext();
 
         // Add counters
-        auto* counter_type = getCounterType(f.getContext());
+        auto* counter_type = getCounterType(context);
         auto* array_type = llvm::ArrayType::get(counter_type, blocks.size());
 
         llvm::IRBuilder<> builder_locals(&f.getEntryBlock());
@@ -86,7 +87,20 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
         auto* counters = builder_locals.CreateAlloca(
             array_type, nullptr, llvm::Twine("_bb_counters"));
 
+        // Instrument each basic block
+
+        for (auto& bb : blocks) {
+            builder_locals.SetInsertPoint(bb.bb.getFirstNonPHIOrDbg());
+
+            auto* inbound_ptr = builder_locals.CreateInBoundsGEP(
+                array_type, counters, getIndex(bb.id, context));
+        }
+
         return false;
+    }
+
+    llvm::Value* getIndex(uint64_t idx, llvm::LLVMContext& context) {
+        return llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 0);
     }
 
     virtual llvm::Type* getCounterType(llvm::LLVMContext& context) const {
