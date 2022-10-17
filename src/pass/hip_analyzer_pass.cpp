@@ -4,6 +4,7 @@
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */
 
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
@@ -14,6 +15,7 @@
 #include "llvm/Support/CommandLine.h"
 
 #include "hip_instrumentation/basic_block.hpp"
+#include "ir_codegen.h"
 
 static llvm::cl::opt<std::string>
     kernel_name("kernel-name", llvm::cl::desc("Specify kernel name"),
@@ -44,6 +46,12 @@ class AnalysisPass : public llvm::FunctionPass {
     std::vector<hip::BasicBlock> blocks;
 };
 
+void setInsertPointPastAllocas(llvm::IRBuilderBase& builder,
+                               llvm::Function& f) {
+    auto& bb = f.getEntryBlock();
+    builder.SetInsertPoint(bb.getFirstNonPHIOrDbg());
+}
+
 struct CfgInstrumentationPass : public llvm::ModulePass {
     static char ID;
 
@@ -68,7 +76,21 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
     virtual bool instrumentFunction(llvm::Function& f) {
         auto& blocks = getAnalysis<AnalysisPass>(f).getBlocks();
 
+        // Add counters
+        auto* counter_type = getCounterType(f.getContext());
+        auto* array_type = llvm::ArrayType::get(counter_type, blocks.size());
+
+        llvm::IRBuilder<> builder_locals(&f.getEntryBlock());
+        setInsertPointPastAllocas(builder_locals, f);
+
+        auto* counters = builder_locals.CreateAlloca(
+            array_type, nullptr, llvm::Twine("_bb_counters"));
+
         return false;
+    }
+
+    virtual llvm::Type* getCounterType(llvm::LLVMContext& context) const {
+        return llvm::Type::getInt8Ty(context);
     }
 
     virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override {
