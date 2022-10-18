@@ -5,6 +5,7 @@
  */
 
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
@@ -65,6 +66,31 @@ void setInsertPointPastAllocas(llvm::IRBuilderBase& builder,
     builder.SetInsertPoint(bb.getFirstNonPHIOrDbg());
 }
 
+llvm::BasicBlock::iterator getFirstNonPHIOrDbgOrAlloca(llvm::BasicBlock& bb) {
+    llvm::Instruction* FirstNonPHI = bb.getFirstNonPHI();
+    if (!FirstNonPHI)
+        return bb.end();
+
+    llvm::BasicBlock::iterator InsertPt = FirstNonPHI->getIterator();
+    if (InsertPt->isEHPad())
+        ++InsertPt;
+
+    if (bb.isEntryBlock()) {
+        llvm::BasicBlock::iterator End = bb.end();
+        while (InsertPt != End && (isa<llvm::AllocaInst>(*InsertPt) ||
+                                   isa<llvm::DbgInfoIntrinsic>(*InsertPt) ||
+                                   isa<llvm::PseudoProbeInst>(*InsertPt))) {
+            if (const llvm::AllocaInst* AI =
+                    dyn_cast<llvm::AllocaInst>(&*InsertPt)) {
+                if (!AI->isStaticAlloca())
+                    break;
+            }
+            ++InsertPt;
+        }
+    }
+    return InsertPt;
+}
+
 struct CfgInstrumentationPass : public llvm::ModulePass {
     static char ID;
 
@@ -112,7 +138,8 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
                 ++curr_bb;
             }
 
-            builder_locals.SetInsertPoint(curr_bb->getFirstNonPHIOrDbg());
+            builder_locals.SetInsertPoint(
+                &(*curr_bb), getFirstNonPHIOrDbgOrAlloca(*curr_bb));
 
             auto* inbound_ptr = builder_locals.CreateInBoundsGEP(
                 array_type, counters, getIndex(bb_instr.id, context));
