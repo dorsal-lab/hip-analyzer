@@ -37,12 +37,25 @@ class AnalysisPass : public llvm::FunctionPass {
     virtual bool runOnFunction(llvm::Function& fn) {
         llvm::errs() << "Function " << fn.getName() << '\n';
         fn.print(llvm::dbgs(), nullptr);
+
+        auto i = 0u;
+        for (auto& bb : fn) {
+            if (isBlockInstrumentable(bb)) {
+                blocks.emplace_back(getBlockInfo(bb, i));
+            }
+
+            ++i;
+        }
+
         return false;
     }
 
     const std::vector<hip::InstrumentedBlock>& getBlocks() { return blocks; }
 
   private:
+    /** \brief List of instrumented block, ordered by the llvm block id in the
+     * function
+     */
     std::vector<hip::InstrumentedBlock> blocks;
 };
 
@@ -89,12 +102,23 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
 
         // Instrument each basic block
 
-        for (auto& bb : blocks) {
-            builder_locals.SetInsertPoint(bb.bb.getFirstNonPHIOrDbg());
+        auto& function_block_list = f.getBasicBlockList();
+        auto curr_bb = f.begin();
+        auto index = 0u;
+
+        for (auto& bb_instr : blocks) {
+            while (index < bb_instr.id) {
+                ++index;
+                ++curr_bb;
+            }
+
+            builder_locals.SetInsertPoint(curr_bb->getFirstNonPHIOrDbg());
 
             auto* inbound_ptr = builder_locals.CreateInBoundsGEP(
-                array_type, counters, getIndex(bb.id, context));
+                array_type, counters, getIndex(bb_instr.id, context));
         }
+
+        f.print(llvm::dbgs(), nullptr);
 
         return false;
     }

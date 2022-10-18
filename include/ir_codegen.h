@@ -23,7 +23,6 @@ struct InstrumentationContext {
 };
 
 struct InstrumentedBlock {
-    llvm::BasicBlock& bb;
     unsigned int id;
 
     // Default counted values
@@ -33,5 +32,9 @@ struct InstrumentedBlock {
 
     std::unordered_map<std::string, unsigned int> extra_counters;
 };
+
+bool isBlockInstrumentable(const llvm::BasicBlock& block);
+
+InstrumentedBlock getBlockInfo(const llvm::BasicBlock& block, unsigned int i);
 
 } // namespace hip
