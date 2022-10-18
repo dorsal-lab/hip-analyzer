@@ -12,6 +12,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 #include "llvm/Support/CommandLine.h"
 
@@ -91,6 +92,20 @@ llvm::BasicBlock::iterator getFirstNonPHIOrDbgOrAlloca(llvm::BasicBlock& bb) {
     return InsertPt;
 }
 
+llvm::Function& cloneWithSuffix(llvm::Module& mod, llvm::Function& f,
+                                const std::string& suffix) {
+    auto fun_type = f.getFunctionType();
+    auto name = f.getName() + suffix;
+
+    auto callee = mod.getOrInsertFunction(name.str(), fun_type);
+
+    if (isa<llvm::Function>(callee.getCallee())) {
+        return *dyn_cast<llvm::Function>(&*callee.getCallee());
+    } else {
+        throw std::runtime_error("Could not clone function");
+    }
+}
+
 struct CfgInstrumentationPass : public llvm::ModulePass {
     static char ID;
 
@@ -98,22 +113,48 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
 
     virtual bool runOnModule(llvm::Module& mod) override {
         bool modified = false;
-        for (auto& f : mod.functions()) {
-            if (f.isDeclaration()) {
+        for (auto& f_original : mod.functions()) {
+            if (f_original.isDeclaration()) {
                 continue;
             }
 
-            llvm::errs() << "Function " << f.getName() << '\n';
+            llvm::errs() << "Function " << f_original.getName() << '\n';
+            f_original.print(llvm::dbgs(), nullptr);
 
+            auto& f = cloneWithSuffix(mod, f_original, "_counters");
+
+            modified |= addParams(f, f_original);
+
+            llvm::errs() << "Function " << f.getName() << '\n';
             f.print(llvm::dbgs(), nullptr);
-            modified |= instrumentFunction(f);
+
+            modified |= instrumentFunction(f, f_original);
         }
 
         return modified;
     }
 
-    virtual bool instrumentFunction(llvm::Function& f) {
-        auto& blocks = getAnalysis<AnalysisPass>(f).getBlocks();
+    virtual bool addParams(llvm::Function& f,
+                           llvm::Function& original_function) {
+
+        llvm::ValueToValueMapTy vmap;
+
+        for (auto it1 = original_function.arg_begin(), it2 = f.arg_begin();
+             it1 != original_function.arg_end(); ++it1, ++it2) {
+            vmap[&*it1] = &*it2;
+        }
+        llvm::SmallVector<llvm::ReturnInst*, 8> returns;
+
+        llvm::CloneFunctionInto(&f, &original_function, vmap,
+                                llvm::CloneFunctionChangeType::LocalChangesOnly,
+                                returns);
+
+        return true;
+    }
+
+    virtual bool instrumentFunction(llvm::Function& f,
+                                    llvm::Function& original_function) {
+        auto& blocks = getAnalysis<AnalysisPass>(original_function).getBlocks();
         auto& context = f.getContext();
 
         // Add counters
@@ -147,7 +188,7 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
 
         f.print(llvm::dbgs(), nullptr);
 
-        return false;
+        return true;
     }
 
     llvm::Value* getIndex(uint64_t idx, llvm::LLVMContext& context) {
