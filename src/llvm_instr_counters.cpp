@@ -10,7 +10,7 @@
 
 namespace hip {
 
-unsigned int FlopCounter::operator()(llvm::BasicBlock& bb) {
+unsigned int FlopCounter::operator()(const llvm::BasicBlock& bb) {
     using namespace llvm;
 
     for (const auto& instr : bb) {
@@ -51,7 +51,7 @@ bool isTypeCounted(const llvm::Type* type, MemType::MemType type_filter) {
     }
 }
 
-unsigned int StoreCounter::count(llvm::BasicBlock& bb,
+unsigned int StoreCounter::count(const llvm::BasicBlock& bb,
                                  MemType::MemType type_filter) {
     for (const auto& instr : bb) {
         if (const auto* store_inst = llvm::dyn_cast<llvm::StoreInst>(&instr)) {
@@ -69,7 +69,7 @@ unsigned int StoreCounter::count(llvm::BasicBlock& bb,
     return getCount();
 }
 
-unsigned int LoadCounter::count(llvm::BasicBlock& bb,
+unsigned int LoadCounter::count(const llvm::BasicBlock& bb,
                                 MemType::MemType type_filter) {
     // TODO : handle possible compound types
     for (const auto& instr : bb) {

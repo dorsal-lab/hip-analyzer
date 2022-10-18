@@ -24,7 +24,7 @@ class InstrCounter {
     /** \fn operator()
      * \brief Process a basic block
      */
-    virtual unsigned int operator()(llvm::BasicBlock& bb) = 0;
+    virtual unsigned int operator()(const llvm::BasicBlock& bb) = 0;
 };
 
 /** \class FlopCounter
@@ -34,7 +34,7 @@ class FlopCounter : public InstrCounter {
   public:
     virtual unsigned int getCount() const override { return count; }
 
-    virtual unsigned int operator()(llvm::BasicBlock& bb) override;
+    virtual unsigned int operator()(const llvm::BasicBlock& bb) override;
 
   private:
     unsigned int count = 0u;
@@ -75,11 +75,11 @@ class LoadCounter : public InstrCounter {
   public:
     virtual unsigned int getCount() const override { return counted; }
 
-    virtual unsigned int operator()(llvm::BasicBlock& bb) override {
+    virtual unsigned int operator()(const llvm::BasicBlock& bb) override {
         return count(bb);
     };
 
-    unsigned int count(llvm::BasicBlock& bb,
+    unsigned int count(const llvm::BasicBlock& bb,
                        MemType::MemType type_filter = MemType::All);
 
   private:
@@ -93,11 +93,11 @@ class StoreCounter : public InstrCounter {
   public:
     virtual unsigned int getCount() const override { return counted; }
 
-    virtual unsigned int operator()(llvm::BasicBlock& bb) override {
+    virtual unsigned int operator()(const llvm::BasicBlock& bb) override {
         return count(bb);
     };
 
-    unsigned int count(llvm::BasicBlock& bb,
+    unsigned int count(const llvm::BasicBlock& bb,
                        MemType::MemType type_filter = MemType::All);
 
   private:
