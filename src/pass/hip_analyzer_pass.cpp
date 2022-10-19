@@ -211,7 +211,7 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
     }
 
     llvm::Value* getIndex(uint64_t idx, llvm::LLVMContext& context) {
-        return llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 0);
+        return llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), idx);
     }
 
     virtual llvm::Type* getCounterType(llvm::LLVMContext& context) const {
