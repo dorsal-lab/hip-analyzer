@@ -92,10 +92,15 @@ llvm::BasicBlock::iterator getFirstNonPHIOrDbgOrAlloca(llvm::BasicBlock& bb) {
     return InsertPt;
 }
 
+/** \brief Suffix to distinguish already cloned function, placeholder for a real
+ * attribute
+ */
+constexpr auto cloned_suffix = "_instr";
+
 llvm::Function& cloneWithSuffix(llvm::Module& mod, llvm::Function& f,
                                 const std::string& suffix) {
     auto fun_type = f.getFunctionType();
-    auto name = f.getName() + suffix;
+    auto name = f.getName() + suffix + cloned_suffix;
 
     auto callee = mod.getOrInsertFunction(name.str(), fun_type);
 
@@ -108,20 +113,22 @@ llvm::Function& cloneWithSuffix(llvm::Module& mod, llvm::Function& f,
 
 struct CfgInstrumentationPass : public llvm::ModulePass {
     static char ID;
+    static const char* instrumented_suffix;
 
     CfgInstrumentationPass() : llvm::ModulePass(ID) {}
 
     virtual bool runOnModule(llvm::Module& mod) override {
         bool modified = false;
         for (auto& f_original : mod.functions()) {
-            if (f_original.isDeclaration()) {
+            if (f_original.isDeclaration() ||
+                f_original.getName().endswith(cloned_suffix)) {
                 continue;
             }
 
             llvm::errs() << "Function " << f_original.getName() << '\n';
             f_original.print(llvm::dbgs(), nullptr);
 
-            auto& f = cloneWithSuffix(mod, f_original, "_counters");
+            auto& f = cloneWithSuffix(mod, f_original, instrumented_suffix);
 
             modified |= addParams(f, f_original);
 
@@ -223,6 +230,7 @@ struct TracingPass : public llvm::ModulePass {
 };
 
 char AnalysisPass::ID = 0;
+const char* CfgInstrumentationPass::instrumented_suffix = "_counters";
 char CfgInstrumentationPass::ID = 1;
 char TracingPass::ID = 2;
 
