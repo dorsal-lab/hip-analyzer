@@ -98,11 +98,22 @@ llvm::BasicBlock::iterator getFirstNonPHIOrDbgOrAlloca(llvm::BasicBlock& bb) {
 constexpr auto cloned_suffix = "_instr";
 
 llvm::Function& cloneWithSuffix(llvm::Module& mod, llvm::Function& f,
-                                const std::string& suffix) {
+                                const std::string& suffix,
+                                llvm::ArrayRef<llvm::Type*> extra_args) {
     auto fun_type = f.getFunctionType();
     auto name = f.getName() + suffix + cloned_suffix;
 
-    auto callee = mod.getOrInsertFunction(name.str(), fun_type);
+    auto base_args = fun_type->params();
+
+    auto new_args =
+        llvm::SmallVector<llvm::Type*>(base_args.begin(), base_args.end());
+
+    new_args.append(extra_args.begin(), extra_args.end());
+
+    auto new_fun_type =
+        llvm::FunctionType::get(fun_type->getReturnType(), new_args, false);
+
+    auto callee = mod.getOrInsertFunction(name.str(), new_fun_type);
 
     if (isa<llvm::Function>(callee.getCallee())) {
         return *dyn_cast<llvm::Function>(&*callee.getCallee());
@@ -128,7 +139,8 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
             llvm::errs() << "Function " << f_original.getName() << '\n';
             f_original.print(llvm::dbgs(), nullptr);
 
-            auto& f = cloneWithSuffix(mod, f_original, instrumented_suffix);
+            auto& f = cloneWithSuffix(mod, f_original, instrumented_suffix,
+                                      {getCounterType(mod.getContext())});
 
             modified |= addParams(f, f_original);
 
