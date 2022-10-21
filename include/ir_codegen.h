@@ -33,8 +33,27 @@ struct InstrumentedBlock {
     std::unordered_map<std::string, unsigned int> extra_counters;
 };
 
+/** \struct InstrumentationFunctions
+ * \brief Structure of pointers to instrumentation functions in the module
+ */
+struct InstrumentationFunctions {
+    llvm::Function* _hip_store_ctr;
+};
+
+/** \fn isBlockInstrumentable
+ * \brief Returns true if the block is to be analyzed (and thus instrumented)
+ */
 bool isBlockInstrumentable(const llvm::BasicBlock& block);
 
+/** \fn getBlockInfo
+ * \brief Extracts information from a basic block and returns a report
+ */
 InstrumentedBlock getBlockInfo(const llvm::BasicBlock& block, unsigned int i);
+
+/** \fn declareInstrumentations
+ * \brief Forward-declare instrumentation functions in the module, and returns
+ * pointers to them
+ */
+InstrumentationFunctions declareInstrumentation(llvm::Module& mod);
 
 } // namespace hip

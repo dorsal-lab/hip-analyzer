@@ -35,4 +35,18 @@ InstrumentedBlock getBlockInfo(const llvm::BasicBlock& bb, unsigned int i) {
     return {i, flops, f_ld, f_st, {}};
 }
 
+InstrumentationFunctions declareInstrumentation(llvm::Module& mod) {
+    InstrumentationFunctions funs;
+    auto& context = mod.getContext();
+
+    auto void_type = llvm::Type::getVoidTy(context);
+    auto uint8_type = llvm::Type::getInt8Ty(context);
+    auto uint8_ptr_type = uint8_type->getPointerTo();
+
+    auto _hip_store_ctr_type =
+        llvm::FunctionType::get(void_type, {uint8_ptr_type}, false);
+    funs._hip_store_ctr =
+        mod.getOrInsertFunction("_hip_store_ctr", _hip_store_ctr_type);
+}
+
 } // namespace hip
