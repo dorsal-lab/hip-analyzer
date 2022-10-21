@@ -241,10 +241,28 @@ struct TracingPass : public llvm::ModulePass {
     }
 };
 
+struct LinkingPass : public llvm::ModulePass {
+    static char ID;
+
+    LinkingPass() : llvm::ModulePass(ID) {}
+
+    virtual bool runOnModule(llvm::Module& fn) override {
+        // TODO : link needed functions
+
+        // TODO : remove `optnone` and `noinline` attributes, add alwaysinline
+        return false;
+    }
+
+    virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override {
+        Info.addRequired<AnalysisPass>();
+    }
+};
+
 char AnalysisPass::ID = 0;
 const char* CfgInstrumentationPass::instrumented_suffix = "_counters";
 char CfgInstrumentationPass::ID = 1;
 char TracingPass::ID = 2;
+char LinkingPass::ID = 3;
 
 static void registerAnalysisPass(const llvm::PassManagerBuilder&,
                                  llvm::legacy::PassManagerBase& PM) {
