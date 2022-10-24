@@ -42,11 +42,20 @@ InstrumentationFunctions declareInstrumentation(llvm::Module& mod) {
     auto void_type = llvm::Type::getVoidTy(context);
     auto uint8_type = llvm::Type::getInt8Ty(context);
     auto uint8_ptr_type = uint8_type->getPointerTo();
+    auto uint64_type = llvm::Type::getInt64Ty(context);
 
-    auto _hip_store_ctr_type =
-        llvm::FunctionType::get(void_type, {uint8_ptr_type}, false);
-    funs._hip_store_ctr =
+    auto _hip_store_ctr_type = llvm::FunctionType::get(
+        void_type, {uint8_ptr_type, uint64_type, uint8_ptr_type}, false);
+    auto callee =
         mod.getOrInsertFunction("_hip_store_ctr", _hip_store_ctr_type);
+
+    if (isa<llvm::Function>(callee.getCallee())) {
+        funs._hip_store_ctr = dyn_cast<llvm::Function>(&*callee.getCallee());
+    } else {
+        throw std::runtime_error("Could not get function \"_hip_store_ctr\"");
+    }
+
+    return funs;
 }
 
 } // namespace hip

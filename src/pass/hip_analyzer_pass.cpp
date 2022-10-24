@@ -139,8 +139,9 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
             llvm::errs() << "Function " << f_original.getName() << '\n';
             f_original.print(llvm::dbgs(), nullptr);
 
-            auto& f = cloneWithSuffix(mod, f_original, instrumented_suffix,
-                                      {getCounterType(mod.getContext())});
+            auto& f = cloneWithSuffix(
+                mod, f_original, instrumented_suffix,
+                {getCounterType(mod.getContext())->getPointerTo()});
 
             modified |= addParams(f, f_original);
 
@@ -175,6 +176,8 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
                                     llvm::Function& original_function) {
         auto& blocks = getAnalysis<AnalysisPass>(original_function).getBlocks();
         auto& context = f.getContext();
+        auto instrumentation_handlers = declareInstrumentation(*f.getParent());
+        auto* instr_ptr = f.getArg(f.arg_size() - 1);
 
         // Add counters
         auto* counter_type = getCounterType(context);
@@ -202,7 +205,35 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
                 &(*curr_bb), getFirstNonPHIOrDbgOrAlloca(*curr_bb));
 
             auto* inbound_ptr = builder_locals.CreateInBoundsGEP(
-                array_type, counters, getIndex(bb_instr.id, context));
+                array_type, counters,
+                {getIndex(0u, context), getIndex(bb_instr.id, context)});
+
+            auto* curr_ptr =
+                builder_locals.CreateLoad(counter_type, inbound_ptr);
+
+            auto* incremented = builder_locals.CreateAdd(
+                curr_ptr, llvm::ConstantInt::get(counter_type, 1u));
+
+            auto* store = builder_locals.CreateStore(incremented, inbound_ptr);
+        }
+
+        // Call saving method
+
+        for (auto& bb_instr : f) {
+            auto terminator = bb_instr.getTerminator();
+            if (isa<llvm::ReturnInst>(terminator)) {
+                builder_locals.SetInsertPoint(terminator);
+
+                // Bitcast to ptr
+
+                auto* array_ptr = builder_locals.CreateBitCast(
+                    counters, counter_type->getPointerTo());
+
+                // Add call
+                builder_locals.CreateCall(
+                    instrumentation_handlers._hip_store_ctr,
+                    {array_ptr, getIndex(blocks.size(), context), instr_ptr});
+            }
         }
 
         f.print(llvm::dbgs(), nullptr);
