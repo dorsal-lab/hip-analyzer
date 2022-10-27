@@ -307,7 +307,9 @@ struct HostPass : public llvm::ModulePass {
             llvm::errs() << "Function " << f_original.getName() << '\n';
             f_original.print(llvm::dbgs(), nullptr);
 
-            addCountersDeviceStub(f_original);
+            auto& stub_counter = addCountersDeviceStub(f_original);
+
+            stub_counter.print(llvm::dbgs(), nullptr);
         }
 
         return modified;
@@ -316,13 +318,31 @@ struct HostPass : public llvm::ModulePass {
         // TODO : remove `optnone` and `noinline` attributes, add alwaysinline
     }
 
-    bool addCountersDeviceStub(llvm::Function& f) const { return false; }
+    llvm::Function& addCountersDeviceStub(llvm::Function& f_original) const {
+        auto& mod = *f_original.getParent();
+        auto& f = cloneWithSuffix(
+            mod, f_original, CfgInstrumentationPass::instrumented_suffix,
+            {CfgInstrumentationPass::getCounterType(mod.getContext())
+                 ->getPointerTo()});
+
+        llvm::ValueToValueMapTy vmap;
+
+        for (auto it1 = f_original.arg_begin(), it2 = f.arg_begin();
+             it1 != f_original.arg_end(); ++it1, ++it2) {
+            vmap[&*it1] = &*it2;
+        }
+        llvm::SmallVector<llvm::ReturnInst*, 8> returns;
+
+        llvm::CloneFunctionInto(&f, &f_original, vmap,
+                                llvm::CloneFunctionChangeType::LocalChangesOnly,
+                                returns);
+
+        return f;
+    }
 
     bool isDeviceStub(llvm::Function& f) {
         auto name = llvm::demangle(f.getName().str());
-        llvm::errs() << name << '\n';
-
-        return false;
+        return name.starts_with(device_stub_prefix);
     }
 
     virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override {
