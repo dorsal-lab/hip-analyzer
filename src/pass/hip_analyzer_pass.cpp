@@ -93,6 +93,26 @@ llvm::BasicBlock::iterator getFirstNonPHIOrDbgOrAlloca(llvm::BasicBlock& bb) {
     return InsertPt;
 }
 
+llvm::BasicBlock::iterator
+findInstruction(llvm::Function& f,
+                std::function<bool(const llvm::Instruction*)> predicate) {
+    for (auto& bb : f) {
+        for (auto it = bb.begin(); it != bb.end(); ++it) {
+            if (predicate(&(*it))) {
+                return it;
+            }
+        }
+    }
+
+    return {};
+}
+
+template <typename T>
+llvm::BasicBlock::iterator firstInstructionOf(llvm::Function& f) {
+    return findInstruction(
+        f, [](const llvm::Instruction* i) { return isa<T>(i); });
+}
+
 llvm::Function& cloneWithName(llvm::Module& mod, llvm::Function& f,
                               const std::string& name,
                               llvm::ArrayRef<llvm::Type*> extra_args) {
@@ -114,6 +134,10 @@ llvm::Function& cloneWithName(llvm::Module& mod, llvm::Function& f,
     } else {
         throw std::runtime_error("Could not clone function");
     }
+}
+
+llvm::Value* getIndex(uint64_t idx, llvm::LLVMContext& context) {
+    return llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), idx);
 }
 
 /** \brief Suffix to distinguish already cloned function, placeholder for a real
@@ -251,10 +275,6 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
         return true;
     }
 
-    llvm::Value* getIndex(uint64_t idx, llvm::LLVMContext& context) {
-        return llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), idx);
-    }
-
     static llvm::Type* getCounterType(llvm::LLVMContext& context) {
         return llvm::Type::getInt8Ty(context);
     }
@@ -320,6 +340,7 @@ struct HostPass : public llvm::ModulePass {
 
     llvm::Function& addCountersDeviceStub(llvm::Function& f_original) const {
         auto& mod = *f_original.getParent();
+
         auto& f = cloneWithSuffix(
             mod, f_original, CfgInstrumentationPass::instrumented_suffix,
             {CfgInstrumentationPass::getCounterType(mod.getContext())
@@ -337,7 +358,47 @@ struct HostPass : public llvm::ModulePass {
                                 llvm::CloneFunctionChangeType::LocalChangesOnly,
                                 returns);
 
+        pushAdditionalArguments(f, {f.getArg(f.arg_size() - 1)});
+
         return f;
+    }
+
+    void
+    pushAdditionalArguments(llvm::Function& f,
+                            llvm::ArrayRef<llvm::Value*> kernel_args) const {
+        auto push_call = firstInstructionOf<llvm::CallInst>(f);
+        --push_call;
+
+        // Allocate memory for additional args
+        llvm::IRBuilder<> builder(&f.getEntryBlock());
+
+        setInsertPointPastAllocas(builder, f);
+
+        std::vector<llvm::Value*> new_args;
+
+        // Allocate new arguments & copy to stack
+        for (auto new_arg : kernel_args) {
+            auto* var_type = new_arg->getType();
+
+            auto* local_store = builder.CreateAlloca(var_type);
+            new_args.push_back(local_store);
+
+            builder.CreateStore(local_store, new_arg);
+        }
+
+        // Replace the void* array with additional size, modify types for each
+
+        // Alloca + replaceInstWithInst
+
+        // Copy to the void* array
+        for (auto new_arg : new_args) {
+            auto* var_type = new_arg->getType();
+
+            // builder.createGEP();
+            // builder.createStore
+        }
+
+        // builder.Create
     }
 
     bool isDeviceStub(llvm::Function& f) {
