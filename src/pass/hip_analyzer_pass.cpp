@@ -4,6 +4,7 @@
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */
 
+#include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -92,17 +93,10 @@ llvm::BasicBlock::iterator getFirstNonPHIOrDbgOrAlloca(llvm::BasicBlock& bb) {
     return InsertPt;
 }
 
-/** \brief Suffix to distinguish already cloned function, placeholder for a real
- * attribute
- */
-constexpr auto cloned_suffix = "_instr";
-
-llvm::Function& cloneWithSuffix(llvm::Module& mod, llvm::Function& f,
-                                const std::string& suffix,
-                                llvm::ArrayRef<llvm::Type*> extra_args) {
+llvm::Function& cloneWithName(llvm::Module& mod, llvm::Function& f,
+                              const std::string& name,
+                              llvm::ArrayRef<llvm::Type*> extra_args) {
     auto fun_type = f.getFunctionType();
-    auto name = f.getName() + suffix + cloned_suffix;
-
     auto base_args = fun_type->params();
 
     auto new_args =
@@ -113,13 +107,26 @@ llvm::Function& cloneWithSuffix(llvm::Module& mod, llvm::Function& f,
     auto new_fun_type =
         llvm::FunctionType::get(fun_type->getReturnType(), new_args, false);
 
-    auto callee = mod.getOrInsertFunction(name.str(), new_fun_type);
+    auto callee = mod.getOrInsertFunction(name, new_fun_type);
 
     if (isa<llvm::Function>(callee.getCallee())) {
         return *dyn_cast<llvm::Function>(&*callee.getCallee());
     } else {
         throw std::runtime_error("Could not clone function");
     }
+}
+
+/** \brief Suffix to distinguish already cloned function, placeholder for a real
+ * attribute
+ */
+constexpr auto cloned_suffix = "_instr";
+
+llvm::Function& cloneWithSuffix(llvm::Module& mod, llvm::Function& f,
+                                const std::string& suffix,
+                                llvm::ArrayRef<llvm::Type*> extra_args) {
+    auto name = f.getName() + suffix + cloned_suffix;
+
+    return cloneWithName(mod, f, name.str(), extra_args);
 }
 
 struct CfgInstrumentationPass : public llvm::ModulePass {
@@ -131,8 +138,7 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
     virtual bool runOnModule(llvm::Module& mod) override {
         bool modified = false;
         for (auto& f_original : mod.functions()) {
-            if (f_original.isDeclaration() ||
-                f_original.getName().endswith(cloned_suffix)) {
+            if (!isInstrumentableKernel(f_original)) {
                 continue;
             }
 
@@ -152,6 +158,10 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
         }
 
         return modified;
+    }
+
+    bool isInstrumentableKernel(llvm::Function& f) {
+        return !f.isDeclaration() && !f.getName().endswith(cloned_suffix);
     }
 
     virtual bool addParams(llvm::Function& f,
@@ -245,7 +255,7 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
         return llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), idx);
     }
 
-    virtual llvm::Type* getCounterType(llvm::LLVMContext& context) const {
+    static llvm::Type* getCounterType(llvm::LLVMContext& context) {
         return llvm::Type::getInt8Ty(context);
     }
 
@@ -272,20 +282,51 @@ struct TracingPass : public llvm::ModulePass {
     }
 };
 
-struct LinkingPass : public llvm::ModulePass {
+/** \brief The hipcc compiler inserts device stubs for each kernel call, which
+ * in turns actually launches the kernel.
+ */
+constexpr auto device_stub_prefix = "__device_stub__";
+
+/** \struct HostPass
+ * \brief The Host pass is responsible for adding device stubs for the new
+ * instrumented kernels.
+ *
+ */
+struct HostPass : public llvm::ModulePass {
     static char ID;
 
-    LinkingPass() : llvm::ModulePass(ID) {}
+    HostPass() : llvm::ModulePass(ID) {}
 
-    virtual bool runOnModule(llvm::Module& fn) override {
+    virtual bool runOnModule(llvm::Module& mod) override {
+        bool modified = false;
+        for (auto& f_original : mod.functions()) {
+            if (!isDeviceStub(f_original) || f_original.isDeclaration()) {
+                continue;
+            }
+
+            llvm::errs() << "Function " << f_original.getName() << '\n';
+            f_original.print(llvm::dbgs(), nullptr);
+
+            addCountersDeviceStub(f_original);
+        }
+
+        return modified;
         // TODO : link needed functions
 
         // TODO : remove `optnone` and `noinline` attributes, add alwaysinline
+    }
+
+    bool addCountersDeviceStub(llvm::Function& f) const { return false; }
+
+    bool isDeviceStub(llvm::Function& f) {
+        auto name = llvm::demangle(f.getName().str());
+        llvm::errs() << name << '\n';
+
         return false;
     }
 
     virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override {
-        Info.addRequired<AnalysisPass>();
+        // Info.addRequired<AnalysisPass>();
     }
 };
 
@@ -293,7 +334,7 @@ char AnalysisPass::ID = 0;
 const char* CfgInstrumentationPass::instrumented_suffix = "_counters";
 char CfgInstrumentationPass::ID = 1;
 char TracingPass::ID = 2;
-char LinkingPass::ID = 3;
+char HostPass::ID = 3;
 
 static void registerAnalysisPass(const llvm::PassManagerBuilder&,
                                  llvm::legacy::PassManagerBase& PM) {
@@ -307,6 +348,11 @@ static void registerCfgPass(const llvm::PassManagerBuilder&,
 static void registerTracingPass(const llvm::PassManagerBuilder&,
                                 llvm::legacy::PassManagerBase& PM) {
     PM.add(new TracingPass());
+}
+
+static void registerHostPass(const llvm::PassManagerBuilder&,
+                             llvm::legacy::PassManagerBase& PM) {
+    PM.add(new HostPass());
 }
 
 } // namespace
@@ -323,6 +369,10 @@ static llvm::RegisterPass<TracingPass>
     RegisterTracingPass("hip-analyzer-tracing", "Hip-Analyzer tracing pass",
                         false, false);
 
+static llvm::RegisterPass<HostPass>
+    RegisterHostPass("hip-analyzer-host",
+                     "Hip-Analyzer host instrumentation pass", false, false);
+
 } // namespace hip
 
 static llvm::RegisterStandardPasses
@@ -336,3 +386,7 @@ static llvm::RegisterStandardPasses
 static llvm::RegisterStandardPasses
     registerTracingPass(llvm::PassManagerBuilder::EP_EarlyAsPossible,
                         hip::registerTracingPass);
+
+static llvm::RegisterStandardPasses
+    registerHostPass(llvm::PassManagerBuilder::EP_EarlyAsPossible,
+                     hip::registerHostPass);
