@@ -409,11 +409,54 @@ struct HostPass : public llvm::ModulePass {
         auto array_size =
             alloca_array_inst->getAllocatedType()->getArrayNumElements();
 
-        builder.CreateAlloca(
+        auto* new_array_type =
             llvm::ArrayType::get(llvm::Type::getInt8PtrTy(f.getContext()),
-                                 array_size + kernel_args.size()));
+                                 array_size + kernel_args.size());
+        auto* new_alloca_array = builder.CreateAlloca(new_array_type);
 
         // Alloca + replaceInstWithInst
+
+        auto* const_zero = getIndex(0u, f.getContext());
+
+        std::vector<llvm::Instruction*> to_remove;
+
+        for (auto* use : alloca_array_inst->users()) {
+            if (auto* gep = dyn_cast<llvm::GetElementPtrInst>(use)) {
+                // Replace with new GEP
+
+                builder.SetInsertPoint(gep);
+
+                auto it = gep->idx_begin() + 1;
+                auto* value = dyn_cast<llvm::Value>(&(*it));
+
+                auto* new_gep = builder.CreateInBoundsGEP(
+                    new_array_type, new_alloca_array, {const_zero, value});
+
+                gep->replaceAllUsesWith(new_gep);
+                to_remove.push_back(gep);
+            } else if (auto* bitcast = dyn_cast<llvm::BitCastInst>(use)) {
+                // Actually a bug in the front-end, references the first element
+                // of the array. Replace by a GEP
+                builder.SetInsertPoint(bitcast);
+
+                auto* new_bitcast = builder.CreateBitCast(new_alloca_array,
+                                                          bitcast->getDestTy());
+
+                bitcast->replaceAllUsesWith(new_bitcast);
+                to_remove.push_back(bitcast);
+            }
+        }
+
+        for (auto instr : to_remove) {
+            instr->eraseFromParent();
+        }
+
+        alloca_array_inst->eraseFromParent();
+
+        // Delete old uses
+        // TODO, iterator invalidation & stuff
+
+        // Insert new args
 
         // Copy to the void* array
         for (auto new_arg : new_args) {
