@@ -140,6 +140,14 @@ llvm::Value* getIndex(uint64_t idx, llvm::LLVMContext& context) {
     return llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), idx);
 }
 
+int64_t valueToInt(llvm::Value* v) {
+    if (auto* constant = dyn_cast<llvm::ConstantInt>(v)) {
+        return constant->getZExtValue();
+    } else {
+        return 0;
+    }
+}
+
 /** \brief Suffix to distinguish already cloned function, placeholder for a real
  * attribute
  */
@@ -332,7 +340,7 @@ struct HostPass : public llvm::ModulePass {
             stub_counter.print(llvm::dbgs(), nullptr);
         }
 
-        return modified;
+        return true;
         // TODO : link needed functions
 
         // TODO : remove `optnone` and `noinline` attributes, add alwaysinline
@@ -383,10 +391,27 @@ struct HostPass : public llvm::ModulePass {
             auto* local_store = builder.CreateAlloca(var_type);
             new_args.push_back(local_store);
 
-            builder.CreateStore(local_store, new_arg);
+            builder.CreateStore(new_arg, local_store);
         }
 
         // Replace the void* array with additional size, modify types for each
+        auto alloca_array = findInstruction(f, [](auto* inst) {
+            if (auto* alloca_inst = dyn_cast<llvm::AllocaInst>(inst)) {
+                return alloca_inst->getAllocatedType()->isArrayTy();
+            } else {
+                return false;
+            }
+        });
+
+        auto* alloca_array_inst = dyn_cast<llvm::AllocaInst>(&(*alloca_array));
+
+        builder.SetInsertPoint(alloca_array_inst);
+        auto array_size =
+            alloca_array_inst->getAllocatedType()->getArrayNumElements();
+
+        builder.CreateAlloca(
+            llvm::ArrayType::get(llvm::Type::getInt8PtrTy(f.getContext()),
+                                 array_size + kernel_args.size()));
 
         // Alloca + replaceInstWithInst
 
