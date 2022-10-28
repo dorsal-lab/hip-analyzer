@@ -447,16 +447,32 @@ struct HostPass : public llvm::ModulePass {
             }
         }
 
+        // Delete old uses
+
         for (auto instr : to_remove) {
             instr->eraseFromParent();
         }
 
         alloca_array_inst->eraseFromParent();
 
-        // Delete old uses
-        // TODO, iterator invalidation & stuff
-
         // Insert new args
+
+        auto i = array_size; // Insert at end
+        builder.SetInsertPoint(
+            &(*firstInstructionOf<llvm::GetElementPtrInst>(f)));
+
+        for (auto new_arg : new_args) {
+            auto* gep = builder.CreateInBoundsGEP(
+                new_array_type, new_alloca_array,
+                {const_zero, getIndex(i, f.getContext())});
+
+            auto* bitcast =
+                builder.CreateBitCast(gep, new_arg->getType()->getPointerTo());
+
+            builder.CreateStore(new_arg, bitcast);
+
+            ++i;
+        }
 
         // Copy to the void* array
         for (auto new_arg : new_args) {
