@@ -366,9 +366,54 @@ struct HostPass : public llvm::ModulePass {
                                 llvm::CloneFunctionChangeType::LocalChangesOnly,
                                 returns);
 
+        // Add additional arguments to the void* array : uint8_t* _counters;
+
         pushAdditionalArguments(f, {f.getArg(f.arg_size() - 1)});
 
+        // Create global symbol
+
+        auto* global_sym = createKernelSymbol(
+            f_original, f, CfgInstrumentationPass::instrumented_suffix);
+
+        // Modify the call to hipLaunchKernel
+
+        auto* call_to_launch = &(*findInstruction(f, [](auto* instr) {
+            if (auto* call_inst = dyn_cast<llvm::CallInst>(instr)) {
+                return call_inst->getCalledFunction()->getName() ==
+                       "hipLaunchKernel";
+            } else {
+                return false;
+            }
+        }));
+
+        // Modify __hip_module_ctor to register kernel
+
         return f;
+    }
+
+    /** \fn createKernelSymbol
+     * \brief Create the global kernel function symbol for the copied kernel
+     *
+     * \param stub original kernel host stub
+     * \param new_stub new kernel stub with appropriate return type
+     * \param suffix suffix added to the kernel name
+     *
+     */
+    llvm::Constant* createKernelSymbol(llvm::Function& stub,
+                                       llvm::Function& new_stub,
+                                       const std::string& suffix) const {
+        auto kernel_name = kernelNameFromStub(stub);
+        auto suffixed = kernel_name + suffix;
+
+        auto& mod = *stub.getParent();
+
+        return mod.getOrInsertGlobal(suffixed, new_stub.getFunctionType());
+    }
+
+    std::string kernelNameFromStub(llvm::Function& stub) const {
+        // TODO
+        auto name = llvm::demangle(stub.getName().str());
+        return {};
     }
 
     void
@@ -473,16 +518,6 @@ struct HostPass : public llvm::ModulePass {
 
             ++i;
         }
-
-        // Copy to the void* array
-        for (auto new_arg : new_args) {
-            auto* var_type = new_arg->getType();
-
-            // builder.createGEP();
-            // builder.createStore
-        }
-
-        // builder.Create
     }
 
     bool isDeviceStub(llvm::Function& f) {
