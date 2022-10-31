@@ -40,8 +40,29 @@ struct InstrumentationFunctions {
     llvm::Function* _hip_store_ctr;
 };
 
+// ----- IR Utils ----- //
+
+llvm::Value* getIndex(uint64_t idx, llvm::LLVMContext& context);
+
+int64_t valueToInt(llvm::Value* v);
+
+llvm::BasicBlock::iterator
+findInstruction(llvm::Function& f,
+                std::function<bool(const llvm::Instruction*)> predicate);
+
+template <typename T>
+llvm::BasicBlock::iterator firstInstructionOf(llvm::Function& f) {
+    return findInstruction(
+        f, [](const llvm::Instruction* i) { return isa<T>(i); });
+}
+
+void setInsertPointPastAllocas(llvm::IRBuilderBase& builder, llvm::Function& f);
+
+llvm::BasicBlock::iterator getFirstNonPHIOrDbgOrAlloca(llvm::BasicBlock& bb);
+
 /** \fn isBlockInstrumentable
- * \brief Returns true if the block is to be analyzed (and thus instrumented)
+ * \brief Returns true if the block is to be analyzed (and thus
+ * instrumented)
  */
 bool isBlockInstrumentable(const llvm::BasicBlock& block);
 
@@ -50,10 +71,37 @@ bool isBlockInstrumentable(const llvm::BasicBlock& block);
  */
 InstrumentedBlock getBlockInfo(const llvm::BasicBlock& block, unsigned int i);
 
+// ----- IR Modifiers ----- //
+
 /** \fn declareInstrumentations
  * \brief Forward-declare instrumentation functions in the module, and returns
  * pointers to them
  */
 InstrumentationFunctions declareInstrumentation(llvm::Module& mod);
+
+/** \fn cloneWithName
+ * \brief Clones a function f with a different name, and eventually additional
+ * args
+ */
+llvm::Function& cloneWithName(llvm::Function& f, const std::string& name,
+                              llvm::ArrayRef<llvm::Type*> extra_args = {});
+
+/** \brief Suffix to distinguish already cloned function, placeholder for a real
+ * attribute
+ */
+constexpr auto cloned_suffix = "_instr";
+
+llvm::Function& cloneWithSuffix(llvm::Function& f, const std::string& suffix,
+                                llvm::ArrayRef<llvm::Type*> extra_args);
+
+/** \fn pushAdditionalArguments
+ * \brief Add additional arguments to a kernel stub
+ *
+ * \param f Kernel device stub
+ * \param kernel_args Additional values (expected to be arguments of the
+ * function)
+ */
+void pushAdditionalArguments(llvm::Function& f,
+                             llvm::ArrayRef<llvm::Value*> kernel_args);
 
 } // namespace hip
