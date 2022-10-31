@@ -8,6 +8,7 @@
 
 #include <unordered_map>
 
+#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Module.h"
 
 #include "hip_instrumentation/basic_block.hpp"
@@ -96,6 +97,11 @@ llvm::Function& cloneWithName(llvm::Function& f, const std::string& name,
  * attribute
  */
 constexpr auto cloned_suffix = "_instr";
+
+inline std::string getClonedName(const llvm::StringRef& f_name,
+                                 const std::string& suffix) {
+    return llvm::Twine(f_name).concat(suffix).concat(cloned_suffix).str();
+}
 
 llvm::Function& cloneWithSuffix(llvm::Function& f, const std::string& suffix,
                                 llvm::ArrayRef<llvm::Type*> extra_args);

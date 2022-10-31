@@ -156,9 +156,8 @@ llvm::Function& cloneWithName(llvm::Function& f, const std::string& name,
 
 llvm::Function& cloneWithSuffix(llvm::Function& f, const std::string& suffix,
                                 llvm::ArrayRef<llvm::Type*> extra_args) {
-    auto name = f.getName() + suffix + cloned_suffix;
-
-    return cloneWithName(f, name.str(), extra_args);
+    return cloneWithName(f, getClonedName(f.getName().str(), suffix),
+                         extra_args);
 }
 
 void pushAdditionalArguments(llvm::Function& f,

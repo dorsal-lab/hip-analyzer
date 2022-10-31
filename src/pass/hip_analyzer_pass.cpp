@@ -278,6 +278,11 @@ struct HostPass : public llvm::ModulePass {
 
         auto* call_to_launch = firstCallToFunction(f, "hipLaunchKernel");
 
+        auto counters_kernel_name = getClonedName(
+            kernelNameFromStub(f), CfgInstrumentationPass::instrumented_suffix);
+
+        llvm::errs() << counters_kernel_name << '\n';
+
         // Modify __hip_module_ctor to register kernel
 
         return f;
@@ -308,16 +313,12 @@ struct HostPass : public llvm::ModulePass {
     std::string kernelNameFromStub(llvm::Function& stub) const {
         auto* call_to_launch = firstCallToFunction(stub, "hipLaunchKernel");
 
-        if (auto* first_arg_global = dyn_cast<llvm::GlobalVariable>(
-                call_to_launch->getArgOperand(0))) {
-
-            if (auto* constant = dyn_cast<llvm::ConstantDataArray>(
-                    first_arg_global->getInitializer())) {
-                return constant->getAsCString().str();
-            }
-        }
-
-        return {};
+        return call_to_launch
+            ->getArgOperand(0)    // First argument to hipLaunchKernel
+            ->stripPointerCasts() // the stub addrss is automatically casted to
+                                  // i8, need to remove it
+            ->getName()
+            .str();
     }
 
     bool isDeviceStub(llvm::Function& f) {
