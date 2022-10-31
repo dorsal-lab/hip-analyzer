@@ -37,6 +37,18 @@ findInstruction(llvm::Function& f,
     return {};
 }
 
+llvm::CallInst* firstCallToFunction(llvm::Function& f,
+                                    const std::string& function) {
+    return dyn_cast<llvm::CallInst>(
+        &(*findInstruction(f, [&function](auto* instr) {
+            if (auto* call_inst = dyn_cast<llvm::CallInst>(instr)) {
+                return call_inst->getCalledFunction()->getName() == function;
+            } else {
+                return false;
+            }
+        })));
+}
+
 llvm::Value* getIndex(uint64_t idx, llvm::LLVMContext& context) {
     return llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), idx);
 }

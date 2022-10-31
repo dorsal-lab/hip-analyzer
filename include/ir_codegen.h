@@ -58,6 +58,12 @@ llvm::BasicBlock::iterator firstInstructionOf(llvm::Function& f) {
 
 void setInsertPointPastAllocas(llvm::IRBuilderBase& builder, llvm::Function& f);
 
+/** \fn firstCallToFunction
+ * \brief Returns the first call to the given symbol
+ */
+llvm::CallInst* firstCallToFunction(llvm::Function& f,
+                                    const std::string& function);
+
 llvm::BasicBlock::iterator getFirstNonPHIOrDbgOrAlloca(llvm::BasicBlock& bb);
 
 /** \fn isBlockInstrumentable

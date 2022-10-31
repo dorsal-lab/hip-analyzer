@@ -6,7 +6,6 @@
 
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
@@ -277,14 +276,7 @@ struct HostPass : public llvm::ModulePass {
 
         // Modify the call to hipLaunchKernel
 
-        auto* call_to_launch = &(*findInstruction(f, [](auto* instr) {
-            if (auto* call_inst = dyn_cast<llvm::CallInst>(instr)) {
-                return call_inst->getCalledFunction()->getName() ==
-                       "hipLaunchKernel";
-            } else {
-                return false;
-            }
-        }));
+        auto* call_to_launch = firstCallToFunction(f, "hipLaunchKernel");
 
         // Modify __hip_module_ctor to register kernel
 
@@ -314,10 +306,17 @@ struct HostPass : public llvm::ModulePass {
      * \brief Returns the kernel identifier from device stub function
      */
     std::string kernelNameFromStub(llvm::Function& stub) const {
-        // TODO
-        auto name = llvm::demangle(stub.getName().str());
-        llvm::errs() << name << '\n';
-        // Directly fetch from global string?
+        auto* call_to_launch = firstCallToFunction(stub, "hipLaunchKernel");
+
+        if (auto* first_arg_global = dyn_cast<llvm::GlobalVariable>(
+                call_to_launch->getArgOperand(0))) {
+
+            if (auto* constant = dyn_cast<llvm::ConstantDataArray>(
+                    first_arg_global->getInitializer())) {
+                return constant->getAsCString().str();
+            }
+        }
+
         return {};
     }
 
