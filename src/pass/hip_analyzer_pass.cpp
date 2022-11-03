@@ -8,6 +8,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/Linker/Linker.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
@@ -62,7 +64,8 @@ class AnalysisPass : public llvm::FunctionPass {
 
 struct CfgInstrumentationPass : public llvm::ModulePass {
     static char ID;
-    static const char* instrumented_suffix;
+    static const std::string instrumented_suffix;
+    static const std::string utils_path;
 
     CfgInstrumentationPass() : llvm::ModulePass(ID) {}
 
@@ -87,6 +90,9 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
 
             modified |= instrumentFunction(f, f_original);
         }
+
+        // Add necessary functions
+        linkModuleUtils(mod);
 
         return modified;
     }
@@ -193,6 +199,21 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
         f.print(llvm::dbgs(), nullptr);
 
         return true;
+    }
+
+    void linkModuleUtils(llvm::Module& mod) {
+        llvm::Linker linker(mod);
+
+        // Load compiled module
+        llvm::SMDiagnostic diag;
+        auto utils_mod = llvm::parseIRFile(utils_path, diag, mod.getContext());
+        if (!utils_mod) {
+            llvm::errs() << diag.getMessage() << '\n';
+            throw std::runtime_error("CfgInstrumentationPass::linkModuleUtils()"
+                                     " : Could not load utils module");
+        }
+
+        linker.linkInModule(std::move(utils_mod));
     }
 
     static llvm::Type* getCounterType(llvm::LLVMContext& context) {
@@ -352,7 +373,8 @@ struct HostPass : public llvm::ModulePass {
 };
 
 char AnalysisPass::ID = 0;
-const char* CfgInstrumentationPass::instrumented_suffix = "_counters";
+const std::string CfgInstrumentationPass::instrumented_suffix = "_counters";
+const std::string CfgInstrumentationPass::utils_path = "gpu_pass_instr.ll";
 char CfgInstrumentationPass::ID = 1;
 char TracingPass::ID = 2;
 char HostPass::ID = 3;
