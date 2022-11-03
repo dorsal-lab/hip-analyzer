@@ -91,10 +91,17 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
         return modified;
     }
 
+    /** \fn isInstrumentableKernel
+     * \brief Returns whether a function is a kernel that will be instrumented
+     * (todo?)
+     */
     bool isInstrumentableKernel(llvm::Function& f) {
         return !f.isDeclaration() && !f.getName().endswith(cloned_suffix);
     }
 
+    /** \fn addParams
+     * \brief Clone function with new parameters
+     */
     virtual bool addParams(llvm::Function& f,
                            llvm::Function& original_function) {
 
@@ -113,6 +120,12 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
         return true;
     }
 
+    /** \fn instrumentFunction
+     * \brief Add CFG counters instrumentation to the compute kernel
+     *
+     * \param f Kernel
+     * \param original_function Original (non-instrumented) kernel
+     */
     virtual bool instrumentFunction(llvm::Function& f,
                                     llvm::Function& original_function) {
         auto& blocks = getAnalysis<AnalysisPass>(original_function).getBlocks();
@@ -245,6 +258,14 @@ struct HostPass : public llvm::ModulePass {
         // TODO : remove `optnone` and `noinline` attributes, add alwaysinline
     }
 
+    /** \fn addCountersDeviceStub
+     * \brief Copies the device stub and adds additional arguments for the
+     * counters instrumentation
+     *
+     * \param f_original Original kernel device stub
+     *
+     * \returns Instrumented device stub
+     */
     llvm::Function& addCountersDeviceStub(llvm::Function& f_original) const {
         auto& mod = *f_original.getParent();
 
