@@ -278,10 +278,9 @@ struct HostPass : public llvm::ModulePass {
 
         auto* call_to_launch = firstCallToFunction(f, "hipLaunchKernel");
 
-        auto counters_kernel_name = getClonedName(
-            kernelNameFromStub(f), CfgInstrumentationPass::instrumented_suffix);
-
-        llvm::errs() << counters_kernel_name << '\n';
+        call_to_launch->setArgOperand(
+            0, llvm::ConstantExpr::getPointerCast(
+                   global_sym, llvm::Type::getInt8PtrTy(mod.getContext())));
 
         // Modify __hip_module_ctor to register kernel
 
@@ -300,7 +299,7 @@ struct HostPass : public llvm::ModulePass {
                                        llvm::Function& new_stub,
                                        const std::string& suffix) const {
         auto kernel_name = kernelNameFromStub(stub);
-        auto suffixed = kernel_name + suffix;
+        auto suffixed = getClonedName(kernel_name, suffix);
 
         auto& mod = *stub.getParent();
 
