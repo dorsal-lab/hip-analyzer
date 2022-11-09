@@ -84,24 +84,6 @@ target_link_libraries(hip-analyzer
     jsoncpp
 )
 
-# LLVM Pass
-
-add_library(
-    hip-analyzer-pass SHARED
-    src/pass/hip_analyzer_pass.cpp
-    src/pass/ir_codegen.cpp
-    src/llvm_instr_counters.cpp
-)
-
-target_link_libraries(
-    hip-analyzer-pass
-    LLVMPasses
-    LLVMCore
-    LLVMSupport
-    LLVMAnalysis
-)
-
-
 # Instrumentation library
 
 add_custom_command(
@@ -125,6 +107,36 @@ add_custom_command(
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
         ${CMAKE_SOURCE_DIR}/src/gpu_queue.cpp
     VERBATIM
+)
+
+# LLVM Pass
+
+add_custom_command(
+    OUTPUT ${CMAKE_BINARY_DIR}/gpu_pass_instr.ll
+    COMMAND ${ROCM_PATH}/hip/bin/hipcc -c -S -emit-llvm ${CMAKE_SOURCE_DIR}/src/pass/gpu_pass_instr.cpp --cuda-device-only -O0 -o gpu_pass_instr.ll -Wno-unused-command-line-argument
+    DEPENDS
+        ${CMAKE_SOURCE_DIR}/src/pass/gpu_pass_instr.cpp
+    VERBATIM
+    
+)
+
+add_custom_target(gpu_pass_instr DEPENDS ${CMAKE_BINARY_DIR}/gpu_pass_instr.ll)
+
+add_library(
+    hip-analyzer-pass SHARED
+    src/pass/hip_analyzer_pass.cpp
+    src/pass/ir_codegen.cpp
+    src/llvm_instr_counters.cpp
+)
+
+add_dependencies(hip-analyzer-pass gpu_pass_instr)
+
+target_link_libraries(
+    hip-analyzer-pass
+    LLVMPasses
+    LLVMCore
+    LLVMSupport
+    LLVMAnalysis
 )
 
 add_library(hip_instrumentation
