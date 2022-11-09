@@ -181,13 +181,16 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
 
         for (auto& bb_instr : f) {
             auto terminator = bb_instr.getTerminator();
+
+            // Only call saving method if the terminator is a return
             if (isa<llvm::ReturnInst>(terminator)) {
                 builder_locals.SetInsertPoint(terminator);
 
                 // Bitcast to ptr
 
-                auto* array_ptr = builder_locals.CreateBitCast(
-                    counters, counter_type->getPointerTo());
+                auto* array_ptr =
+                    builder_locals.CreatePointerBitCastOrAddrSpaceCast(
+                        counters, counter_type->getPointerTo());
 
                 // Add call
                 builder_locals.CreateCall(

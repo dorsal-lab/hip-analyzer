@@ -117,7 +117,6 @@ add_custom_command(
     DEPENDS
         ${CMAKE_SOURCE_DIR}/src/pass/gpu_pass_instr.cpp
     VERBATIM
-    
 )
 
 add_custom_target(gpu_pass_instr DEPENDS ${CMAKE_BINARY_DIR}/gpu_pass_instr.ll)

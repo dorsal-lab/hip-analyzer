@@ -11,8 +11,9 @@ extern "C" {
 /** \fn _hip_store_ctr
  * \brief Store the counters in the provided _instr_ptr
  */
-__device__ void _hip_store_ctr(const uint8_t counters[], size_t _bb_count,
-                               uint8_t* _instr_ptr) {
+[[clang::always_inline]] __device__ void
+_hip_store_ctr(const uint8_t counters[], size_t _bb_count,
+               uint8_t* _instr_ptr) {
 #pragma unroll
     for (auto i = 0u; i < _bb_count; ++i) {
         _instr_ptr[blockIdx.x * blockDim.x * _bb_count +
