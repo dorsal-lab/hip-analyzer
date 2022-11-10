@@ -149,6 +149,14 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
         auto* counters = builder_locals.CreateAlloca(
             array_type, nullptr, llvm::Twine("_bb_counters"));
 
+        // Initialize it!
+
+        builder_locals.CreateMemSet(
+            builder_locals.CreatePointerCast(
+                counters, llvm::Type::getInt8PtrTy(f.getContext())),
+            llvm::ConstantInt::get(counter_type, 0u), blocks.size(),
+            llvm::MaybeAlign(llvm::Align::Constant<1>()));
+
         // Instrument each basic block
 
         auto& function_block_list = f.getBasicBlockList();
