@@ -217,6 +217,17 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
         }
 
         linker.linkInModule(std::move(utils_mod));
+
+        // Remove [[clang::optnone]] and add [[clang::always_inline]] attributes
+
+        auto instrumentation_handlers = declareInstrumentation(mod);
+
+        instrumentation_handlers._hip_store_ctr->removeFnAttr(
+            llvm::Attribute::OptimizeNone);
+        instrumentation_handlers._hip_store_ctr->removeFnAttr(
+            llvm::Attribute::NoInline);
+        instrumentation_handlers._hip_store_ctr->addFnAttr(
+            llvm::Attribute::AlwaysInline);
     }
 
     static llvm::Type* getCounterType(llvm::LLVMContext& context) {
