@@ -382,9 +382,9 @@ struct HostPass : public llvm::ModulePass {
 
         auto* new_stub = dyn_cast<llvm::Function>(
             mod.getOrInsertFunction(
-                   getClonedName(
-                       stub,
-                       "tmp_" + CfgInstrumentationPass::instrumented_prefix),
+                   getClonedName(stub,
+                                 CfgInstrumentationPass::instrumented_prefix +
+                                     "tmp_"),
                    fun_type)
                 .getCallee());
 
@@ -439,11 +439,16 @@ struct HostPass : public llvm::ModulePass {
             dyn_cast<llvm::ConstantExpr>(kernel_call->getArgOperand(0))
                 ->getOperand(0)));
 
+        if (stub == nullptr) {
+            throw std::runtime_error(
+                "HostPass::addDeviceStubCall() : Could not find device stub");
+        }
+
         auto* args_array = gep_of_array->getPointerOperand();
 
         // Build the value vector to pass to the new kernel stub
 
-        llvm::SmallVector<llvm::Value*, 8> args{3, nullptr};
+        llvm::SmallVector<llvm::Value*, 8> args{stub->arg_size(), nullptr};
 
         // Forgive me
         for (auto* use : args_array->users()) {
@@ -460,17 +465,24 @@ struct HostPass : public llvm::ModulePass {
                         // Found arg
                         llvm::dbgs() << "\t\t- > it is used in a store ("
                                      << *store << " )\n";
+
+                        args[0] = store->getValueOperand();
                     }
                 }
             } // Is it used in a GEP ?
             else if (auto* gep = dyn_cast<llvm::GetElementPtrInst>(use)) {
                 llvm::dbgs() << "\t- > this is a GEP\n";
 
+                auto index = dyn_cast<llvm ::ConstantInt>(gep->getOperand(2))
+                                 ->getZExtValue();
+
                 for (auto* use_gep : gep->users()) {
                     if (auto* store = dyn_cast<llvm::StoreInst>(use_gep)) {
                         // Found arg
                         llvm::dbgs() << "\t\t- > it is used in a store ("
                                      << *store << " )\n";
+
+                        args[index] = store->getValueOperand();
                     } else if (auto* bitcast =
                                    dyn_cast<llvm::BitCastInst>(use_gep)) {
                         llvm::dbgs() << "\t\t- > it is used in a bitcast ("
@@ -482,6 +494,7 @@ struct HostPass : public llvm::ModulePass {
                                 llvm::dbgs()
                                     << "\t\t\t- > it is used in a store ("
                                     << *store << " )\n";
+                                args[index] = store->getValueOperand();
                             }
                         }
                     }
@@ -489,7 +502,31 @@ struct HostPass : public llvm::ModulePass {
             }
         }
 
+        int i = 0;
+        for (auto* val : args) {
+            llvm::dbgs() << i << ' ' << *val << '\n';
+            ++i;
+        }
+
+        auto* split_point =
+            firstCallToFunction(f_original, "__hipPopCallConfiguration");
+
+        // This is going to leave a bunch of garbage but the optimizer will take
+        // care of it
+        auto* bb_to_delete =
+            split_point->getParent()->splitBasicBlockBefore(split_point);
+
+        auto* new_bb =
+            llvm::BasicBlock::Create(f_original.getContext(), "", &f_original);
+        llvm::IRBuilder<> builder(new_bb);
+
         // Replace basic block with new one calling the stub
+
+        builder.CreateCall(stub, args);
+        builder.Insert(bb_to_delete->getTerminator());
+
+        bb_to_delete->replaceAllUsesWith(new_bb);
+        bb_to_delete->eraseFromParent();
     }
 
     /** \fn getDeviceStub
@@ -497,14 +534,22 @@ struct HostPass : public llvm::ModulePass {
      * are created for the host but not defined)
      */
     llvm::Function* getDeviceStub(llvm::GlobalValue* fake_symbol) const {
-        auto* mod = fake_symbol->getParent();
+        auto name = fake_symbol->getName().str();
+        auto demangled =
+            llvm::demangle(name); // THIS WILL NOT WORK WITH OVERLOADED KERNELS
+        auto search = demangled.substr(0, demangled.find('('));
 
-        std::string mangled = fake_symbol->getName().str();
-        llvm::raw_string_ostream os(mangled);
-        llvm::Mangler::getNameWithPrefix(os, fake_symbol->getName(),
-                                         mod->getDataLayout());
+        // Ugly but works. Maybe find a better way ?
+        for (auto& f : fake_symbol->getParent()->functions()) {
+            auto fname = f.getName().str();
+            if (contains(fname, search) &&
+                contains(fname, device_stub_prefix) &&
+                !contains(fname, cloned_suffix)) {
+                return &f;
+            }
+        }
 
-        return mod->getFunction(mangled);
+        return nullptr;
     }
 
     /** \fn createKernelSymbol
@@ -544,16 +589,16 @@ struct HostPass : public llvm::ModulePass {
         auto name = f.getName().str();
 
         return contains(name, device_stub_prefix) &&
-               !contains(name, CfgInstrumentationPass::instrumented_prefix +
-                                   cloned_suffix);
+               !contains(name, cloned_suffix +
+                                   CfgInstrumentationPass::instrumented_prefix);
     }
 
     bool isKernelCallSite(llvm::Function& f) {
         // True if calls hipLaunchKernel and is not a stub (so an inlined stub)
         return hasFunctionCall(f, "hipLaunchKernel") && !isDeviceStub(f) &&
                !contains(f.getName().str(),
-                         CfgInstrumentationPass::instrumented_prefix +
-                             cloned_suffix);
+                         cloned_suffix +
+                             CfgInstrumentationPass::instrumented_prefix);
     }
 
     virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override {

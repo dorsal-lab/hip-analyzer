@@ -121,13 +121,7 @@ constexpr auto cloned_suffix = "__hip_instr_";
 
 inline std::string getClonedName(const llvm::Function& f,
                                  const std::string& prefix) {
-
-    std::string mangled = f.getName().str();
-    llvm::raw_string_ostream os(mangled);
-    llvm::Mangler::getNameWithPrefix(os, cloned_suffix + prefix,
-                                     f.getParent()->getDataLayout());
-    os.flush();
-    return mangled;
+    return llvm::Twine(cloned_suffix).concat(prefix).concat(f.getName()).str();
 }
 
 llvm::Function& cloneWithPrefix(llvm::Function& f, const std::string& prefix,
