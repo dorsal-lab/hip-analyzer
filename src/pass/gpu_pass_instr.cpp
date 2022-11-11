@@ -1,5 +1,5 @@
 /** \file gpu_pass_instr.cpp
- * \brief Utility functions
+ * \brief Device-side utility functions
  *
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */

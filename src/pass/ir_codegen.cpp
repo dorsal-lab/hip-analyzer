@@ -24,6 +24,18 @@ int64_t valueToInt(llvm::Value* v) {
 }
 
 llvm::BasicBlock::iterator
+findInstruction(llvm::BasicBlock& bb,
+                std::function<bool(const llvm::Instruction*)> predicate) {
+    for (auto it = bb.begin(); it != bb.end(); ++it) {
+        if (predicate(&(*it))) {
+            return it;
+        }
+    }
+
+    return {};
+}
+
+llvm::BasicBlock::iterator
 findInstruction(llvm::Function& f,
                 std::function<bool(const llvm::Instruction*)> predicate) {
     for (auto& bb : f) {
@@ -37,6 +49,24 @@ findInstruction(llvm::Function& f,
     return {};
 }
 
+llvm::Value*
+recursiveGetUsePredicate(llvm::Value* v,
+                         std::function<bool(const llvm::Value*)> predicate) {
+    if (predicate(v)) {
+        return v;
+    }
+
+    for (auto* use : v->users()) {
+        use->print(llvm::dbgs());
+        auto* maybe_v = recursiveGetUsePredicate(use, predicate);
+        if (maybe_v) {
+            return maybe_v;
+        }
+    }
+
+    return nullptr;
+}
+
 llvm::CallInst* firstCallToFunction(llvm::Function& f,
                                     const std::string& function) {
     return dyn_cast<llvm::CallInst>(
@@ -47,6 +77,26 @@ llvm::CallInst* firstCallToFunction(llvm::Function& f,
                 return false;
             }
         })));
+}
+
+bool hasFunctionCall(llvm::Function& f, const std::string& function) {
+    auto predicate = [&function](auto* instr) {
+        if (auto* call_inst = dyn_cast<llvm::CallInst>(instr)) {
+            return call_inst->getCalledFunction()->getName() == function;
+        } else {
+            return false;
+        }
+    };
+
+    for (auto& bb : f) {
+        for (auto it = bb.begin(); it != bb.end(); ++it) {
+            if (predicate(&(*it))) {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 llvm::Value* getIndex(uint64_t idx, llvm::LLVMContext& context) {

@@ -51,6 +51,18 @@ llvm::BasicBlock::iterator
 findInstruction(llvm::Function& f,
                 std::function<bool(const llvm::Instruction*)> predicate);
 
+llvm::BasicBlock::iterator
+findInstruction(llvm::BasicBlock& bb,
+                std::function<bool(const llvm::Instruction*)> predicate);
+
+/** \fn recursiveGetUsePredicate
+ * \brief Recursively search for a value that matches the predicate, propagates
+ * the search through uses' sub-uses
+ */
+llvm::Value*
+recursiveGetUsePredicate(llvm::Value* v,
+                         std::function<bool(const llvm::Value*)> predicate);
+
 template <typename T>
 llvm::BasicBlock::iterator firstInstructionOf(llvm::Function& f) {
     return findInstruction(
@@ -64,6 +76,11 @@ void setInsertPointPastAllocas(llvm::IRBuilderBase& builder, llvm::Function& f);
  */
 llvm::CallInst* firstCallToFunction(llvm::Function& f,
                                     const std::string& function);
+
+/** \fn hasFunctionCall
+ * \brief Returns whether the function contains a call to the given symbol
+ */
+bool hasFunctionCall(llvm::Function& f, const std::string& function);
 
 llvm::BasicBlock::iterator getFirstNonPHIOrDbgOrAlloca(llvm::BasicBlock& bb);
 

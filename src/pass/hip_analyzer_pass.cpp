@@ -282,17 +282,39 @@ struct HostPass : public llvm::ModulePass {
 
     virtual bool runOnModule(llvm::Module& mod) override {
         bool modified = false;
+
+        llvm::SmallVector<std::pair<llvm::Function*, llvm::Function*>, 8>
+            to_delete;
         for (auto& f_original : mod.functions()) {
-            if (!isDeviceStub(f_original) || f_original.isDeclaration()) {
-                continue;
+            if (isDeviceStub(f_original) && !f_original.isDeclaration()) {
+                // Device stub
+                llvm::errs() << "Function " << f_original.getName() << '\n';
+                f_original.print(llvm::dbgs());
+
+                auto& stub_counter = addCountersDeviceStub(f_original);
+
+                if (auto* new_stub = replaceStubCall(f_original)) {
+                    to_delete.push_back(std::make_pair(&f_original, new_stub));
+                }
+
+                stub_counter.print(llvm::dbgs());
+            } else if (isKernelCallSite(f_original)) {
+                // Kernel calling site
+
+                // Sadly the HIP Front-end inlines all kernel device stubs, so
+                // we have to substitute the call ourselves
+
+                addDeviceStubCall(f_original);
+
+                f_original.print(llvm::dbgs());
             }
+        }
 
-            llvm::errs() << "Function " << f_original.getName() << '\n';
-            f_original.print(llvm::dbgs(), nullptr);
-
-            auto& stub_counter = addCountersDeviceStub(f_original);
-
-            stub_counter.print(llvm::dbgs(), nullptr);
+        for (auto& [old_stub, new_stub] : to_delete) {
+            std::string name = old_stub->getName().str();
+            llvm::dbgs() << "Removing stubs : " << name << '\n';
+            old_stub->eraseFromParent();
+            new_stub->setName(name);
         }
 
         return true;
@@ -351,6 +373,79 @@ struct HostPass : public llvm::ModulePass {
         return f;
     }
 
+    llvm::Function* replaceStubCall(llvm::Function& stub) {
+        auto& mod = *stub.getParent();
+
+        auto fun_type = stub.getFunctionType();
+
+        auto* new_stub = dyn_cast<llvm::Function>(
+            mod.getOrInsertFunction((stub.getName() + "instr").str(), fun_type)
+                .getCallee());
+
+        auto* counters_stub = &cloneWithSuffix(
+            stub, CfgInstrumentationPass::instrumented_suffix,
+            {CfgInstrumentationPass::getCounterType(mod.getContext())
+                 ->getPointerTo()});
+
+        auto* bb = llvm::BasicBlock::Create(mod.getContext(), "", new_stub);
+
+        llvm::IRBuilder<> builder(bb);
+
+        // Create call to newly created stub
+        llvm::SmallVector<llvm::Value*> args;
+        for (llvm::Argument& arg : stub.args()) {
+            args.push_back(&arg);
+        }
+
+        // TODO : call instrumenation runtime to get pointer to instr
+        args.push_back(llvm::ConstantPointerNull::get(
+            CfgInstrumentationPass::getCounterType(mod.getContext())
+                ->getPointerTo()));
+
+        builder.CreateCall(counters_stub->getFunctionType(), counters_stub,
+                           args);
+
+        builder.CreateRetVoid();
+
+        // Replace all calls
+
+        stub.replaceAllUsesWith(new_stub);
+
+        return new_stub;
+    }
+
+    /** \fn addCountersDeviceStub
+     * \brief Replaces the (inlined) device stub call for the
+     * counters-instrumented call
+     *
+     * \param f_original Original kernel device stub call site
+     */
+    void addDeviceStubCall(llvm::Function& f_original) const {
+        auto& bb =
+            *firstCallToFunction(f_original, "hipLaunchKernel")->getParent();
+
+        // Build the value vector to pass to the new kernel stub
+
+        llvm::SmallVector<llvm::Value*, 8> args;
+
+        for (auto& instr : bb) {
+            if (auto* store = dyn_cast<llvm::StoreInst>(&instr)) {
+                auto* pointer_operand = store->getPointerOperand();
+                auto* pointee_type = pointer_operand->getType()
+                                         ->getNonOpaquePointerElementType();
+                // Okay if the address is either a bitcast or a
+                // pointer-to-pointer
+                if (isa<llvm::BitCastInst>(pointer_operand) ||
+                    (pointee_type->isPointerTy())) {
+                    llvm::dbgs() << "Found store : " << *store << '\n';
+                    args.push_back(store->getValueOperand());
+                }
+            }
+        }
+
+        // Replace basic block with new one call
+    }
+
     /** \fn createKernelSymbol
      * \brief Create the global kernel function symbol for the copied kernel
      *
@@ -387,6 +482,10 @@ struct HostPass : public llvm::ModulePass {
     bool isDeviceStub(llvm::Function& f) {
         auto name = llvm::demangle(f.getName().str());
         return name.starts_with(device_stub_prefix);
+    }
+
+    bool isKernelCallSite(llvm::Function& f) {
+        return hasFunctionCall(f, "hipLaunchKernel");
     }
 
     virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override {
