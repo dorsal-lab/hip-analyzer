@@ -379,7 +379,11 @@ struct HostPass : public llvm::ModulePass {
         auto fun_type = stub.getFunctionType();
 
         auto* new_stub = dyn_cast<llvm::Function>(
-            mod.getOrInsertFunction((stub.getName() + "instr").str(), fun_type)
+            mod.getOrInsertFunction(
+                   getClonedName(
+                       stub.getName(),
+                       "tmp_" + CfgInstrumentationPass::instrumented_suffix),
+                   fun_type)
                 .getCallee());
 
         auto* counters_stub = &cloneWithSuffix(
@@ -481,7 +485,8 @@ struct HostPass : public llvm::ModulePass {
 
     bool isDeviceStub(llvm::Function& f) {
         auto name = llvm::demangle(f.getName().str());
-        return name.starts_with(device_stub_prefix);
+        return name.starts_with(device_stub_prefix) &&
+               !name.ends_with(CfgInstrumentationPass::instrumented_suffix);
     }
 
     bool isKernelCallSite(llvm::Function& f) {
