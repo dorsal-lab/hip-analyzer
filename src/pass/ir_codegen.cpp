@@ -7,6 +7,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Mangler.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 
@@ -204,10 +205,10 @@ llvm::Function& cloneWithName(llvm::Function& f, const std::string& name,
     }
 }
 
-llvm::Function& cloneWithSuffix(llvm::Function& f, const std::string& suffix,
+llvm::Function& cloneWithPrefix(llvm::Function& f, const std::string& prefix,
                                 llvm::ArrayRef<llvm::Type*> extra_args) {
-    return cloneWithName(f, getClonedName(f.getName().str(), suffix),
-                         extra_args);
+
+    return cloneWithName(f, getClonedName(f, prefix), extra_args);
 }
 
 void pushAdditionalArguments(llvm::Function& f,

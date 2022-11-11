@@ -65,7 +65,7 @@ class AnalysisPass : public llvm::FunctionPass {
 
 struct CfgInstrumentationPass : public llvm::ModulePass {
     static char ID;
-    static const std::string instrumented_suffix;
+    static const std::string instrumented_prefix;
     static const std::string utils_path;
 
     CfgInstrumentationPass() : llvm::ModulePass(ID) {}
@@ -80,8 +80,8 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
             llvm::errs() << "Function " << f_original.getName() << '\n';
             f_original.print(llvm::dbgs(), nullptr);
 
-            auto& f = cloneWithSuffix(
-                f_original, instrumented_suffix,
+            auto& f = cloneWithPrefix(
+                f_original, instrumented_prefix,
                 {getCounterType(mod.getContext())->getPointerTo()});
 
             modified |= addParams(f, f_original);
@@ -103,7 +103,8 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
      * (todo?)
      */
     bool isInstrumentableKernel(llvm::Function& f) {
-        return !f.isDeclaration() && !f.getName().endswith(cloned_suffix);
+        return !f.isDeclaration() &&
+               !contains(f.getName().str(), cloned_suffix);
     }
 
     /** \fn addParams
@@ -335,8 +336,8 @@ struct HostPass : public llvm::ModulePass {
     llvm::Function& addCountersDeviceStub(llvm::Function& f_original) const {
         auto& mod = *f_original.getParent();
 
-        auto& f = cloneWithSuffix(
-            f_original, CfgInstrumentationPass::instrumented_suffix,
+        auto& f = cloneWithPrefix(
+            f_original, CfgInstrumentationPass::instrumented_prefix,
             {CfgInstrumentationPass::getCounterType(mod.getContext())
                  ->getPointerTo()});
 
@@ -359,7 +360,7 @@ struct HostPass : public llvm::ModulePass {
         // Create global symbol
 
         auto* global_sym = createKernelSymbol(
-            f_original, f, CfgInstrumentationPass::instrumented_suffix);
+            f_original, f, CfgInstrumentationPass::instrumented_prefix);
 
         // Modify the call to hipLaunchKernel
 
@@ -382,13 +383,13 @@ struct HostPass : public llvm::ModulePass {
         auto* new_stub = dyn_cast<llvm::Function>(
             mod.getOrInsertFunction(
                    getClonedName(
-                       stub.getName(),
-                       "tmp_" + CfgInstrumentationPass::instrumented_suffix),
+                       stub,
+                       "tmp_" + CfgInstrumentationPass::instrumented_prefix),
                    fun_type)
                 .getCallee());
 
-        auto* counters_stub = &cloneWithSuffix(
-            stub, CfgInstrumentationPass::instrumented_suffix,
+        auto* counters_stub = &cloneWithPrefix(
+            stub, CfgInstrumentationPass::instrumented_prefix,
             {CfgInstrumentationPass::getCounterType(mod.getContext())
                  ->getPointerTo()});
 
@@ -498,7 +499,7 @@ struct HostPass : public llvm::ModulePass {
     llvm::Function* getDeviceStub(llvm::GlobalValue* fake_symbol) const {
         auto* mod = fake_symbol->getParent();
 
-        std::string mangled;
+        std::string mangled = fake_symbol->getName().str();
         llvm::raw_string_ostream os(mangled);
         llvm::Mangler::getNameWithPrefix(os, fake_symbol->getName(),
                                          mod->getDataLayout());
@@ -518,7 +519,7 @@ struct HostPass : public llvm::ModulePass {
                                        llvm::Function& new_stub,
                                        const std::string& suffix) const {
         auto kernel_name = kernelNameFromStub(stub);
-        auto suffixed = getClonedName(kernel_name, suffix);
+        auto suffixed = getClonedName(stub, suffix);
 
         auto& mod = *stub.getParent();
 
@@ -543,7 +544,7 @@ struct HostPass : public llvm::ModulePass {
         auto name = f.getName().str();
 
         return contains(name, device_stub_prefix) &&
-               !contains(name, CfgInstrumentationPass::instrumented_suffix +
+               !contains(name, CfgInstrumentationPass::instrumented_prefix +
                                    cloned_suffix);
     }
 
@@ -551,7 +552,7 @@ struct HostPass : public llvm::ModulePass {
         // True if calls hipLaunchKernel and is not a stub (so an inlined stub)
         return hasFunctionCall(f, "hipLaunchKernel") && !isDeviceStub(f) &&
                !contains(f.getName().str(),
-                         CfgInstrumentationPass::instrumented_suffix +
+                         CfgInstrumentationPass::instrumented_prefix +
                              cloned_suffix);
     }
 
@@ -561,7 +562,7 @@ struct HostPass : public llvm::ModulePass {
 };
 
 char AnalysisPass::ID = 0;
-const std::string CfgInstrumentationPass::instrumented_suffix = "_counters";
+const std::string CfgInstrumentationPass::instrumented_prefix = "counters_";
 const std::string CfgInstrumentationPass::utils_path = "gpu_pass_instr.ll";
 char CfgInstrumentationPass::ID = 1;
 char TracingPass::ID = 2;

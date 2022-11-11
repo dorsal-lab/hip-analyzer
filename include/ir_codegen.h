@@ -117,14 +117,20 @@ llvm::Function& cloneWithName(llvm::Function& f, const std::string& name,
 /** \brief Suffix to distinguish already cloned function, placeholder for a real
  * attribute
  */
-constexpr auto cloned_suffix = "_instr";
+constexpr auto cloned_suffix = "__hip_instr_";
 
-inline std::string getClonedName(const llvm::StringRef& f_name,
-                                 const std::string& suffix) {
-    return llvm::Twine(f_name).concat(suffix).concat(cloned_suffix).str();
+inline std::string getClonedName(const llvm::Function& f,
+                                 const std::string& prefix) {
+
+    std::string mangled = f.getName().str();
+    llvm::raw_string_ostream os(mangled);
+    llvm::Mangler::getNameWithPrefix(os, cloned_suffix + prefix,
+                                     f.getParent()->getDataLayout());
+    os.flush();
+    return mangled;
 }
 
-llvm::Function& cloneWithSuffix(llvm::Function& f, const std::string& suffix,
+llvm::Function& cloneWithPrefix(llvm::Function& f, const std::string& prefix,
                                 llvm::ArrayRef<llvm::Type*> extra_args);
 
 /** \fn pushAdditionalArguments
