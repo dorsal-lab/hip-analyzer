@@ -7,6 +7,7 @@
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Mangler.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Linker/Linker.h"
@@ -297,7 +298,7 @@ struct HostPass : public llvm::ModulePass {
                     to_delete.push_back(std::make_pair(&f_original, new_stub));
                 }
 
-                stub_counter.print(llvm::dbgs());
+                // stub_counter.print(llvm::dbgs());
             } else if (isKernelCallSite(f_original)) {
                 // Kernel calling site
 
@@ -425,29 +426,84 @@ struct HostPass : public llvm::ModulePass {
      * \param f_original Original kernel device stub call site
      */
     void addDeviceStubCall(llvm::Function& f_original) const {
-        auto& bb =
-            *firstCallToFunction(f_original, "hipLaunchKernel")->getParent();
+        auto* kernel_call = firstCallToFunction(f_original, "hipLaunchKernel");
+        auto* inliner_bb = kernel_call->getParent();
+
+        auto* gep_of_array =
+            dyn_cast<llvm::GetElementPtrInst>(kernel_call->getArgOperand(5));
+
+        // Get device stub
+
+        auto* stub = getDeviceStub(dyn_cast<llvm::GlobalValue>(
+            dyn_cast<llvm::ConstantExpr>(kernel_call->getArgOperand(0))
+                ->getOperand(0)));
+
+        auto* args_array = gep_of_array->getPointerOperand();
 
         // Build the value vector to pass to the new kernel stub
 
-        llvm::SmallVector<llvm::Value*, 8> args;
+        llvm::SmallVector<llvm::Value*, 8> args{3, nullptr};
 
-        for (auto& instr : bb) {
-            if (auto* store = dyn_cast<llvm::StoreInst>(&instr)) {
-                auto* pointer_operand = store->getPointerOperand();
-                auto* pointee_type = pointer_operand->getType()
-                                         ->getNonOpaquePointerElementType();
-                // Okay if the address is either a bitcast or a
-                // pointer-to-pointer
-                if (isa<llvm::BitCastInst>(pointer_operand) ||
-                    (pointee_type->isPointerTy())) {
-                    llvm::dbgs() << "Found store : " << *store << '\n';
-                    args.push_back(store->getValueOperand());
+        // Forgive me
+        for (auto* use : args_array->users()) {
+            llvm::dbgs() << *use << '\n';
+
+            // Is it used directly in a bitcast ?
+            if (auto* bitcast = dyn_cast<llvm::BitCastInst>(use)) {
+                llvm::dbgs() << "\t- > this is a bitcast\n";
+
+                for (auto* use_bitcast : bitcast->users()) {
+
+                    // Is it used in a store ?
+                    if (auto* store = dyn_cast<llvm::StoreInst>(use_bitcast)) {
+                        // Found arg
+                        llvm::dbgs() << "\t\t- > it is used in a store ("
+                                     << *store << " )\n";
+                    }
+                }
+            } // Is it used in a GEP ?
+            else if (auto* gep = dyn_cast<llvm::GetElementPtrInst>(use)) {
+                llvm::dbgs() << "\t- > this is a GEP\n";
+
+                for (auto* use_gep : gep->users()) {
+                    if (auto* store = dyn_cast<llvm::StoreInst>(use_gep)) {
+                        // Found arg
+                        llvm::dbgs() << "\t\t- > it is used in a store ("
+                                     << *store << " )\n";
+                    } else if (auto* bitcast =
+                                   dyn_cast<llvm::BitCastInst>(use_gep)) {
+                        llvm::dbgs() << "\t\t- > it is used in a bitcast ("
+                                     << *bitcast << " )\n";
+                        for (auto* use_bitcast : bitcast->users()) {
+                            if (auto* store =
+                                    dyn_cast<llvm::StoreInst>(use_bitcast)) {
+                                // Found arg
+                                llvm::dbgs()
+                                    << "\t\t\t- > it is used in a store ("
+                                    << *store << " )\n";
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        // Replace basic block with new one call
+        // Replace basic block with new one calling the stub
+    }
+
+    /** \fn getDeviceStub
+     * \brief Returns the device stub of a given kernel symbol (kernel symbols
+     * are created for the host but not defined)
+     */
+    llvm::Function* getDeviceStub(llvm::GlobalValue* fake_symbol) const {
+        auto* mod = fake_symbol->getParent();
+
+        std::string mangled;
+        llvm::raw_string_ostream os(mangled);
+        llvm::Mangler::getNameWithPrefix(os, fake_symbol->getName(),
+                                         mod->getDataLayout());
+
+        return mod->getFunction(mangled);
     }
 
     /** \fn createKernelSymbol
@@ -484,13 +540,19 @@ struct HostPass : public llvm::ModulePass {
     }
 
     bool isDeviceStub(llvm::Function& f) {
-        auto name = llvm::demangle(f.getName().str());
-        return name.starts_with(device_stub_prefix) &&
-               !name.ends_with(CfgInstrumentationPass::instrumented_suffix);
+        auto name = f.getName().str();
+
+        return contains(name, device_stub_prefix) &&
+               !contains(name, CfgInstrumentationPass::instrumented_suffix +
+                                   cloned_suffix);
     }
 
     bool isKernelCallSite(llvm::Function& f) {
-        return hasFunctionCall(f, "hipLaunchKernel");
+        // True if calls hipLaunchKernel and is not a stub (so an inlined stub)
+        return hasFunctionCall(f, "hipLaunchKernel") && !isDeviceStub(f) &&
+               !contains(f.getName().str(),
+                         CfgInstrumentationPass::instrumented_suffix +
+                             cloned_suffix);
     }
 
     virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override {

@@ -43,6 +43,10 @@ struct InstrumentationFunctions {
 
 // ----- IR Utils ----- //
 
+inline bool contains(const std::string& str, std::string_view substr) {
+    return (str.find(substr) != std::string::npos);
+};
+
 llvm::Value* getIndex(uint64_t idx, llvm::LLVMContext& context);
 
 int64_t valueToInt(llvm::Value* v);
