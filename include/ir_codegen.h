@@ -119,9 +119,14 @@ llvm::Function& cloneWithName(llvm::Function& f, const std::string& name,
  */
 constexpr auto cloned_suffix = "__hip_instr_";
 
+inline std::string getClonedName(const std::string& f,
+                                 const std::string& prefix) {
+    return llvm::Twine(cloned_suffix).concat(prefix).concat(f).str();
+}
+
 inline std::string getClonedName(const llvm::Function& f,
                                  const std::string& prefix) {
-    return llvm::Twine(cloned_suffix).concat(prefix).concat(f.getName()).str();
+    return getClonedName(f.getName().str(), prefix);
 }
 
 llvm::Function& cloneWithPrefix(llvm::Function& f, const std::string& prefix,

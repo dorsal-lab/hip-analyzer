@@ -483,19 +483,19 @@ struct HostPass : public llvm::ModulePass {
 
         // Forgive me
         for (auto* use : args_array->users()) {
-            llvm::dbgs() << *use << '\n';
+            // llvm::dbgs() << *use << '\n';
 
             // Is it used directly in a bitcast ?
             if (auto* bitcast = dyn_cast<llvm::BitCastInst>(use)) {
-                llvm::dbgs() << "\t- > this is a bitcast\n";
+                // llvm::dbgs() << "\t- > this is a bitcast\n";
 
                 for (auto* use_bitcast : bitcast->users()) {
 
                     // Is it used in a store ?
                     if (auto* store = dyn_cast<llvm::StoreInst>(use_bitcast)) {
                         // Found arg
-                        llvm::dbgs() << "\t\t- > it is used in a store ("
-                                     << *store << " )\n";
+                        // llvm::dbgs() << "\t\t- > it is used in a store ("
+                        //  << *store << " )\n";
 
                         append_arg(0, dyn_cast<llvm::AllocaInst>(
                                           store->getValueOperand()));
@@ -503,7 +503,7 @@ struct HostPass : public llvm::ModulePass {
                 }
             } // Is it used in a GEP ?
             else if (auto* gep = dyn_cast<llvm::GetElementPtrInst>(use)) {
-                llvm::dbgs() << "\t- > this is a GEP\n";
+                // llvm::dbgs() << "\t- > this is a GEP\n";
 
                 auto index = dyn_cast<llvm ::ConstantInt>(gep->getOperand(2))
                                  ->getZExtValue();
@@ -511,22 +511,22 @@ struct HostPass : public llvm::ModulePass {
                 for (auto* use_gep : gep->users()) {
                     if (auto* store = dyn_cast<llvm::StoreInst>(use_gep)) {
                         // Found arg
-                        llvm::dbgs() << "\t\t- > it is used in a store ("
-                                     << *store << " )\n";
+                        // llvm::dbgs() << "\t\t- > it is used in a store ("
+                        //  << *store << " )\n";
 
                         append_arg(index, dyn_cast<llvm::AllocaInst>(
                                               store->getValueOperand()));
                     } else if (auto* bitcast =
                                    dyn_cast<llvm::BitCastInst>(use_gep)) {
-                        llvm::dbgs() << "\t\t- > it is used in a bitcast ("
-                                     << *bitcast << " )\n";
+                        // llvm::dbgs() << "\t\t- > it is used in a bitcast ("
+                        //  << *bitcast << " )\n";
                         for (auto* use_bitcast : bitcast->users()) {
                             if (auto* store =
                                     dyn_cast<llvm::StoreInst>(use_bitcast)) {
                                 // Found arg
-                                llvm::dbgs()
-                                    << "\t\t\t- > it is used in a store ("
-                                    << *store << " )\n";
+                                // llvm::dbgs()
+                                // << "\t\t\t- > it is used in a store ("
+                                // << *store << " )\n";
                                 append_arg(index,
                                            dyn_cast<llvm::AllocaInst>(
                                                store->getValueOperand()));
@@ -611,7 +611,7 @@ struct HostPass : public llvm::ModulePass {
                                        llvm::Function& new_stub,
                                        const std::string& suffix) const {
         auto kernel_name = kernelNameFromStub(stub);
-        auto suffixed = getClonedName(stub, suffix);
+        auto suffixed = getClonedName(kernel_name, suffix);
 
         auto& mod = *stub.getParent();
 
