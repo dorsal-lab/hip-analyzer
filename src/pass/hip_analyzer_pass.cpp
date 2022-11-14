@@ -343,11 +343,15 @@ struct HostPass : public llvm::ModulePass {
      */
     llvm::Function& addCountersDeviceStub(llvm::Function& f_original) const {
         auto& mod = *f_original.getParent();
+        auto& context = mod.getContext();
+
+        // Useful types
+        auto* i8_ptr = llvm::Type::getInt8PtrTy(context);
+        auto* i32_ptr = llvm::Type::getInt32PtrTy(context);
 
         auto& f = cloneWithPrefix(
             f_original, CfgInstrumentationPass::instrumented_prefix,
-            {CfgInstrumentationPass::getCounterType(mod.getContext())
-                 ->getPointerTo()});
+            {CfgInstrumentationPass::getCounterType(context)->getPointerTo()});
 
         llvm::ValueToValueMapTy vmap;
 
@@ -375,10 +379,39 @@ struct HostPass : public llvm::ModulePass {
         auto* call_to_launch = firstCallToFunction(f, "hipLaunchKernel");
 
         call_to_launch->setArgOperand(
-            0, llvm::ConstantExpr::getPointerCast(
-                   global_sym, llvm::Type::getInt8PtrTy(mod.getContext())));
+            0, llvm::ConstantExpr::getPointerCast(global_sym, i8_ptr));
 
         // Modify __hip_module_ctor to register kernel
+
+        auto* device_ctor = dyn_cast<llvm::Function>(
+            mod.getOrInsertFunction(
+                   "__hip_module_ctor",
+                   llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                                           {i8_ptr}, false))
+                .getCallee());
+
+        auto* register_function =
+            firstCallToFunction(*device_ctor, "__hipRegisterFunction");
+
+        llvm::IRBuilder<> builder(register_function);
+
+        auto* name = builder.CreateGlobalStringPtr(global_sym->getName());
+
+        builder.CreateCall(
+            register_function->getCalledFunction(),
+            {
+                register_function->getArgOperand(0),
+                llvm::ConstantExpr::getPointerCast(global_sym, i8_ptr),
+                name,
+                name,
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), -1,
+                                       true),
+                llvm::ConstantPointerNull::get(i8_ptr),
+                llvm::ConstantPointerNull::get(i8_ptr),
+                llvm::ConstantPointerNull::get(i8_ptr),
+                llvm::ConstantPointerNull::get(i8_ptr),
+                llvm::ConstantPointerNull::get(i32_ptr),
+            });
 
         return f;
     }
