@@ -458,6 +458,17 @@ struct HostPass : public llvm::ModulePass {
 
         llvm::SmallVector<llvm::Value*, 8> args{stub->arg_size(), nullptr};
 
+        auto append_arg = [&args](size_t idx, llvm::AllocaInst* stack_storage) {
+            for (auto* use_stack : stack_storage->users()) {
+                if (auto* store_inst = dyn_cast<llvm::StoreInst>(use_stack)) {
+                    if (stack_storage == store_inst->getPointerOperand()) {
+                        llvm::dbgs() << *store_inst << '\n';
+                        args[idx] = store_inst->getValueOperand();
+                    }
+                }
+            }
+        };
+
         // Forgive me
         for (auto* use : args_array->users()) {
             llvm::dbgs() << *use << '\n';
@@ -474,7 +485,8 @@ struct HostPass : public llvm::ModulePass {
                         llvm::dbgs() << "\t\t- > it is used in a store ("
                                      << *store << " )\n";
 
-                        args[0] = store->getValueOperand();
+                        append_arg(0, dyn_cast<llvm::AllocaInst>(
+                                          store->getValueOperand()));
                     }
                 }
             } // Is it used in a GEP ?
@@ -490,7 +502,8 @@ struct HostPass : public llvm::ModulePass {
                         llvm::dbgs() << "\t\t- > it is used in a store ("
                                      << *store << " )\n";
 
-                        args[index] = store->getValueOperand();
+                        append_arg(index, dyn_cast<llvm::AllocaInst>(
+                                              store->getValueOperand()));
                     } else if (auto* bitcast =
                                    dyn_cast<llvm::BitCastInst>(use_gep)) {
                         llvm::dbgs() << "\t\t- > it is used in a bitcast ("
@@ -502,7 +515,9 @@ struct HostPass : public llvm::ModulePass {
                                 llvm::dbgs()
                                     << "\t\t\t- > it is used in a store ("
                                     << *store << " )\n";
-                                args[index] = store->getValueOperand();
+                                append_arg(index,
+                                           dyn_cast<llvm::AllocaInst>(
+                                               store->getValueOperand()));
                             }
                         }
                     }
@@ -510,8 +525,16 @@ struct HostPass : public llvm::ModulePass {
             }
         }
 
+        llvm::dbgs() << "Found args : \n";
         int i = 0;
         for (auto* val : args) {
+            if (val == nullptr) {
+                throw std::runtime_error(
+                    llvm::Twine("hip::HostPass::addDeviceStubCall() : Could "
+                                "not find argument ")
+                        .concat(llvm::Twine(i))
+                        .str());
+            }
             llvm::dbgs() << i << ' ' << *val << '\n';
             ++i;
         }
