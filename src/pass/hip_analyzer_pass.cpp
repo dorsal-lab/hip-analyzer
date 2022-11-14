@@ -293,8 +293,11 @@ struct HostPass : public llvm::ModulePass {
                 llvm::errs() << "Function " << f_original.getName() << '\n';
                 f_original.print(llvm::dbgs());
 
+                // Duplicates the stub and calls the appropriate function
                 auto& stub_counter = addCountersDeviceStub(f_original);
 
+                // Replaces all call to the original stub with tmp_<stub name>,
+                // and add the old function to an erase list
                 if (auto* new_stub = replaceStubCall(f_original)) {
                     to_delete.push_back(std::make_pair(&f_original, new_stub));
                 }
@@ -314,7 +317,12 @@ struct HostPass : public llvm::ModulePass {
 
         for (auto& [old_stub, new_stub] : to_delete) {
             std::string name = old_stub->getName().str();
+
             llvm::dbgs() << "Removing stubs : " << name << '\n';
+
+            // Just in case
+            old_stub->replaceAllUsesWith(new_stub);
+
             old_stub->eraseFromParent();
             new_stub->setName(name);
         }
@@ -513,17 +521,21 @@ struct HostPass : public llvm::ModulePass {
 
         // This is going to leave a bunch of garbage but the optimizer will take
         // care of it
-        auto* bb_to_delete =
-            split_point->getParent()->splitBasicBlockBefore(split_point);
+
+        split_point->getParent()->splitBasicBlockBefore(split_point);
+        auto* bb_to_delete = split_point->getParent();
 
         auto* new_bb =
             llvm::BasicBlock::Create(f_original.getContext(), "", &f_original);
+
         llvm::IRBuilder<> builder(new_bb);
 
         // Replace basic block with new one calling the stub
 
         builder.CreateCall(stub, args);
-        builder.Insert(bb_to_delete->getTerminator());
+        auto* terminator =
+            dyn_cast<llvm::BranchInst>(bb_to_delete->getTerminator());
+        builder.CreateBr(terminator->getSuccessor(0));
 
         bb_to_delete->replaceAllUsesWith(new_bb);
         bb_to_delete->eraseFromParent();
