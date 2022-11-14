@@ -458,12 +458,24 @@ struct HostPass : public llvm::ModulePass {
 
         llvm::SmallVector<llvm::Value*, 8> args{stub->arg_size(), nullptr};
 
-        auto append_arg = [&args](size_t idx, llvm::AllocaInst* stack_storage) {
+        auto append_arg = [&args, &stub](size_t idx,
+                                         llvm::AllocaInst* stack_storage) {
             for (auto* use_stack : stack_storage->users()) {
                 if (auto* store_inst = dyn_cast<llvm::StoreInst>(use_stack)) {
                     if (stack_storage == store_inst->getPointerOperand()) {
                         llvm::dbgs() << *store_inst << '\n';
-                        args[idx] = store_inst->getValueOperand();
+
+                        // Handle boolean values
+                        auto* arg = stub->getArg(idx);
+                        if (arg->getType()->isIntegerTy(1)) {
+                            llvm::IRBuilder<> builder(store_inst);
+                            auto* trunc = builder.CreateTrunc(
+                                store_inst->getValueOperand(),
+                                llvm::Type::getInt1Ty(arg->getContext()));
+                            args[idx] = trunc;
+                        } else {
+                            args[idx] = store_inst->getValueOperand();
+                        }
                     }
                 }
             }
