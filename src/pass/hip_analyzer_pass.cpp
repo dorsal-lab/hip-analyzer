@@ -6,17 +6,18 @@
 
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Linker/Linker.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
-#include "llvm/Support/CommandLine.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Passes/PassPlugin.h"
 
 #include "hip_instrumentation/basic_block.hpp"
 #include "ir_codegen.h"
@@ -32,15 +33,17 @@ namespace {
 /** \struct AnalysisPass
  * \brief CFG Analysis pass, read cfg and gather static analysis information
  */
-class AnalysisPass : public llvm::FunctionPass {
+class AnalysisPass : public llvm::AnalysisInfoMixin<AnalysisPass> {
   public:
-    static char ID;
+    using Result = std::vector<hip::InstrumentedBlock>;
 
-    AnalysisPass() : llvm::FunctionPass(ID) {}
+    AnalysisPass() {}
 
-    virtual bool runOnFunction(llvm::Function& fn) {
+    Result run(llvm::Function& fn, llvm::FunctionAnalysisManager& fam) {
         llvm::errs() << "Function " << fn.getName() << '\n';
         fn.print(llvm::dbgs(), nullptr);
+
+        Result blocks;
 
         auto i = 0u;
         for (auto& bb : fn) {
@@ -51,26 +54,24 @@ class AnalysisPass : public llvm::FunctionPass {
             ++i;
         }
 
-        return false;
+        return blocks;
     }
 
-    const std::vector<hip::InstrumentedBlock>& getBlocks() { return blocks; }
-
   private:
-    /** \brief List of instrumented block, ordered by the llvm block id in the
-     * function
-     */
-    std::vector<hip::InstrumentedBlock> blocks;
+    static llvm::AnalysisKey Key;
+    friend struct llvm::AnalysisInfoMixin<AnalysisPass>;
 };
 
-struct CfgInstrumentationPass : public llvm::ModulePass {
-    static char ID;
+struct CfgInstrumentationPass
+    : public llvm::PassInfoMixin<CfgInstrumentationPass> {
     static const std::string instrumented_prefix;
     static const std::string utils_path;
 
-    CfgInstrumentationPass() : llvm::ModulePass(ID) {}
+    CfgInstrumentationPass() {}
 
-    virtual bool runOnModule(llvm::Module& mod) override {
+    llvm::PreservedAnalyses run(llvm::Module& mod,
+                                llvm::ModuleAnalysisManager& modm) {
+
         bool modified = false;
         for (auto& f_original : mod.functions()) {
             if (!isInstrumentableKernel(f_original)) {
@@ -89,18 +90,23 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
             llvm::errs() << "Function " << f.getName() << '\n';
             f.print(llvm::dbgs(), nullptr);
 
-            modified |= instrumentFunction(f, f_original);
+            auto& fm =
+                modm.getResult<llvm::FunctionAnalysisManagerModuleProxy>(mod)
+                    .getManager();
+
+            modified |= instrumentFunction(f, f_original, fm);
         }
 
         // Add necessary functions
         linkModuleUtils(mod);
 
-        return modified;
+        return modified ? llvm::PreservedAnalyses::none()
+                        : llvm::PreservedAnalyses::all();
     }
 
     /** \fn isInstrumentableKernel
-     * \brief Returns whether a function is a kernel that will be instrumented
-     * (todo?)
+     * \brief Returns whether a function is a kernel that will be
+     * instrumented (todo?)
      */
     bool isInstrumentableKernel(llvm::Function& f) {
         return !f.isDeclaration() &&
@@ -135,8 +141,11 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
      * \param original_function Original (non-instrumented) kernel
      */
     virtual bool instrumentFunction(llvm::Function& f,
-                                    llvm::Function& original_function) {
-        auto& blocks = getAnalysis<AnalysisPass>(original_function).getBlocks();
+                                    llvm::Function& original_function,
+                                    llvm::FunctionAnalysisManager& fm) {
+
+        auto blocks = fm.getResult<AnalysisPass>(f);
+
         auto& context = f.getContext();
         auto instrumentation_handlers = declareInstrumentation(*f.getParent());
         auto* instr_ptr = f.getArg(f.arg_size() - 1);
@@ -228,7 +237,8 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
 
         linker.linkInModule(std::move(utils_mod));
 
-        // Remove [[clang::optnone]] and add [[clang::always_inline]] attributes
+        // Remove [[clang::optnone]] and add [[clang::always_inline]]
+        // attributes
 
         auto instrumentation_handlers = declareInstrumentation(mod);
 
@@ -243,32 +253,25 @@ struct CfgInstrumentationPass : public llvm::ModulePass {
     static llvm::Type* getCounterType(llvm::LLVMContext& context) {
         return llvm::Type::getInt8Ty(context);
     }
-
-    virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override {
-        Info.addRequired<AnalysisPass>();
-    }
 };
 
-struct TracingPass : public llvm::ModulePass {
-    static char ID;
+struct TracingPass : public llvm::PassInfoMixin<TracingPass> {
+    TracingPass() {}
 
-    TracingPass() : llvm::ModulePass(ID) {}
+    llvm::PreservedAnalyses run(llvm::Module& mod,
+                                llvm::ModuleAnalysisManager& modm) {
+        return llvm::PreservedAnalyses::all();
+    }
 
-    virtual bool runOnModule(llvm::Module& fn) override { return false; }
-
-    virtual bool instrumentFunction(llvm::Function& f) {
-        auto& blocks = getAnalysis<AnalysisPass>(f).getBlocks();
+    bool instrumentFunction(llvm::Function& f) {
+        // auto& blocks = getAnalysis<AnalysisPass>(f).getBlocks();
 
         return false;
     }
-
-    virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override {
-        Info.addRequired<AnalysisPass>();
-    }
 };
 
-/** \brief The hipcc compiler inserts device stubs for each kernel call, which
- * in turns actually launches the kernel.
+/** \brief The hipcc compiler inserts device stubs for each kernel call,
+ * which in turns actually launches the kernel.
  */
 constexpr std::string_view device_stub_prefix = "__device_stub__";
 
@@ -277,12 +280,11 @@ constexpr std::string_view device_stub_prefix = "__device_stub__";
  * instrumented kernels.
  *
  */
-struct HostPass : public llvm::ModulePass {
-    static char ID;
+struct HostPass : public llvm::PassInfoMixin<HostPass> {
+    HostPass() {}
 
-    HostPass() : llvm::ModulePass(ID) {}
-
-    virtual bool runOnModule(llvm::Module& mod) override {
+    llvm::PreservedAnalyses run(llvm::Module& mod,
+                                llvm::ModuleAnalysisManager& modm) {
         bool modified = false;
 
         llvm::SmallVector<std::pair<llvm::Function*, llvm::Function*>, 8>
@@ -296,8 +298,8 @@ struct HostPass : public llvm::ModulePass {
                 // Duplicates the stub and calls the appropriate function
                 auto& stub_counter = addCountersDeviceStub(f_original);
 
-                // Replaces all call to the original stub with tmp_<stub name>,
-                // and add the old function to an erase list
+                // Replaces all call to the original stub with tmp_<stub
+                // name>, and add the old function to an erase list
                 if (auto* new_stub = replaceStubCall(f_original)) {
                     to_delete.push_back(std::make_pair(&f_original, new_stub));
                 }
@@ -306,8 +308,8 @@ struct HostPass : public llvm::ModulePass {
             } else if (isKernelCallSite(f_original)) {
                 // Kernel calling site
 
-                // Sadly the HIP Front-end inlines all kernel device stubs, so
-                // we have to substitute the call ourselves
+                // Sadly the HIP Front-end inlines all kernel device stubs,
+                // so we have to substitute the call ourselves
 
                 addDeviceStubCall(f_original);
 
@@ -327,10 +329,11 @@ struct HostPass : public llvm::ModulePass {
             new_stub->setName(name);
         }
 
-        return true;
+        return llvm::PreservedAnalyses::none();
         // TODO : link needed functions
 
-        // TODO : remove `optnone` and `noinline` attributes, add alwaysinline
+        // TODO : remove `optnone` and `noinline` attributes, add
+        // alwaysinline
     }
 
     /** \fn addCountersDeviceStub
@@ -481,8 +484,8 @@ struct HostPass : public llvm::ModulePass {
                 ->getOperand(0)));
 
         if (stub == nullptr) {
-            throw std::runtime_error(
-                "HostPass::addDeviceStubCall() : Could not find device stub");
+            throw std::runtime_error("HostPass::addDeviceStubCall() : "
+                                     "Could not find device stub");
         }
 
         auto* args_array = gep_of_array->getPointerOperand();
@@ -551,7 +554,8 @@ struct HostPass : public llvm::ModulePass {
                                               store->getValueOperand()));
                     } else if (auto* bitcast =
                                    dyn_cast<llvm::BitCastInst>(use_gep)) {
-                        // llvm::dbgs() << "\t\t- > it is used in a bitcast ("
+                        // llvm::dbgs() << "\t\t- > it is used in a bitcast
+                        // ("
                         //  << *bitcast << " )\n";
                         for (auto* use_bitcast : bitcast->users()) {
                             if (auto* store =
@@ -587,8 +591,8 @@ struct HostPass : public llvm::ModulePass {
         auto* split_point =
             firstCallToFunction(f_original, "__hipPopCallConfiguration");
 
-        // This is going to leave a bunch of garbage but the optimizer will take
-        // care of it
+        // This is going to leave a bunch of garbage but the optimizer will
+        // take care of it
 
         split_point->getParent()->splitBasicBlockBefore(split_point);
         auto* bb_to_delete = split_point->getParent();
@@ -610,8 +614,8 @@ struct HostPass : public llvm::ModulePass {
     }
 
     /** \fn getDeviceStub
-     * \brief Returns the device stub of a given kernel symbol (kernel symbols
-     * are created for the host but not defined)
+     * \brief Returns the device stub of a given kernel symbol (kernel
+     * symbols are created for the host but not defined)
      */
     llvm::Function* getDeviceStub(llvm::GlobalValue* fake_symbol) const {
         auto name = fake_symbol->getName().str();
@@ -659,8 +663,8 @@ struct HostPass : public llvm::ModulePass {
 
         return call_to_launch
             ->getArgOperand(0)    // First argument to hipLaunchKernel
-            ->stripPointerCasts() // the stub addrss is automatically casted to
-                                  // i8, need to remove it
+            ->stripPointerCasts() // the stub addrss is automatically casted
+                                  // to i8, need to remove it
             ->getName()
             .str();
     }
@@ -674,76 +678,20 @@ struct HostPass : public llvm::ModulePass {
     }
 
     bool isKernelCallSite(llvm::Function& f) {
-        // True if calls hipLaunchKernel and is not a stub (so an inlined stub)
+        // True if calls hipLaunchKernel and is not a stub (so an inlined
+        // stub)
         return hasFunctionCall(f, "hipLaunchKernel") && !isDeviceStub(f) &&
                !contains(f.getName().str(),
                          cloned_suffix +
                              CfgInstrumentationPass::instrumented_prefix);
     }
-
-    virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override {
-        // Info.addRequired<AnalysisPass>();
-    }
 };
 
-char AnalysisPass::ID = 0;
 const std::string CfgInstrumentationPass::instrumented_prefix = "counters_";
 const std::string CfgInstrumentationPass::utils_path = "gpu_pass_instr.ll";
-char CfgInstrumentationPass::ID = 1;
-char TracingPass::ID = 2;
-char HostPass::ID = 3;
 
-static void registerAnalysisPass(const llvm::PassManagerBuilder&,
-                                 llvm::legacy::PassManagerBase& PM) {
-    PM.add(new AnalysisPass());
-}
-
-static void registerCfgPass(const llvm::PassManagerBuilder&,
-                            llvm::legacy::PassManagerBase& PM) {
-    PM.add(new CfgInstrumentationPass());
-}
-static void registerTracingPass(const llvm::PassManagerBuilder&,
-                                llvm::legacy::PassManagerBase& PM) {
-    PM.add(new TracingPass());
-}
-
-static void registerHostPass(const llvm::PassManagerBuilder&,
-                             llvm::legacy::PassManagerBase& PM) {
-    PM.add(new HostPass());
-}
+llvm::AnalysisKey AnalysisPass::Key;
 
 } // namespace
 
-static llvm::RegisterPass<AnalysisPass>
-    RegisterAnalysisPass("hip-analyzer", "Hip-Analyzer analysis pass", true,
-                         true);
-
-static llvm::RegisterPass<CfgInstrumentationPass>
-    RegisterCfgCountersPass("hip-analyzer-counters",
-                            "Hip-Analyzer cfg counters pass", false, false);
-
-static llvm::RegisterPass<TracingPass>
-    RegisterTracingPass("hip-analyzer-tracing", "Hip-Analyzer tracing pass",
-                        false, false);
-
-static llvm::RegisterPass<HostPass>
-    RegisterHostPass("hip-analyzer-host",
-                     "Hip-Analyzer host instrumentation pass", false, false);
-
 } // namespace hip
-
-static llvm::RegisterStandardPasses
-    registerAnalysisPass(llvm::PassManagerBuilder::EP_EarlyAsPossible,
-                         hip::registerAnalysisPass);
-
-static llvm::RegisterStandardPasses
-    registerCfgPass(llvm::PassManagerBuilder::EP_EarlyAsPossible,
-                    hip::registerCfgPass);
-
-static llvm::RegisterStandardPasses
-    registerTracingPass(llvm::PassManagerBuilder::EP_EarlyAsPossible,
-                        hip::registerTracingPass);
-
-static llvm::RegisterStandardPasses
-    registerHostPass(llvm::PassManagerBuilder::EP_EarlyAsPossible,
-                     hip::registerHostPass);
