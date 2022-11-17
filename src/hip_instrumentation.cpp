@@ -10,6 +10,7 @@
 
 #include <chrono>
 #include <condition_variable>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <mutex>
@@ -602,17 +603,23 @@ size_t Instrumenter::loadBin(const std::string& filename) {
     return in.gcount();
 }
 
-const std::vector<hip::BasicBlock>&
-Instrumenter::loadDatabase(const std::string& filename_in) {
-    std::string filename;
+const std::vector<hip::BasicBlock>& Instrumenter::loadDatabase() {
+    namespace fs = std::filesystem;
 
-    if (filename_in.empty()) {
-        filename = BasicBlock::getEnvDatabaseFile(kernel_info.name);
-    } else {
-        filename = filename_in;
+    if (auto* env = std::getenv(HIP_ANALYZER_ENV)) {
+        return loadDatabase(env);
+    } else if (fs::exists(kernel_info.name + ".json")) {
+        return loadDatabase(kernel_info.name + ".json");
+    } else if (fs::exists(HIP_ANALYZER_DEFAULT_FILE)) {
+        return loadDatabase(HIP_ANALYZER_DEFAULT_FILE);
     }
 
-    blocks = BasicBlock::fromJsonArray(filename);
+    throw std::runtime_error(
+        "hip::Instrumenter::loadDatabase() : Could not file database file");
+}
+const std::vector<hip::BasicBlock>&
+Instrumenter::loadDatabase(const std::string& filename_in) {
+    blocks = BasicBlock::fromJsonArray(filename_in);
 
     return blocks;
 }

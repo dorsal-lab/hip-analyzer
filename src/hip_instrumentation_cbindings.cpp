@@ -6,24 +6,48 @@
 
 #include "hip_instrumentation/hip_instrumentation_cbindings.hpp"
 #include "hip_instrumentation/hip_instrumentation.hpp"
+#include "hip_instrumentation/state_recoverer.hpp"
+
+#include "hip/hip_runtime_api.h"
 
 extern "C" {
 
-struct hipKernelInfo {
-    hip::KernelInfo boxed;
-};
-
 struct hipInstrumenter {
     hip::Instrumenter boxed;
-    hipInstrumenter(hipKernelInfo* kinfo) : boxed(kinfo->boxed) {}
+
+    hipInstrumenter(hip::KernelInfo& ki) : boxed(ki) {}
 };
 
-hipInstrumenter* hipNewInstrumenter(hipKernelInfo* kinfo) {
-    return new hipInstrumenter(kinfo);
-}
+hipInstrumenter* hipNewInstrumenter(const char* kernel_name) {
+    dim3 blocks, threads;
+    size_t shared_mem;
+    hipStream_t stream;
 
-void hipInstrumenterLoadDb(hipInstrumenter* instr, const char* file_name) {
-    instr->boxed.loadDatabase(file_name);
+    // Get the pushed call configuration
+    if (__hipPopCallConfiguration(&blocks, &threads, &shared_mem, &stream) !=
+        hipSuccess) {
+        throw std::runtime_error(
+            "hipNewInstrumenter() : Could not pop call configuration");
+    }
+
+    // TODO : fetch number of basic blocks, but how ?? -> database?
+    unsigned int bblocks = 0u;
+
+    hip::KernelInfo ki{kernel_name, bblocks, blocks, threads};
+
+    auto* instr = new hipInstrumenter{ki};
+
+    instr->boxed.loadDatabase();
+
+    // Revert call configuration
+
+    if (__hipPushCallConfiguration(blocks, threads, shared_mem, stream) !=
+        hipSuccess) {
+        throw std::runtime_error(
+            "hipNewInstrumenter() : Could not push call configuration");
+    }
+
+    return instr;
 }
 
 counter_t* hipInstrumenterToDevice(hipInstrumenter* instr) {
@@ -34,5 +58,19 @@ void hipInstrumenterFromDevice(hipInstrumenter* instr, void* device_ptr) {
     instr->boxed.fromDevice(device_ptr);
 }
 
-void freeHipinstrumenter(hipInstrumenter* instr) { delete instr; }
+void hipInstrumenterRecord(hipInstrumenter* instr) { instr->boxed.record(); }
+
+void freeHipInstrumenter(hipInstrumenter* instr) { delete instr; }
+
+// ----- State recoverer ----- //
+
+/** \fn hipMemoryManagerRegisterPointer
+ * \brief Equivalent of hip::HipMemoryManager::registerCallArgs(T...), register
+ * pointers as used in the shadow memory
+ */
+void hipMemoryManagerRegisterPointer(void* potential_ptr) {
+    hip::HipMemoryManager::getInstance();
+}
+
+void hipMemoryManagerRollback();
 }

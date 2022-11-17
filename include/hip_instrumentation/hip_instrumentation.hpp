@@ -59,6 +59,8 @@ class Instrumenter {
     /** \brief Counter underlying type
      */
     using counter_t = uint8_t;
+    static constexpr auto HIP_ANALYZER_ENV = "HIP_ANALYZER_DATABASE";
+    static constexpr auto HIP_ANALYZER_DEFAULT_FILE = "hip_analyzer.json";
 
     /** \brief ctor
      */
@@ -66,11 +68,20 @@ class Instrumenter {
 
     // ----- Device data collection ----- //
 
-    /** \fn dumpBin
+    /** \fn loadDatabase
+     * \brief Load blocks from database, by looking in usual places to store
+     * them
+     *
+     * \details Looks for the HIP_ANALYZER_DATABASE environnment variable,
+     * hip_analyzer.json and <kernel_name>.json files.
+     */
+    const std::vector<hip::BasicBlock>& loadDatabase();
+
+    /** \fn loadDatabase
      * \brief Load blocks from database
      */
     const std::vector<hip::BasicBlock>&
-    loadDatabase(const std::string& filename = "");
+    loadDatabase(const std::string& filename);
 
     /** \fn toDevice
      * \brief Allocates data on both the host and the device, returns the device
