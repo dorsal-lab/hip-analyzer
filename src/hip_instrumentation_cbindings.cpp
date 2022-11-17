@@ -18,6 +18,10 @@ struct hipInstrumenter {
     hipInstrumenter(hip::KernelInfo& ki) : boxed(ki) {}
 };
 
+struct hipStateRecoverer {
+    hip::StateRecoverer boxed;
+};
+
 hipInstrumenter* hipNewInstrumenter(const char* kernel_name) {
     dim3 blocks, threads;
     size_t shared_mem;
@@ -64,13 +68,16 @@ void freeHipInstrumenter(hipInstrumenter* instr) { delete instr; }
 
 // ----- State recoverer ----- //
 
-/** \fn hipMemoryManagerRegisterPointer
- * \brief Equivalent of hip::HipMemoryManager::registerCallArgs(T...), register
- * pointers as used in the shadow memory
- */
-void hipMemoryManagerRegisterPointer(void* potential_ptr) {
-    hip::HipMemoryManager::getInstance();
+hipStateRecoverer* newHipStateRecoverer() { return new hipStateRecoverer; }
+
+void hipStateRecovererRegisterPointer(hipStateRecoverer* recoverer,
+                                      void* potential_ptr) {
+    recoverer->boxed.registerCallArgs(potential_ptr);
 }
 
-void hipMemoryManagerRollback();
+void hipStateRecovererRollback(hipStateRecoverer* recoverer) {
+    recoverer->boxed.rollback();
+}
+
+void freeHipMemoryManager(hipStateRecoverer* recoverer) { delete recoverer; }
 }

@@ -8,9 +8,8 @@
 
 extern "C" {
 
-struct hipKernelInfo;
 struct hipInstrumenter;
-struct stateRecoverer;
+struct hipStateRecoverer;
 
 typedef uint8_t counter_t;
 
@@ -39,15 +38,22 @@ void freeHipInstrumenter(hipInstrumenter*);
 
 // ----- State recoverer ----- //
 
+hipStateRecoverer* newHipStateRecoverer();
+
 /** \fn hipMemoryManagerRegisterPointer
  * \brief Equivalent of hip::HipMemoryManager::registerCallArgs(T...), register
  * pointers as used in the shadow memory
  */
-void hipMemoryManagerRegisterPointer(void* potential_ptr);
+void hipStateRecovererRegisterPointer(hipStateRecoverer*, void* potential_ptr);
 
 /** \fn hipMemoryManagerRollback
  * \brief Equivalent of hip::HipMemoryManager::rollback(), revert to the
  * original value of all arrays
  */
-void hipMemoryManagerRollback();
+void hipStateRecovererRollback(hipStateRecoverer*);
+
+/** \fn freeHipStateRecoverer
+ *
+ */
+void freeHipStateRecoverer(hipStateRecoverer*);
 }
