@@ -39,6 +39,17 @@ struct InstrumentedBlock {
  */
 struct InstrumentationFunctions {
     llvm::Function* _hip_store_ctr;
+
+    // ----- C instrumentation API ----- //
+
+    // hipInstrumenter
+    llvm::Function *hipNewInstrumenter, *hipInstrumenterToDevice,
+        *hipInstrumenterFromDevice, *hipInstrumenterRecord,
+        *freeHipInstrumenter;
+
+    // hipStateRecoverer
+    llvm::Function *hipNewStateRecoverer, *hipStateRecovererRegisterPointer,
+        *hipStateRecovererRollback, *freeHipStateRecoverer;
 };
 
 // ----- IR Utils ----- //

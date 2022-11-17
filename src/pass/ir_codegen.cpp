@@ -159,6 +159,19 @@ InstrumentedBlock getBlockInfo(const llvm::BasicBlock& bb, unsigned int i) {
     return {i, flops, f_ld, f_st, {}};
 }
 
+llvm::Function* getFunction(llvm::Module& mod, llvm::StringRef name,
+                            llvm::FunctionType* type) {
+    auto callee = mod.getOrInsertFunction(name, type);
+    auto* fun = dyn_cast<llvm::Function>(&*callee.getCallee());
+
+    if (fun == nullptr) {
+        throw std::runtime_error(
+            ("Could not get function \"" + name + "\"").str());
+    }
+
+    return fun;
+}
+
 InstrumentationFunctions declareInstrumentation(llvm::Module& mod) {
     InstrumentationFunctions funs;
     auto& context = mod.getContext();
@@ -167,17 +180,53 @@ InstrumentationFunctions declareInstrumentation(llvm::Module& mod) {
     auto uint8_type = llvm::Type::getInt8Ty(context);
     auto uint8_ptr_type = uint8_type->getPointerTo();
     auto uint64_type = llvm::Type::getInt64Ty(context);
+    auto unqual_ptr_type = llvm::PointerType::getUnqual(context);
 
     auto _hip_store_ctr_type = llvm::FunctionType::get(
         void_type, {uint8_ptr_type, uint64_type, uint8_ptr_type}, false);
-    auto callee =
-        mod.getOrInsertFunction("_hip_store_ctr", _hip_store_ctr_type);
 
-    if (isa<llvm::Function>(callee.getCallee())) {
-        funs._hip_store_ctr = dyn_cast<llvm::Function>(&*callee.getCallee());
-    } else {
-        throw std::runtime_error("Could not get function \"_hip_store_ctr\"");
-    }
+    funs._hip_store_ctr =
+        getFunction(mod, "_hip_store_ctr", _hip_store_ctr_type);
+
+    auto void_from_ptr_type =
+        llvm::FunctionType::get(void_type, {unqual_ptr_type}, false);
+    auto instrumenter_ctor_type =
+        llvm::FunctionType::get(unqual_ptr_type, {unqual_ptr_type}, false);
+    auto recoverer_ctor_type =
+        llvm::FunctionType::get(unqual_ptr_type, {unqual_ptr_type}, false);
+    auto ptr_from_ptr_type =
+        llvm::FunctionType::get(unqual_ptr_type, {unqual_ptr_type}, false);
+
+    // This is tedious, but now way around it
+
+    funs.freeHipInstrumenter =
+        getFunction(mod, "freeHipInstrumenter", void_from_ptr_type);
+
+    funs.freeHipStateRecoverer =
+        getFunction(mod, "freeHipStateRecoverer", void_from_ptr_type);
+
+    funs.hipNewInstrumenter =
+        getFunction(mod, "hipNewInstrumenter", instrumenter_ctor_type);
+
+    funs.hipNewStateRecoverer =
+        getFunction(mod, "hipNewStateRecoverer", recoverer_ctor_type);
+
+    funs.hipInstrumenterToDevice =
+        getFunction(mod, "hipInstrumenterToDevice", ptr_from_ptr_type);
+
+    auto from_device_type = llvm::FunctionType::get(
+        void_type, {unqual_ptr_type, unqual_ptr_type}, false);
+    funs.hipInstrumenterFromDevice =
+        getFunction(mod, "hipInstrumenterFromDevice", from_device_type);
+
+    funs.hipInstrumenterRecord =
+        getFunction(mod, "hipInstrumenterRecord", void_from_ptr_type);
+
+    funs.hipStateRecovererRegisterPointer =
+        getFunction(mod, "hipStateRecovererRegisterPointer", from_device_type);
+
+    funs.hipStateRecovererRollback =
+        getFunction(mod, "hipStateRecovererRollback", void_from_ptr_type);
 
     return funs;
 }

@@ -38,7 +38,7 @@ void freeHipInstrumenter(hipInstrumenter*);
 
 // ----- State recoverer ----- //
 
-hipStateRecoverer* newHipStateRecoverer();
+hipStateRecoverer* hipNewStateRecoverer();
 
 /** \fn hipMemoryManagerRegisterPointer
  * \brief Equivalent of hip::HipMemoryManager::registerCallArgs(T...), register

@@ -68,7 +68,7 @@ void freeHipInstrumenter(hipInstrumenter* instr) { delete instr; }
 
 // ----- State recoverer ----- //
 
-hipStateRecoverer* newHipStateRecoverer() { return new hipStateRecoverer; }
+hipStateRecoverer* hipNewStateRecoverer() { return new hipStateRecoverer; }
 
 void hipStateRecovererRegisterPointer(hipStateRecoverer* recoverer,
                                       void* potential_ptr) {
