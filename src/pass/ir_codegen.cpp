@@ -190,10 +190,8 @@ InstrumentationFunctions declareInstrumentation(llvm::Module& mod) {
 
     auto void_from_ptr_type =
         llvm::FunctionType::get(void_type, {unqual_ptr_type}, false);
-    auto instrumenter_ctor_type =
-        llvm::FunctionType::get(unqual_ptr_type, {unqual_ptr_type}, false);
     auto recoverer_ctor_type =
-        llvm::FunctionType::get(unqual_ptr_type, {unqual_ptr_type}, false);
+        llvm::FunctionType::get(unqual_ptr_type, {}, false);
     auto ptr_from_ptr_type =
         llvm::FunctionType::get(unqual_ptr_type, {unqual_ptr_type}, false);
 
@@ -206,7 +204,7 @@ InstrumentationFunctions declareInstrumentation(llvm::Module& mod) {
         getFunction(mod, "freeHipStateRecoverer", void_from_ptr_type);
 
     funs.hipNewInstrumenter =
-        getFunction(mod, "hipNewInstrumenter", instrumenter_ctor_type);
+        getFunction(mod, "hipNewInstrumenter", ptr_from_ptr_type);
 
     funs.hipNewStateRecoverer =
         getFunction(mod, "hipNewStateRecoverer", recoverer_ctor_type);

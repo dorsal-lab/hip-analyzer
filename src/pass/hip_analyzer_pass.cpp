@@ -423,6 +423,8 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
         auto& mod = *stub.getParent();
 
         auto fun_type = stub.getFunctionType();
+        auto instr_handlers = declareInstrumentation(mod);
+        auto* call_to_launch = firstCallToFunction(stub, "hipLaunchKernel");
 
         auto* new_stub = dyn_cast<llvm::Function>(
             mod.getOrInsertFunction(
@@ -441,19 +443,52 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
 
         llvm::IRBuilder<> builder(bb);
 
+        auto unqual_ptr_type = llvm::PointerType::getUnqual(mod.getContext());
+
+        // Create instr object
+
+        auto* instr = builder.CreateCall(
+            instr_handlers.hipNewInstrumenter,
+            {builder.CreateBitCast(call_to_launch->getArgOperand(0),
+                                   unqual_ptr_type)});
+
+        auto* recoverer =
+            builder.CreateCall(instr_handlers.hipNewStateRecoverer, {});
+
         // Create call to newly created stub
         llvm::SmallVector<llvm::Value*> args;
-        for (llvm::Argument& arg : stub.args()) {
+        for (llvm::Argument& arg : new_stub->args()) {
+            // Save value if vector
+            if (arg.getType()->isPointerTy()) {
+                auto* bitcast = builder.CreateBitCast(&arg, unqual_ptr_type);
+                builder.CreateCall(
+                    instr_handlers.hipStateRecovererRegisterPointer,
+                    {recoverer, bitcast});
+            }
+
             args.push_back(&arg);
         }
 
-        // TODO : call instrumenation runtime to get pointer to instr
+        auto* device_ptr =
+            builder.CreateCall(instr_handlers.hipInstrumenterToDevice, {instr});
+
         args.push_back(llvm::ConstantPointerNull::get(
             CfgInstrumentationPass::getCounterType(mod.getContext())
                 ->getPointerTo()));
 
         builder.CreateCall(counters_stub->getFunctionType(), counters_stub,
                            args);
+
+        // TODO : If queue, then launch another kernel
+
+        // Store counters (runtime)
+        builder.CreateCall(instr_handlers.hipInstrumenterFromDevice,
+                           {instr, device_ptr});
+        builder.CreateCall(instr_handlers.hipInstrumenterRecord, {instr});
+
+        // Free allocated instrumentation
+        builder.CreateCall(instr_handlers.freeHipInstrumenter, {instr});
+        builder.CreateCall(instr_handlers.freeHipStateRecoverer, {recoverer});
 
         builder.CreateRetVoid();
 
