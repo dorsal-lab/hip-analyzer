@@ -54,6 +54,11 @@ struct InstrumentationFunctions {
 
 // ----- IR Utils ----- //
 
+/** \fn isDeviceModule
+ * \brief Returns true if the module has a device target triple
+ */
+bool isDeviceModule(const llvm::Module& mod);
+
 inline bool contains(const std::string& str, std::string_view substr) {
     return (str.find(substr) != std::string::npos);
 };

@@ -16,6 +16,12 @@
 
 namespace hip {
 
+bool isDeviceModule(const llvm::Module& mod) {
+    auto triple = mod.getTargetTriple();
+    // TODO : Handle non-AMD devices
+    return triple == "amdgcn-amd-amdhsa";
+}
+
 int64_t valueToInt(llvm::Value* v) {
     if (auto* constant = dyn_cast<llvm::ConstantInt>(v)) {
         return constant->getZExtValue();

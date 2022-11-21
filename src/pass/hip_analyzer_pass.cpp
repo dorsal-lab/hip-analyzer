@@ -72,6 +72,11 @@ struct CfgInstrumentationPass
     llvm::PreservedAnalyses run(llvm::Module& mod,
                                 llvm::ModuleAnalysisManager& modm) {
 
+        if (!isDeviceModule(mod)) {
+            // DO NOT run on host code
+            return llvm::PreservedAnalyses::all();
+        }
+
         bool modified = false;
         for (auto& f_original : mod.functions()) {
             if (!isInstrumentableKernel(f_original)) {
@@ -285,6 +290,11 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
 
     llvm::PreservedAnalyses run(llvm::Module& mod,
                                 llvm::ModuleAnalysisManager& modm) {
+        if (isDeviceModule(mod)) {
+            // DO NOT run on device code
+            return llvm::PreservedAnalyses::all();
+        }
+
         bool modified = false;
 
         llvm::SmallVector<std::pair<llvm::Function*, llvm::Function*>, 8>
