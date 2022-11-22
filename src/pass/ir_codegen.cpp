@@ -279,8 +279,6 @@ llvm::Function& cloneWithPrefix(llvm::Function& f, const std::string& prefix,
 
 void pushAdditionalArguments(llvm::Function& f,
                              llvm::ArrayRef<llvm::Value*> kernel_args) {
-
-    llvm::dbgs() << f;
     auto push_call = firstInstructionOf<llvm::CallInst>(f);
     --push_call;
 

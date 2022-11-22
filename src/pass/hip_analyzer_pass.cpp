@@ -403,8 +403,23 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
                                            {i8_ptr}, false))
                 .getCallee());
 
-        auto* register_function =
-            firstCallToFunction(*device_ctor, "__hipRegisterFunction");
+        llvm::dbgs() << *device_ctor;
+
+        llvm::CallInst* register_function;
+
+        // The kernels are registered in the runtime by a function
+        // `__hip_register_globals`, but it is marked alwaysinline and might be
+        // absent from the module. Handle both cases here
+        if (hasFunctionCall(*device_ctor, "__hip_register_globals")) {
+            auto* globals_registerer =
+                firstCallToFunction(*device_ctor, "__hip_register_globals")
+                    ->getCalledFunction();
+            register_function = firstCallToFunction(*globals_registerer,
+                                                    "__hipRegisterFunction");
+        } else {
+            register_function =
+                firstCallToFunction(*device_ctor, "__hipRegisterFunction");
+        }
 
         llvm::IRBuilder<> builder(register_function);
 
@@ -516,6 +531,7 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
      * \param f_original Original kernel device stub call site
      */
     void addDeviceStubCall(llvm::Function& f_original) const {
+        llvm::dbgs() << f_original;
         auto* kernel_call = firstCallToFunction(f_original, "hipLaunchKernel");
         auto* inliner_bb = kernel_call->getParent();
 
