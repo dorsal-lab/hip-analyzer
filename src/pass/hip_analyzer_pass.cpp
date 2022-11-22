@@ -231,10 +231,12 @@ struct CfgInstrumentationPass
 
     void linkModuleUtils(llvm::Module& mod) {
         llvm::Linker linker(mod);
+        auto& context = mod.getContext();
+        context.setDiscardValueNames(false);
 
         // Load compiled module
         llvm::SMDiagnostic diag;
-        auto utils_mod = llvm::parseIRFile(utils_path, diag, mod.getContext());
+        auto utils_mod = llvm::parseIRFile(utils_path, diag, context);
         if (!utils_mod) {
             llvm::errs() << diag.getMessage() << '\n';
             throw std::runtime_error("CfgInstrumentationPass::linkModuleUtils()"
@@ -779,7 +781,7 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
 
             pb.registerPipelineStartEPCallback(
                 [](llvm::ModulePassManager& pm, llvm::OptimizationLevel Level) {
-                    // pm.addPass(hip::CfgInstrumentationPass());
+                    pm.addPass(hip::CfgInstrumentationPass());
                     pm.addPass(hip::HostPass());
                 });
             pb.registerAnalysisRegistrationCallback(

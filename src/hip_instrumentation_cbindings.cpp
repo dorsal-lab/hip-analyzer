@@ -79,5 +79,5 @@ void hipStateRecovererRollback(hipStateRecoverer* recoverer) {
     recoverer->boxed.rollback();
 }
 
-void freeHipMemoryManager(hipStateRecoverer* recoverer) { delete recoverer; }
+void freeHipStateRecoverer(hipStateRecoverer* recoverer) { delete recoverer; }
 }
