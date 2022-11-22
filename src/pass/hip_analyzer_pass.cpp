@@ -718,7 +718,13 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
 
         auto& mod = *stub.getParent();
 
-        return mod.getOrInsertGlobal(suffixed, new_stub.getFunctionType());
+        return mod.getOrInsertGlobal(
+            suffixed, new_stub.getFunctionType()->getPointerTo(),
+            [&mod, &new_stub, &suffixed]() {
+                return new llvm::GlobalVariable(
+                    mod, new_stub.getFunctionType()->getPointerTo(), true,
+                    llvm::GlobalValue::ExternalLinkage, &new_stub, suffixed);
+            });
     }
 
     /** \fn kernelNameFromStub
