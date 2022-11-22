@@ -147,6 +147,19 @@ void insertInstrumentationLocals(InstrumentationContext& context) {}
 
 void insertCounter(llvm::BasicBlock& bb) {}
 
+uint64_t getArraySize(const llvm::AllocaInst* alloca) {
+    auto* type = alloca->getAllocatedType();
+    if (alloca->isArrayAllocation()) {
+        return dyn_cast<llvm::ConstantInt>(alloca->getArraySize())
+            ->getZExtValue();
+    } else if (type->isArrayTy()) {
+        return type->getArrayNumElements();
+    } else {
+        // Apparently not an array
+        return 1;
+    }
+}
+
 InstrumentedBlock getBlockInfo(const llvm::BasicBlock& bb, unsigned int i) {
     FlopCounter flop_counter;
     auto flops = flop_counter(bb);
@@ -266,6 +279,8 @@ llvm::Function& cloneWithPrefix(llvm::Function& f, const std::string& prefix,
 
 void pushAdditionalArguments(llvm::Function& f,
                              llvm::ArrayRef<llvm::Value*> kernel_args) {
+
+    llvm::dbgs() << f;
     auto push_call = firstInstructionOf<llvm::CallInst>(f);
     --push_call;
 
@@ -289,7 +304,8 @@ void pushAdditionalArguments(llvm::Function& f,
     // Replace the void* array with additional size, modify types for each
     auto alloca_array = findInstruction(f, [](auto* inst) {
         if (auto* alloca_inst = dyn_cast<llvm::AllocaInst>(inst)) {
-            return alloca_inst->getAllocatedType()->isArrayTy();
+            return alloca_inst->getAllocatedType()->isArrayTy() ||
+                   alloca_inst->isArrayAllocation();
         } else {
             return false;
         }
@@ -298,8 +314,7 @@ void pushAdditionalArguments(llvm::Function& f,
     auto* alloca_array_inst = dyn_cast<llvm::AllocaInst>(&(*alloca_array));
 
     builder.SetInsertPoint(alloca_array_inst);
-    auto array_size =
-        alloca_array_inst->getAllocatedType()->getArrayNumElements();
+    auto array_size = getArraySize(alloca_array_inst);
 
     auto* new_array_type =
         llvm::ArrayType::get(llvm::Type::getInt8PtrTy(f.getContext()),
