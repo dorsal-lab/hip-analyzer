@@ -115,7 +115,8 @@ struct CfgInstrumentationPass
      */
     bool isInstrumentableKernel(llvm::Function& f) {
         return !f.isDeclaration() &&
-               !contains(f.getName().str(), cloned_suffix);
+               !contains(f.getName().str(), cloned_suffix) &&
+               f.getCallingConv() == llvm::CallingConv::AMDGPU_KERNEL;
     }
 
     /** \fn addParams
@@ -778,6 +779,7 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
 
             pb.registerPipelineStartEPCallback(
                 [](llvm::ModulePassManager& pm, llvm::OptimizationLevel Level) {
+                    // pm.addPass(hip::CfgInstrumentationPass());
                     pm.addPass(hip::HostPass());
                 });
             pb.registerAnalysisRegistrationCallback(
