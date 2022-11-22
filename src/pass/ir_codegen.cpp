@@ -9,6 +9,7 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Support/Debug.h"
 
 #include "ir_codegen.h"
@@ -279,6 +280,7 @@ llvm::Function& cloneWithPrefix(llvm::Function& f, const std::string& prefix,
 
 void pushAdditionalArguments(llvm::Function& f,
                              llvm::ArrayRef<llvm::Value*> kernel_args) {
+    llvm::dbgs() << f;
     auto push_call = firstInstructionOf<llvm::CallInst>(f);
     --push_call;
 
@@ -352,6 +354,9 @@ void pushAdditionalArguments(llvm::Function& f,
         }
     }
 
+    alloca_array_inst->replaceAllUsesWith(
+        builder.CreateBitCast(new_alloca_array, alloca_array_inst->getType()));
+
     // Delete old uses
 
     for (auto instr : to_remove) {
@@ -376,6 +381,13 @@ void pushAdditionalArguments(llvm::Function& f,
         builder.CreateStore(new_arg, bitcast);
 
         ++i;
+    }
+}
+
+void assertModuleIntegrity(llvm::Module& mod) {
+    if (llvm::verifyModule(mod, &llvm::dbgs())) {
+        llvm::dbgs() << "##### FULL MODULE #####\n\n" << mod << "\n#####\n";
+        throw std::runtime_error("Broken module!");
     }
 }
 

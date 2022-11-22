@@ -158,4 +158,9 @@ llvm::Function& cloneWithPrefix(llvm::Function& f, const std::string& prefix,
 void pushAdditionalArguments(llvm::Function& f,
                              llvm::ArrayRef<llvm::Value*> kernel_args);
 
+/** \fn assertModuleIntegrity
+ * \brief Throws if the module is broken
+ */
+void assertModuleIntegrity(llvm::Module& m);
+
 } // namespace hip

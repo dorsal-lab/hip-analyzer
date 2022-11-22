@@ -339,6 +339,8 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
             new_stub->setName(name);
         }
 
+        assertModuleIntegrity(mod);
+
         return llvm::PreservedAnalyses::none();
         // TODO : link needed functions
 
