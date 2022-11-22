@@ -333,7 +333,7 @@ void pushAdditionalArguments(llvm::Function& f,
 
             builder.SetInsertPoint(gep);
 
-            auto it = gep->idx_begin() + 1;
+            auto it = gep->idx_end() - 1;
             auto* value = dyn_cast<llvm::Value>(&(*it));
 
             auto* new_gep = builder.CreateInBoundsGEP(
@@ -342,7 +342,7 @@ void pushAdditionalArguments(llvm::Function& f,
             gep->replaceAllUsesWith(new_gep);
             to_remove.push_back(gep);
         } else if (auto* bitcast = dyn_cast<llvm::BitCastInst>(use)) {
-            // Actually a bug in the front-end, references the first element
+            // Actually a bug (?) in the front-end, references the first element
             // of the array. Replace by a GEP
             builder.SetInsertPoint(bitcast);
 
