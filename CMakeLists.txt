@@ -124,6 +124,8 @@ add_custom_target(gpu_pass_instr DEPENDS ${CMAKE_BINARY_DIR}/gpu_pass_instr.ll)
 add_library(
     hip-analyzer-pass SHARED
     src/pass/hip_analyzer_pass.cpp
+    src/pass/hip_analyzer_device_pass.cpp
+    src/pass/hip_analyzer_host_pass.cpp
     src/pass/ir_codegen.cpp
     src/llvm_instr_counters.cpp
 )
