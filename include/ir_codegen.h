@@ -83,6 +83,12 @@ llvm::Value*
 recursiveGetUsePredicate(llvm::Value* v,
                          std::function<bool(const llvm::Value*)> predicate);
 
+/** \fn hasUse
+ * \brief Returns true is one of the users of the value matches the predicate
+ */
+bool hasUse(const llvm::Value* v,
+            std::function<bool(const llvm::Value*)> predicate);
+
 template <typename T>
 llvm::BasicBlock::iterator firstInstructionOf(llvm::Function& f) {
     return findInstruction(
@@ -96,6 +102,11 @@ void setInsertPointPastAllocas(llvm::IRBuilderBase& builder, llvm::Function& f);
  */
 llvm::CallInst* firstCallToFunction(llvm::Function& f,
                                     const std::string& function);
+
+/** \fn hasFunctionCall
+ * \brief Returns whether the instruction is a call to the given symbol
+ */
+bool hasFunctionCall(const llvm::Instruction& f, const std::string& function);
 
 /** \fn hasFunctionCall
  * \brief Returns whether the function contains a call to the given symbol

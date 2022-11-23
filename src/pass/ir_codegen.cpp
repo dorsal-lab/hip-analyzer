@@ -65,7 +65,6 @@ recursiveGetUsePredicate(llvm::Value* v,
     }
 
     for (auto* use : v->users()) {
-        use->print(llvm::dbgs());
         auto* maybe_v = recursiveGetUsePredicate(use, predicate);
         if (maybe_v) {
             return maybe_v;
@@ -73,6 +72,17 @@ recursiveGetUsePredicate(llvm::Value* v,
     }
 
     return nullptr;
+}
+
+bool hasUse(const llvm::Value* v,
+            std::function<bool(const llvm::Value*)> predicate) {
+    for (auto* use : v->users()) {
+        if (predicate(use)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 llvm::CallInst* firstCallToFunction(llvm::Function& f,
@@ -87,23 +97,28 @@ llvm::CallInst* firstCallToFunction(llvm::Function& f,
         })));
 }
 
-bool hasFunctionCall(llvm::Function& f, const std::string& function) {
-    auto predicate = [&function](auto* instr) {
-        if (auto* call_inst = dyn_cast<llvm::CallInst>(instr)) {
-            auto* callee = call_inst->getCalledFunction();
-            if (callee == nullptr || !callee->hasName()) {
-                return false;
-            } else {
-                return callee->getName() == function;
-            }
-        } else {
+bool hasFunctionCall(const llvm::Instruction& instr,
+                     const std::string& function) {
+    if (auto* call_inst = dyn_cast<llvm::CallInst>(&instr)) {
+        auto* callee = call_inst->getCalledFunction();
+        if (callee == nullptr || !callee->hasName()) {
             return false;
+        } else {
+            return callee->getName() == function;
         }
+    } else {
+        return false;
+    }
+}
+
+bool hasFunctionCall(llvm::Function& f, const std::string& function) {
+    auto predicate = [&function](auto& instr) {
+        return hasFunctionCall(instr, function);
     };
 
     for (auto& bb : f) {
         for (auto it = bb.begin(); it != bb.end(); ++it) {
-            if (predicate(&(*it))) {
+            if (predicate(*it)) {
                 return true;
             }
         }
@@ -307,10 +322,17 @@ void pushAdditionalArguments(llvm::Function& f,
     }
 
     // Replace the void* array with additional size, modify types for each
-    auto alloca_array = findInstruction(f, [](auto* inst) {
+    auto alloca_array = findInstruction(f, [](const auto* inst) -> bool {
         if (auto* alloca_inst = dyn_cast<llvm::AllocaInst>(inst)) {
             return alloca_inst->getAllocatedType()->isArrayTy() ||
-                   alloca_inst->getOperand(0) != nullptr;
+                   hasUse(inst, [alloca_inst](const auto* v) -> bool {
+                       if (auto* call_inst = dyn_cast<llvm::CallInst>(v)) {
+                           return hasFunctionCall(*call_inst,
+                                                  "hipLaunchKernel") &&
+                                  call_inst->getArgOperand(5) == alloca_inst;
+                       }
+                       return false;
+                   });
         } else {
             return false;
         }
@@ -321,7 +343,6 @@ void pushAdditionalArguments(llvm::Function& f,
     }
 
     auto* alloca_array_inst = dyn_cast<llvm::AllocaInst>(&(*alloca_array));
-    llvm::dbgs() << *alloca_array_inst;
 
     builder.SetInsertPoint(alloca_array_inst);
     auto array_size = getArraySize(alloca_array_inst);
