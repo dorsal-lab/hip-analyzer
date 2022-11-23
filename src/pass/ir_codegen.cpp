@@ -90,7 +90,12 @@ llvm::CallInst* firstCallToFunction(llvm::Function& f,
 bool hasFunctionCall(llvm::Function& f, const std::string& function) {
     auto predicate = [&function](auto* instr) {
         if (auto* call_inst = dyn_cast<llvm::CallInst>(instr)) {
-            return call_inst->getCalledFunction()->getName() == function;
+            auto* callee = call_inst->getCalledFunction();
+            if (callee == nullptr || !callee->hasName()) {
+                return false;
+            } else {
+                return callee->getName() == function;
+            }
         } else {
             return false;
         }
@@ -305,13 +310,18 @@ void pushAdditionalArguments(llvm::Function& f,
     auto alloca_array = findInstruction(f, [](auto* inst) {
         if (auto* alloca_inst = dyn_cast<llvm::AllocaInst>(inst)) {
             return alloca_inst->getAllocatedType()->isArrayTy() ||
-                   alloca_inst->isArrayAllocation();
+                   alloca_inst->getOperand(0) != nullptr;
         } else {
             return false;
         }
     });
 
+    if (alloca_array.getNodePtr() == nullptr) {
+        throw std::runtime_error("Could not find allocated args array");
+    }
+
     auto* alloca_array_inst = dyn_cast<llvm::AllocaInst>(&(*alloca_array));
+    llvm::dbgs() << *alloca_array_inst;
 
     builder.SetInsertPoint(alloca_array_inst);
     auto array_size = getArraySize(alloca_array_inst);
@@ -385,8 +395,11 @@ void pushAdditionalArguments(llvm::Function& f,
 }
 
 void assertModuleIntegrity(llvm::Module& mod) {
-    if (llvm::verifyModule(mod, &llvm::dbgs())) {
+    std::string err;
+    llvm::raw_string_ostream os(err);
+    if (llvm::verifyModule(mod, &os)) {
         llvm::dbgs() << "##### FULL MODULE #####\n\n" << mod << "\n#####\n";
+        llvm::dbgs() << "Error : \n" << err << "\n#####\n";
         throw std::runtime_error("Broken module!");
     }
 }
