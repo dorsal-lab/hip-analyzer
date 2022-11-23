@@ -6,6 +6,8 @@
 
 #include "hip_analyzer_pass.h"
 
+#include <fstream>
+
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Linker/Linker.h"
@@ -26,14 +28,21 @@ AnalysisPass::Result AnalysisPass::run(llvm::Function& fn,
 
     Result blocks;
 
+    std::vector<hip::BasicBlock> blocks_legacy;
+
     auto i = 0u;
     for (auto& bb : fn) {
         if (isBlockInstrumentable(bb)) {
             blocks.emplace_back(getBlockInfo(bb, i));
+            blocks_legacy.push_back(blocks.back().toBasicBlock());
         }
 
         ++i;
     }
+
+    std::ofstream out("hip_analyzer.json");
+    out << BasicBlock::jsonArray(blocks_legacy);
+    out.close();
 
     return blocks;
 }

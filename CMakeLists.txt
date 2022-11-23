@@ -128,6 +128,7 @@ add_library(
     src/pass/hip_analyzer_host_pass.cpp
     src/pass/ir_codegen.cpp
     src/llvm_instr_counters.cpp
+    src/basic_block.cpp
 )
 
 add_dependencies(hip-analyzer-pass gpu_pass_instr)

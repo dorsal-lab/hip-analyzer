@@ -32,6 +32,8 @@ struct InstrumentedBlock {
     unsigned int st_bytes;
 
     std::unordered_map<std::string, unsigned int> extra_counters;
+
+    BasicBlock toBasicBlock() const;
 };
 
 /** \struct InstrumentationFunctions

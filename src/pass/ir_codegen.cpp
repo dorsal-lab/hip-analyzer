@@ -17,6 +17,10 @@
 
 namespace hip {
 
+BasicBlock InstrumentedBlock::toBasicBlock() const {
+    return BasicBlock(id, id, flops, "", "", ld_bytes, st_bytes);
+}
+
 bool isDeviceModule(const llvm::Module& mod) {
     auto triple = mod.getTargetTriple();
     // TODO : Handle non-AMD devices
