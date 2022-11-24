@@ -360,8 +360,12 @@ KernelInfo KernelInfo::fromJson(const std::string& filename) {
     return {kernel_name, bblocks, blocks, threads};
 }
 
-Instrumenter::Instrumenter(KernelInfo& ki)
-    : kernel_info(ki), host_counters(ki.instr_size, 0u) {
+Instrumenter::Instrumenter(KernelInfo& ki) : Instrumenter() {
+    kernel_info.emplace(ki);
+    host_counters.assign(ki.instr_size, 0u);
+}
+
+Instrumenter::Instrumenter() {
 
     // Get the timestamp for unique identification
     auto now = std::chrono::steady_clock::now();
@@ -389,12 +393,11 @@ uint64_t getRoctracerStamp() {
 
 Instrumenter::counter_t* Instrumenter::toDevice() {
     counter_t* data_device;
-    auto size = kernel_info.instr_size * sizeof(counter_t);
+    auto size = kernel_info->instr_size * sizeof(counter_t);
 
     hip::check(hipMalloc(&data_device, size));
 
-    hip::check(hipMemcpy(data_device, host_counters.data(),
-                         kernel_info.instr_size * sizeof(counter_t),
+    hip::check(hipMemcpy(data_device, host_counters.data(), size,
                          hipMemcpyHostToDevice));
 
     hip::check(hipMemset(data_device, 0u, size));
@@ -414,13 +417,13 @@ void Instrumenter::fromDevice(void* device_ptr) {
     stamp_end = getRoctracerStamp();
 
     hip::check(hipMemcpy(host_counters.data(), device_ptr,
-                         kernel_info.instr_size * sizeof(counter_t),
+                         kernel_info->instr_size * sizeof(counter_t),
                          hipMemcpyDeviceToHost));
 }
 
 std::string Instrumenter::autoFilenamePrefix() const {
     std::stringstream ss;
-    ss << kernel_info.name << '_' << stamp;
+    ss << kernel_info->name << '_' << stamp;
 
     return ss.str();
 }
@@ -439,13 +442,14 @@ void Instrumenter::dumpCsv(const std::string& filename_in) {
     std::ofstream out(filename);
     out << csv_header << '\n';
 
-    for (auto block = 0; block < kernel_info.total_blocks; ++block) {
-        for (auto thread = 0; thread < kernel_info.total_threads_per_blocks;
+    for (auto block = 0; block < kernel_info->total_blocks; ++block) {
+        for (auto thread = 0; thread < kernel_info->total_threads_per_blocks;
              ++thread) {
-            for (auto bblock = 0; bblock < kernel_info.basic_blocks; ++bblock) {
-                auto index = block * kernel_info.total_threads_per_blocks *
-                                 kernel_info.basic_blocks +
-                             thread * kernel_info.basic_blocks + bblock;
+            for (auto bblock = 0; bblock < kernel_info->basic_blocks;
+                 ++bblock) {
+                auto index = block * kernel_info->total_threads_per_blocks *
+                                 kernel_info->basic_blocks +
+                             thread * kernel_info->basic_blocks + bblock;
 
                 out << block << ',' << thread << ',' << bblock << ','
                     << static_cast<unsigned int>(host_counters[index]) << '\n';
@@ -472,12 +476,12 @@ void Instrumenter::dumpBin(const std::string& filename_in) {
             "Instrumenter::dumpBin() : Could not open output file " + filename);
     }
 
-    dumpTraceBin(out, host_counters, kernel_info, stamp, getInterval());
+    dumpTraceBin(out, host_counters, *kernel_info, stamp, getInterval());
 
     out.close();
 
     std::ofstream db(filename + ".json");
-    db << kernel_info.json();
+    db << kernel_info->json();
     db.close();
 }
 
@@ -559,7 +563,7 @@ bool Instrumenter::parseHeader(const std::string& header) {
         get_token(); // Is a different kernel name a reason to fail?
 
     auto instr_size = std::stoul(get_token());
-    if (instr_size != kernel_info.instr_size) {
+    if (instr_size != kernel_info->instr_size) {
         return false;
         //"hip::Instrumenter::parseHeader() : Incompatible counter number,
         // faulty database?"
@@ -569,7 +573,7 @@ bool Instrumenter::parseHeader(const std::string& header) {
     stamp = stamp_in;
 
     auto counter_size = std::stoul(get_token());
-    if (counter_size != kernel_info.instr_size) {
+    if (counter_size != kernel_info->instr_size) {
         return false;
     }
 
@@ -608,8 +612,8 @@ const std::vector<hip::BasicBlock>& Instrumenter::loadDatabase() {
 
     if (auto* env = std::getenv(HIP_ANALYZER_ENV)) {
         return loadDatabase(env);
-    } else if (fs::exists(kernel_info.name + ".json")) {
-        return loadDatabase(kernel_info.name + ".json");
+    } else if (fs::exists(kernel_info->name + ".json")) {
+        return loadDatabase(kernel_info->name + ".json");
     } else if (fs::exists(HIP_ANALYZER_DEFAULT_FILE)) {
         return loadDatabase(HIP_ANALYZER_DEFAULT_FILE);
     }

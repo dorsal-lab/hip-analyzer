@@ -16,6 +16,7 @@ struct hipInstrumenter {
     hip::Instrumenter boxed;
 
     hipInstrumenter(hip::KernelInfo& ki) : boxed(ki) {}
+    hipInstrumenter() = default;
 };
 
 struct hipStateRecoverer {
@@ -34,14 +35,13 @@ hipInstrumenter* hipNewInstrumenter(const char* kernel_name) {
             "hipNewInstrumenter() : Could not pop call configuration");
     }
 
-    // TODO : fetch number of basic blocks, but how ?? -> database?
-    unsigned int bblocks = 0u;
+    auto* instr = new hipInstrumenter{};
+
+    unsigned int bblocks = instr->boxed.loadDatabase().size();
 
     hip::KernelInfo ki{kernel_name, bblocks, blocks, threads};
 
-    auto* instr = new hipInstrumenter{ki};
-
-    instr->boxed.loadDatabase();
+    instr->boxed.setKernelInfo(ki);
 
     // Revert call configuration
 

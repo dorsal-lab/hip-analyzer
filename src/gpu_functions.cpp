@@ -27,7 +27,7 @@ unsigned int hip::Instrumenter::reduceFlops(const counter_t* device_ptr,
     // ----- Malloc & memcopy ----- //
 
     // Temporary buffer
-    auto buf_size = num_blocks * threads_per_block * kernel_info.basic_blocks *
+    auto buf_size = num_blocks * threads_per_block * kernel_info->basic_blocks *
                     sizeof(hip::BlockUsage);
 
     hip::BlockUsage* buffer_ptr;
@@ -35,7 +35,7 @@ unsigned int hip::Instrumenter::reduceFlops(const counter_t* device_ptr,
 
     // Output buffer
 
-    std::vector<hip::BlockUsage> output(num_blocks * kernel_info.basic_blocks,
+    std::vector<hip::BlockUsage> output(num_blocks * kernel_info->basic_blocks,
                                         {0u, 0u});
 
     auto output_size = output.size() * sizeof(hip::BlockUsage);
@@ -45,9 +45,9 @@ unsigned int hip::Instrumenter::reduceFlops(const counter_t* device_ptr,
 
     // Launch geometry
 
-    hip::LaunchGeometry geometry{kernel_info.total_threads_per_blocks,
-                                 kernel_info.total_blocks,
-                                 kernel_info.basic_blocks};
+    hip::LaunchGeometry geometry{kernel_info->total_threads_per_blocks,
+                                 kernel_info->total_blocks,
+                                 kernel_info->basic_blocks};
 
     // Basic blocks
     auto blocks_info = hip::BasicBlock::normalized(blocks);
@@ -92,8 +92,8 @@ unsigned int hip::Instrumenter::reduceFlops(const counter_t* device_ptr,
 
     unsigned int flops = 0u;
     for (auto i = 0u; i < num_blocks; ++i) {
-        for (auto bb = 0u; bb < kernel_info.basic_blocks; ++bb) {
-            auto block_output = output[i * kernel_info.basic_blocks + bb];
+        for (auto bb = 0u; bb < kernel_info->basic_blocks; ++bb) {
+            auto block_output = output[i * kernel_info->basic_blocks + bb];
 
             // std::cout << i << ' ' << bb << " : " << block_output.count <<
             // '\n';

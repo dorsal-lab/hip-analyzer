@@ -8,6 +8,7 @@
 
 #include "hip/hip_runtime.h"
 
+#include <optional>
 #include <vector>
 
 #include "basic_block.hpp"
@@ -27,6 +28,8 @@ struct KernelInfo {
           total_blocks(blcks.x * blcks.y * blcks.z),
           total_threads_per_blocks(t_p_blcks.x * t_p_blcks.y * t_p_blcks.z),
           instr_size(basic_blocks * total_blocks * total_threads_per_blocks) {}
+
+    KernelInfo(const KernelInfo&) = default;
 
     const std::string name;
     const dim3 blocks, threads_per_blocks;
@@ -62,9 +65,14 @@ class Instrumenter {
     static constexpr auto HIP_ANALYZER_ENV = "HIP_ANALYZER_DATABASE";
     static constexpr auto HIP_ANALYZER_DEFAULT_FILE = "hip_analyzer.json";
 
-    /** \brief ctor
+    /** \brief ctor. Used when the kernel configuration is already known, and
+     * the basic block count is stored as a constant
      */
     Instrumenter(KernelInfo& kernel_info);
+
+    /** \brief ctor. Default-initializes the kernel info.
+     */
+    Instrumenter();
 
     // ----- Device data collection ----- //
 
@@ -144,7 +152,16 @@ class Instrumenter {
     /** \fn kernelInfo
      * \brief Returns a ref to the kernel information
      */
-    const KernelInfo& kernelInfo() const { return kernel_info; }
+    const KernelInfo& kernelInfo() const { return *kernel_info; }
+
+    /** \fn setKernelInfo
+     * \brief Sets the kernel info at runtime
+     */
+    const KernelInfo& setKernelInfo(KernelInfo& ki) {
+        kernel_info.emplace(ki);
+        host_counters.assign(ki.instr_size, 0u);
+        return *kernel_info;
+    }
 
     /** \fn getStamp
      * \brief Returns the Instrumenter timestamp (construction)
@@ -167,7 +184,7 @@ class Instrumenter {
     std::string autoFilenamePrefix() const;
 
     std::vector<counter_t> host_counters;
-    KernelInfo kernel_info;
+    std::optional<KernelInfo> kernel_info;
 
     std::vector<hip::BasicBlock> blocks;
 
