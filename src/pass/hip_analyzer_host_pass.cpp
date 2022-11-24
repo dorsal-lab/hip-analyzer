@@ -46,7 +46,6 @@ llvm::PreservedAnalyses HostPass::run(llvm::Module& mod,
         if (isDeviceStub(f_original) && !f_original.isDeclaration()) {
             // Device stub
             llvm::errs() << "Function " << f_original.getName() << '\n';
-            f_original.print(llvm::dbgs());
 
             // Duplicates the stub and calls the appropriate function
             auto& stub_counter = addCountersDeviceStub(f_original);
@@ -57,7 +56,7 @@ llvm::PreservedAnalyses HostPass::run(llvm::Module& mod,
                 to_delete.push_back(std::make_pair(&f_original, new_stub));
             }
 
-            // stub_counter.print(llvm::dbgs());
+            stub_counter.print(llvm::dbgs());
         } else if (isKernelCallSite(f_original)) {
             // Kernel calling site
 
@@ -65,8 +64,6 @@ llvm::PreservedAnalyses HostPass::run(llvm::Module& mod,
             // so we have to substitute the call ourselves
 
             addDeviceStubCall(f_original);
-
-            f_original.print(llvm::dbgs());
         }
     }
 
@@ -140,8 +137,6 @@ HostPass::addCountersDeviceStub(llvm::Function& f_original) const {
                llvm::FunctionType::get(llvm::Type::getVoidTy(context), {i8_ptr},
                                        false))
             .getCallee());
-
-    llvm::dbgs() << *device_ctor;
 
     llvm::CallInst* register_function;
 
@@ -259,7 +254,6 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
 }
 
 void HostPass::addDeviceStubCall(llvm::Function& f_original) const {
-    llvm::dbgs() << f_original;
     auto* kernel_call = firstCallToFunction(f_original, "hipLaunchKernel");
     auto* inliner_bb = kernel_call->getParent();
 

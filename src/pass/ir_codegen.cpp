@@ -308,6 +308,8 @@ void pushAdditionalArguments(llvm::Function& f,
     auto push_call = firstInstructionOf<llvm::CallInst>(f);
     --push_call;
 
+    auto* i8_ptr = llvm::Type::getInt8PtrTy(f.getContext());
+
     // Allocate memory for additional args
     llvm::IRBuilder<> builder(&f.getEntryBlock());
 
@@ -352,9 +354,9 @@ void pushAdditionalArguments(llvm::Function& f,
     auto array_size = getArraySize(alloca_array_inst);
 
     auto* new_array_type =
-        llvm::ArrayType::get(llvm::Type::getInt8PtrTy(f.getContext()),
-                             array_size + kernel_args.size());
+        llvm::ArrayType::get(i8_ptr, array_size + kernel_args.size());
     auto* new_alloca_array = builder.CreateAlloca(new_array_type);
+    new_alloca_array->setAlignment(alloca_array_inst->getAlign());
 
     // Alloca + replaceInstWithInst
 
@@ -410,10 +412,10 @@ void pushAdditionalArguments(llvm::Function& f,
             new_array_type, new_alloca_array,
             {const_zero, getIndex(i, f.getContext())});
 
-        auto* bitcast =
-            builder.CreateBitCast(gep, new_arg->getType()->getPointerTo());
+        // auto* bitcast = builder.CreateBitCast(gep, i8_ptr->getPointerTo());
+        auto* stack_bitcast = builder.CreateBitCast(new_arg, i8_ptr);
 
-        builder.CreateStore(new_arg, bitcast);
+        builder.CreateStore(stack_bitcast, gep);
 
         ++i;
     }
