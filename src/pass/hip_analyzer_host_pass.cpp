@@ -113,6 +113,8 @@ HostPass::addCountersDeviceStub(llvm::Function& f_original) const {
                             llvm::CloneFunctionChangeType::LocalChangesOnly,
                             returns);
 
+    f.getArg(f.arg_size() - 1)->addAttr(llvm::Attribute::NoUndef);
+
     // Add additional arguments to the void* array : uint8_t* _counters;
 
     pushAdditionalArguments(f, {f.getArg(f.arg_size() - 1)});
@@ -182,6 +184,7 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
     auto fun_type = stub.getFunctionType();
     auto instr_handlers = declareInstrumentation(mod);
     auto* call_to_launch = firstCallToFunction(stub, "hipLaunchKernel");
+    auto* i8_ptr = llvm::Type::getInt8PtrTy(mod.getContext());
 
     auto* new_stub = dyn_cast<llvm::Function>(
         mod.getOrInsertFunction(
@@ -227,9 +230,7 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
     auto* device_ptr =
         builder.CreateCall(instr_handlers.hipInstrumenterToDevice, {instr});
 
-    args.push_back(llvm::ConstantPointerNull::get(
-        CfgInstrumentationPass::getCounterType(mod.getContext())
-            ->getPointerTo()));
+    args.push_back(builder.CreateBitCast(device_ptr, i8_ptr));
 
     builder.CreateCall(counters_stub->getFunctionType(), counters_stub, args);
 
