@@ -42,13 +42,8 @@ class AnalysisPass : public llvm::AnalysisInfoMixin<AnalysisPass> {
     friend struct llvm::AnalysisInfoMixin<AnalysisPass>;
 };
 
-struct CfgInstrumentationPass
-    : public llvm::PassInfoMixin<CfgInstrumentationPass> {
-    static const std::string instrumented_prefix;
-    static const std::string utils_path;
-
-    CfgInstrumentationPass() {}
-
+struct KernelInstrumentationPass
+    : public llvm::PassInfoMixin<KernelInstrumentationPass> {
     llvm::PreservedAnalyses run(llvm::Module& mod,
                                 llvm::ModuleAnalysisManager& modm);
 
@@ -56,24 +51,61 @@ struct CfgInstrumentationPass
      * \brief Returns whether a function is a kernel that will be
      * instrumented (todo?)
      */
-    bool isInstrumentableKernel(llvm::Function& f);
+    virtual bool isInstrumentableKernel(const llvm::Function& f) = 0;
 
     /** \fn addParams
      * \brief Clone function with new parameters
      */
-    bool addParams(llvm::Function& f, llvm::Function& original_function);
+    virtual bool addParams(llvm::Function& f,
+                           llvm::Function& original_function) = 0;
+
+    /** \fn getExtraArguments
+     * \brief Return the necessary extra arguments for the instrumentation type
+     */
+    virtual llvm::SmallVector<llvm::Type*>
+    getExtraArguments(llvm::LLVMContext& context) const = 0;
 
     /** \fn instrumentFunction
      * \brief Add CFG counters instrumentation to the compute kernel
      *
-     * \param f Kernel
-     * \param original_function Original (non-instrumented) kernel
+     * \param kernel Kernel
+     * \param original_kernel Original (non-instrumented) kernel
      */
+    virtual bool instrumentFunction(llvm::Function& kernel,
+                                    llvm::Function& original_kernel,
+                                    AnalysisPass::Result& block_report) = 0;
+
+    virtual const std::string& getInstrumentedKernelPrefix() const = 0;
+
+    /** \fn linkModuleUtils
+     * \brief Link (at IR-level) all necessary utility functions
+     */
+    virtual void linkModuleUtils(llvm::Module& mod) = 0;
+};
+
+struct CfgInstrumentationPass : public KernelInstrumentationPass {
+    static const std::string instrumented_prefix;
+    static const std::string utils_path;
+
+    CfgInstrumentationPass() {}
+
+    bool isInstrumentableKernel(const llvm::Function& f) override;
+
+    bool addParams(llvm::Function& kernel,
+                   llvm::Function& original_kernel) override;
+
     bool instrumentFunction(llvm::Function& f,
                             llvm::Function& original_function,
-                            llvm::FunctionAnalysisManager& fm);
+                            AnalysisPass::Result& block_report) override;
 
-    void linkModuleUtils(llvm::Module& mod);
+    llvm::SmallVector<llvm::Type*>
+    getExtraArguments(llvm::LLVMContext& context) const override;
+
+    void linkModuleUtils(llvm::Module& mod) override;
+
+    const std::string& getInstrumentedKernelPrefix() const override {
+        return instrumented_prefix;
+    }
 
     static llvm::Type* getCounterType(llvm::LLVMContext& context) {
         return llvm::Type::getInt8Ty(context);

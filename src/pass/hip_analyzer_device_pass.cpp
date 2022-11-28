@@ -47,14 +47,11 @@ AnalysisPass::Result AnalysisPass::run(llvm::Function& fn,
     return blocks;
 }
 
-// ----- hip::CfgInstrumentationPass ----- //
-
-const std::string CfgInstrumentationPass::instrumented_prefix = "counters_";
-const std::string CfgInstrumentationPass::utils_path = "gpu_pass_instr.ll";
+// ----- hip::KernelInstrumentationPass ----- //
 
 llvm::PreservedAnalyses
-CfgInstrumentationPass::run(llvm::Module& mod,
-                            llvm::ModuleAnalysisManager& modm) {
+KernelInstrumentationPass::run(llvm::Module& mod,
+                               llvm::ModuleAnalysisManager& modm) {
 
     if (!isDeviceModule(mod)) {
         // DO NOT run on host code
@@ -67,12 +64,12 @@ CfgInstrumentationPass::run(llvm::Module& mod,
             continue;
         }
 
-        llvm::errs() << "Function " << f_original.getName() << '\n';
-        f_original.print(llvm::dbgs(), nullptr);
+        llvm::dbgs() << "Function " << f_original.getName() << '\n'
+                     << f_original;
 
-        auto& f =
-            cloneWithPrefix(f_original, instrumented_prefix,
-                            {getCounterType(mod.getContext())->getPointerTo()});
+        // Clone the kernel, with extra arguments
+        auto& f = cloneWithPrefix(f_original, getInstrumentedKernelPrefix(),
+                                  getExtraArguments(mod.getContext()));
 
         modified |= addParams(f, f_original);
 
@@ -82,17 +79,26 @@ CfgInstrumentationPass::run(llvm::Module& mod,
         auto& fm = modm.getResult<llvm::FunctionAnalysisManagerModuleProxy>(mod)
                        .getManager();
 
-        modified |= instrumentFunction(f, f_original, fm);
+        auto blocks = fm.getResult<AnalysisPass>(f);
+
+        modified |= instrumentFunction(f, f_original, blocks);
     }
 
-    // Add necessary functions
-    linkModuleUtils(mod);
+    // If we instrumented a kernel, link the necessary utilities function
+    if (modified) {
+        linkModuleUtils(mod);
+    }
 
     return modified ? llvm::PreservedAnalyses::none()
                     : llvm::PreservedAnalyses::all();
 }
 
-bool CfgInstrumentationPass::isInstrumentableKernel(llvm::Function& f) {
+// ----- hip::CfgInstrumentationPass ----- //
+
+const std::string CfgInstrumentationPass::instrumented_prefix = "counters_";
+const std::string CfgInstrumentationPass::utils_path = "gpu_pass_instr.ll";
+
+bool CfgInstrumentationPass::isInstrumentableKernel(const llvm::Function& f) {
     return !f.isDeclaration() && !contains(f.getName().str(), cloned_suffix) &&
            f.getCallingConv() == llvm::CallingConv::AMDGPU_KERNEL;
 }
@@ -101,6 +107,8 @@ bool CfgInstrumentationPass::addParams(llvm::Function& f,
                                        llvm::Function& original_function) {
 
     llvm::ValueToValueMapTy vmap;
+
+    llvm::dbgs() << f << "\n#####\n" << original_function;
 
     for (auto it1 = original_function.arg_begin(), it2 = f.arg_begin();
          it1 != original_function.arg_end(); ++it1, ++it2) {
@@ -117,9 +125,7 @@ bool CfgInstrumentationPass::addParams(llvm::Function& f,
 
 bool CfgInstrumentationPass::instrumentFunction(
     llvm::Function& f, llvm::Function& original_function,
-    llvm::FunctionAnalysisManager& fm) {
-
-    auto blocks = fm.getResult<AnalysisPass>(f);
+    AnalysisPass::Result& blocks) {
 
     auto& context = f.getContext();
     auto instrumentation_handlers = declareInstrumentation(*f.getParent());
@@ -195,6 +201,11 @@ bool CfgInstrumentationPass::instrumentFunction(
     f.print(llvm::dbgs(), nullptr);
 
     return true;
+}
+
+llvm::SmallVector<llvm::Type*>
+CfgInstrumentationPass::getExtraArguments(llvm::LLVMContext& context) const {
+    return {getCounterType(context)->getPointerTo()};
 }
 
 void CfgInstrumentationPass::linkModuleUtils(llvm::Module& mod) {
