@@ -127,6 +127,7 @@ add_library(
     src/pass/hip_analyzer_device_pass.cpp
     src/pass/hip_analyzer_host_pass.cpp
     src/pass/ir_codegen.cpp
+    src/pass/trace_type.cpp
     src/llvm_instr_counters.cpp
     src/basic_block.cpp
 )

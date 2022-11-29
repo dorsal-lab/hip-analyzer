@@ -51,7 +51,7 @@ struct KernelInstrumentationPass
      * \brief Returns whether a function is a kernel that will be
      * instrumented (todo?)
      */
-    virtual bool isInstrumentableKernel(const llvm::Function& f) = 0;
+    virtual bool isInstrumentableKernel(const llvm::Function& f) const = 0;
 
     /** \fn addParams
      * \brief Clone function with new parameters
@@ -89,7 +89,7 @@ struct CfgInstrumentationPass : public KernelInstrumentationPass {
 
     CfgInstrumentationPass() {}
 
-    bool isInstrumentableKernel(const llvm::Function& f) override;
+    bool isInstrumentableKernel(const llvm::Function& f) const override;
 
     bool addParams(llvm::Function& kernel,
                    llvm::Function& original_kernel) override;
@@ -112,13 +112,59 @@ struct CfgInstrumentationPass : public KernelInstrumentationPass {
     }
 };
 
-struct TracingPass : public llvm::PassInfoMixin<TracingPass> {
-    TracingPass() {}
+/** \class TraceType
+ * \brief Abstract trace type. Should contain necessary information to create
+ * the LLVM struct type and its "constructor".
+ */
+class TraceType {
+  public:
+    /** \fn create
+     * \brief Factory function to create a trace type
+     */
+    static std::unique_ptr<TraceType> create(const std::string& trace_type);
+    virtual ~TraceType() = 0;
 
-    llvm::PreservedAnalyses run(llvm::Module& mod,
-                                llvm::ModuleAnalysisManager& modm);
+    virtual llvm::Type* getEventType(llvm::LLVMContext&) const = 0;
+    virtual llvm::Function* getEventCtor(llvm::LLVMContext&) const = 0;
+};
 
-    bool instrumentFunction(llvm::Function& f);
+struct TracingPass : public KernelInstrumentationPass {
+    static const std::string instrumented_prefix;
+    static const std::string utils_path;
+
+    TracingPass(const std::string& trace_type)
+        : event(TraceType::create(trace_type)) {
+        if (!event) {
+            throw std::runtime_error(
+                "TracingPass::TracingPass() : Unknown trace \"" + trace_type +
+                "\".");
+        }
+    }
+
+    bool isInstrumentableKernel(const llvm::Function& f) const override;
+
+    bool addParams(llvm::Function& kernel,
+                   llvm::Function& original_kernel) override;
+
+    bool instrumentFunction(llvm::Function& f,
+                            llvm::Function& original_function,
+                            AnalysisPass::Result& block_report) override;
+
+    llvm::SmallVector<llvm::Type*>
+    getExtraArguments(llvm::LLVMContext& context) const override;
+
+    void linkModuleUtils(llvm::Module& mod) override;
+
+    const std::string& getInstrumentedKernelPrefix() const override {
+        // TODO : Adapt to tracing name
+        return instrumented_prefix;
+    }
+
+    llvm::SmallVector<llvm::Type*>
+    getExtraArgsType(llvm::LLVMContext& context) const;
+
+  private:
+    std::unique_ptr<TraceType> event;
 };
 
 /** \struct HostPass

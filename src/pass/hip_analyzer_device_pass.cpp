@@ -98,7 +98,8 @@ KernelInstrumentationPass::run(llvm::Module& mod,
 const std::string CfgInstrumentationPass::instrumented_prefix = "counters_";
 const std::string CfgInstrumentationPass::utils_path = "gpu_pass_instr.ll";
 
-bool CfgInstrumentationPass::isInstrumentableKernel(const llvm::Function& f) {
+bool CfgInstrumentationPass::isInstrumentableKernel(
+    const llvm::Function& f) const {
     return !f.isDeclaration() && !contains(f.getName().str(), cloned_suffix) &&
            f.getCallingConv() == llvm::CallingConv::AMDGPU_KERNEL;
 }
@@ -239,15 +240,90 @@ void CfgInstrumentationPass::linkModuleUtils(llvm::Module& mod) {
 
 // ----- hip::TracingPass ----- //
 
-llvm::PreservedAnalyses TracingPass::run(llvm::Module& mod,
-                                         llvm::ModuleAnalysisManager& modm) {
-    return llvm::PreservedAnalyses::all();
+const std::string TracingPass::instrumented_prefix = "tracing_";
+const std::string TracingPass::utils_path = "gpu_pass_instr.ll";
+
+bool TracingPass::isInstrumentableKernel(const llvm::Function& f) const {
+    return !f.isDeclaration() && !contains(f.getName().str(), cloned_suffix) &&
+           f.getCallingConv() == llvm::CallingConv::AMDGPU_KERNEL;
 }
 
-bool TracingPass::instrumentFunction(llvm::Function& f) {
-    // auto& blocks = getAnalysis<AnalysisPass>(f).getBlocks();
+bool TracingPass::addParams(llvm::Function& f,
+                            llvm::Function& original_function) {
+
+    llvm::ValueToValueMapTy vmap;
+
+    llvm::dbgs() << f << "\n#####\n" << original_function;
+
+    for (auto it1 = original_function.arg_begin(), it2 = f.arg_begin();
+         it1 != original_function.arg_end(); ++it1, ++it2) {
+        vmap[&*it1] = &*it2;
+    }
+    llvm::SmallVector<llvm::ReturnInst*, 8> returns;
+
+    llvm::CloneFunctionInto(&f, &original_function, vmap,
+                            llvm::CloneFunctionChangeType::LocalChangesOnly,
+                            returns);
+
+    return true;
+}
+
+bool TracingPass::instrumentFunction(llvm::Function& f,
+                                     llvm::Function& original_function,
+                                     AnalysisPass::Result& blocks) {
+
+    auto& context = f.getContext();
+    auto instrumentation_handlers = declareInstrumentation(*f.getParent());
+    auto* instr_ptr = f.getArg(f.arg_size() - 1);
+
+    // Add counters
+    auto extra_args = getExtraArgsType(context);
+    // auto* array_type = llvm::ArrayType::get(extra_args, blocks.size());
+
+    llvm::IRBuilder<> builder_locals(&f.getEntryBlock());
+    setInsertPointPastAllocas(builder_locals, f);
 
     return false;
+}
+
+llvm::SmallVector<llvm::Type*>
+TracingPass::getExtraArguments(llvm::LLVMContext& context) const {
+    return {};
+}
+
+void TracingPass::linkModuleUtils(llvm::Module& mod) {
+    llvm::Linker linker(mod);
+    auto& context = mod.getContext();
+    context.setDiscardValueNames(false);
+
+    // Load compiled module
+    llvm::SMDiagnostic diag;
+    auto utils_mod = llvm::parseIRFile(utils_path, diag, context);
+    if (!utils_mod) {
+        llvm::errs() << diag.getMessage() << '\n';
+        throw std::runtime_error("TracingPass::linkModuleUtils()"
+                                 " : Could not load utils module");
+    }
+
+    linker.linkInModule(std::move(utils_mod));
+
+    // Remove [[clang::optnone]] and add [[clang::always_inline]]
+    // attributes
+
+    auto instrumentation_handlers = declareInstrumentation(mod);
+
+    instrumentation_handlers._hip_store_ctr->removeFnAttr(
+        llvm::Attribute::OptimizeNone);
+    instrumentation_handlers._hip_store_ctr->removeFnAttr(
+        llvm::Attribute::NoInline);
+    instrumentation_handlers._hip_store_ctr->addFnAttr(
+        llvm::Attribute::AlwaysInline);
+}
+
+llvm::SmallVector<llvm::Type*>
+TracingPass::getExtraArgsType(llvm::LLVMContext& context) const {
+    return {llvm::Type::getInt8Ty(context),
+            event->getEventType(context)->getPointerTo()};
 }
 
 } // namespace hip
