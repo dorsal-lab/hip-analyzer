@@ -260,8 +260,8 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
     auto instrumentation_handlers =
         declareTracingInstrumentation(*f.getParent());
 
-    auto* i32_ty = llvm::Type::getInt32Ty(context);
-    auto* storage_ptr = f.getArg(f.arg_size() - 2);
+    auto* i64_ty = llvm::Type::getInt64Ty(context);
+    auto* i8_ptr_ty = llvm::Type::getInt8PtrTy(context);
     auto* offsets_ptr = f.getArg(f.arg_size() - 1);
 
     // Add counters
@@ -271,8 +271,11 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
 
     // Create the local counter and initialize it to 0.
     auto* idx =
-        builder_locals.CreateAlloca(i32_ty, nullptr, llvm::Twine("_trace_idx"));
-    builder_locals.CreateStore(llvm::ConstantInt::get(i32_ty, 0), idx);
+        builder_locals.CreateAlloca(i64_ty, nullptr, llvm::Twine("_trace_idx"));
+    builder_locals.CreateStore(llvm::ConstantInt::get(i64_ty, 0), idx);
+
+    auto* storage_ptr =
+        builder_locals.CreateBitCast(f.getArg(f.arg_size() - 2), i8_ptr_ty);
 
     auto* offset = builder_locals.CreateCall(
         instrumentation_handlers._hip_get_trace_offset,
