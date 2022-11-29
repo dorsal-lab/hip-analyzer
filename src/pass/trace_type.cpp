@@ -18,6 +18,10 @@ class Event : public TraceType {
     llvm::Function* getEventCtor(llvm::LLVMContext& context) const override {
         return nullptr;
     }
+
+    llvm::ConstantInt* getEventSize(llvm::LLVMContext& context) const override {
+        return nullptr;
+    }
 };
 
 class TaggedEvent : public TraceType {
@@ -27,6 +31,10 @@ class TaggedEvent : public TraceType {
     }
 
     llvm::Function* getEventCtor(llvm::LLVMContext& context) const override {
+        return nullptr;
+    }
+
+    llvm::ConstantInt* getEventSize(llvm::LLVMContext& context) const override {
         return nullptr;
     }
 };
@@ -40,17 +48,21 @@ class WaveState : public TraceType {
     llvm::Function* getEventCtor(llvm::LLVMContext& context) const override {
         return nullptr;
     }
+
+    llvm::ConstantInt* getEventSize(llvm::LLVMContext& context) const override {
+        return nullptr;
+    }
 };
 
 } // namespace
 
 std::unique_ptr<TraceType> TraceType::create(const std::string& trace_type) {
     // Here goes
-    if (trace_type == "trace_event") {
+    if (trace_type == "trace-event") {
         return std::make_unique<Event>();
-    } else if (trace_type == "trace_tagged") {
+    } else if (trace_type == "trace-tagged") {
         return std::make_unique<TaggedEvent>();
-    } else if (trace_type == "trace_wavestate") {
+    } else if (trace_type == "trace-wavestate") {
         return std::make_unique<WaveState>();
     } else {
         return {nullptr};

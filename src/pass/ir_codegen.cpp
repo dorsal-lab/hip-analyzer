@@ -220,13 +220,13 @@ InstrumentationFunctions declareInstrumentation(llvm::Module& mod) {
     InstrumentationFunctions funs;
     auto& context = mod.getContext();
 
-    auto void_type = llvm::Type::getVoidTy(context);
-    auto uint8_type = llvm::Type::getInt8Ty(context);
-    auto uint8_ptr_type = uint8_type->getPointerTo();
-    auto uint64_type = llvm::Type::getInt64Ty(context);
-    auto unqual_ptr_type = llvm::PointerType::getUnqual(context);
+    auto* void_type = llvm::Type::getVoidTy(context);
+    auto* uint8_type = llvm::Type::getInt8Ty(context);
+    auto* uint8_ptr_type = uint8_type->getPointerTo();
+    auto* uint64_type = llvm::Type::getInt64Ty(context);
+    auto* unqual_ptr_type = llvm::PointerType::getUnqual(context);
 
-    auto _hip_store_ctr_type = llvm::FunctionType::get(
+    auto* _hip_store_ctr_type = llvm::FunctionType::get(
         void_type, {uint8_ptr_type, uint64_type, uint8_ptr_type}, false);
 
     funs._hip_store_ctr =
@@ -269,6 +269,43 @@ InstrumentationFunctions declareInstrumentation(llvm::Module& mod) {
 
     funs.hipStateRecovererRollback =
         getFunction(mod, "hipStateRecovererRollback", void_from_ptr_type);
+
+    return funs;
+}
+
+llvm::FunctionType* getEventCtorType(llvm::LLVMContext& context) {
+    auto* void_type = llvm::Type::getVoidTy(context);
+    auto* uint8_ptr_type = llvm::Type::getInt8PtrTy(context);
+    auto* uint64_type = llvm::Type::getInt64Ty(context);
+    return llvm::FunctionType::get(void_type, {uint8_ptr_type, uint64_type},
+                                   false);
+}
+
+TracingFunctions declareTracingInstrumentation(llvm::Module& mod) {
+    TracingFunctions funs;
+    auto& context = mod.getContext();
+
+    auto* void_type = llvm::Type::getVoidTy(context);
+    auto* uint8_type = llvm::Type::getInt8Ty(context);
+    auto* uint8_ptr_type = uint8_type->getPointerTo();
+    auto* uint64_type = llvm::Type::getInt64Ty(context);
+    auto* unqual_ptr_type = llvm::PointerType::getUnqual(context);
+
+    auto* _hip_event_ctor_type = getEventCtorType(context);
+
+    funs._hip_get_trace_offset = getFunction(
+        mod, "_hip_get_trace_offset",
+        llvm::FunctionType::get(
+            uint8_ptr_type,
+            {uint8_ptr_type, uint64_type->getPointerTo(), uint64_type}, false));
+
+    funs._hip_create_event = getFunction(
+        mod, "_hip_create_event",
+        llvm::FunctionType::get(
+            void_type,
+            {uint8_ptr_type, uint64_type->getPointerTo(), uint64_type,
+             _hip_event_ctor_type->getPointerTo(), uint64_type},
+            false));
 
     return funs;
 }

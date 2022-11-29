@@ -54,6 +54,10 @@ struct InstrumentationFunctions {
         *hipStateRecovererRollback, *freeHipStateRecoverer;
 };
 
+struct TracingFunctions {
+    llvm::Function *_hip_get_trace_offset, *_hip_create_event;
+};
+
 // ----- IR Utils ----- //
 
 /** \fn isDeviceModule
@@ -130,11 +134,21 @@ InstrumentedBlock getBlockInfo(const llvm::BasicBlock& block, unsigned int i);
 
 // ----- IR Modifiers ----- //
 
+/** \fn getEventCtorType
+ * \brief Return the generic event constructor type
+ */
+llvm::FunctionType* getEventCtorType(llvm::LLVMContext& context);
+
 /** \fn declareInstrumentations
  * \brief Forward-declare instrumentation functions in the module, and returns
  * pointers to them
  */
 InstrumentationFunctions declareInstrumentation(llvm::Module& mod);
+
+/** \fn declareTracingInstrumentation
+ *
+ */
+TracingFunctions declareTracingInstrumentation(llvm::Module& mod);
 
 /** \fn cloneWithName
  * \brief Clones a function f with a different name, and eventually additional

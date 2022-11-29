@@ -13,6 +13,10 @@ static llvm::cl::opt<std::string>
     kernel_name("kernel-name", llvm::cl::desc("Specify kernel name"),
                 llvm::cl::value_desc("kernel"));
 
+static llvm::cl::opt<std::string>
+    trace_type("trace_type", llvm::cl::desc("hip-analyzer trace type"),
+               llvm::cl::init("trace-event"));
+
 llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
     return {
         LLVM_PLUGIN_API_VERSION, "hip-analyzer", LLVM_VERSION_STRING,
@@ -25,6 +29,9 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
                         return true;
                     } else if (name == "hip-analyzer-counters") {
                         mpm.addPass(hip::CfgInstrumentationPass());
+                        return true;
+                    } else if (name == "hip-analyzer-trace") {
+                        mpm.addPass(hip::TracingPass(trace_type.getValue()));
                         return true;
                     }
                     return false;

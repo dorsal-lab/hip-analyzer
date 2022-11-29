@@ -56,8 +56,7 @@ struct KernelInstrumentationPass
     /** \fn addParams
      * \brief Clone function with new parameters
      */
-    virtual bool addParams(llvm::Function& f,
-                           llvm::Function& original_function) = 0;
+    bool addParams(llvm::Function& f, llvm::Function& original_function);
 
     /** \fn getExtraArguments
      * \brief Return the necessary extra arguments for the instrumentation type
@@ -91,9 +90,6 @@ struct CfgInstrumentationPass : public KernelInstrumentationPass {
 
     bool isInstrumentableKernel(const llvm::Function& f) const override;
 
-    bool addParams(llvm::Function& kernel,
-                   llvm::Function& original_kernel) override;
-
     bool instrumentFunction(llvm::Function& f,
                             llvm::Function& original_function,
                             AnalysisPass::Result& block_report) override;
@@ -122,10 +118,11 @@ class TraceType {
      * \brief Factory function to create a trace type
      */
     static std::unique_ptr<TraceType> create(const std::string& trace_type);
-    virtual ~TraceType() = 0;
+    virtual ~TraceType() = default;
 
     virtual llvm::Type* getEventType(llvm::LLVMContext&) const = 0;
     virtual llvm::Function* getEventCtor(llvm::LLVMContext&) const = 0;
+    virtual llvm::ConstantInt* getEventSize(llvm::LLVMContext&) const = 0;
 };
 
 struct TracingPass : public KernelInstrumentationPass {
@@ -143,9 +140,6 @@ struct TracingPass : public KernelInstrumentationPass {
 
     bool isInstrumentableKernel(const llvm::Function& f) const override;
 
-    bool addParams(llvm::Function& kernel,
-                   llvm::Function& original_kernel) override;
-
     bool instrumentFunction(llvm::Function& f,
                             llvm::Function& original_function,
                             AnalysisPass::Result& block_report) override;
@@ -159,9 +153,6 @@ struct TracingPass : public KernelInstrumentationPass {
         // TODO : Adapt to tracing name
         return instrumented_prefix;
     }
-
-    llvm::SmallVector<llvm::Type*>
-    getExtraArgsType(llvm::LLVMContext& context) const;
 
   private:
     std::unique_ptr<TraceType> event;

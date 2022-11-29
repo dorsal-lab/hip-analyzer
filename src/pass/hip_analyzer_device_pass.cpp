@@ -93,19 +93,11 @@ KernelInstrumentationPass::run(llvm::Module& mod,
                     : llvm::PreservedAnalyses::all();
 }
 
-// ----- hip::CfgInstrumentationPass ----- //
+bool KernelInstrumentationPass::addParams(llvm::Function& f,
+                                          llvm::Function& original_function) {
 
-const std::string CfgInstrumentationPass::instrumented_prefix = "counters_";
-const std::string CfgInstrumentationPass::utils_path = "gpu_pass_instr.ll";
-
-bool CfgInstrumentationPass::isInstrumentableKernel(
-    const llvm::Function& f) const {
-    return !f.isDeclaration() && !contains(f.getName().str(), cloned_suffix) &&
-           f.getCallingConv() == llvm::CallingConv::AMDGPU_KERNEL;
-}
-
-bool CfgInstrumentationPass::addParams(llvm::Function& f,
-                                       llvm::Function& original_function) {
+    // To be quite honest, I am not really sure how this works. It might be
+    // possibly buggy in some cases.
 
     llvm::ValueToValueMapTy vmap;
 
@@ -122,6 +114,17 @@ bool CfgInstrumentationPass::addParams(llvm::Function& f,
                             returns);
 
     return true;
+}
+
+// ----- hip::CfgInstrumentationPass ----- //
+
+const std::string CfgInstrumentationPass::instrumented_prefix = "counters_";
+const std::string CfgInstrumentationPass::utils_path = "gpu_pass_instr.ll";
+
+bool CfgInstrumentationPass::isInstrumentableKernel(
+    const llvm::Function& f) const {
+    return !f.isDeclaration() && !contains(f.getName().str(), cloned_suffix) &&
+           f.getCallingConv() == llvm::CallingConv::AMDGPU_KERNEL;
 }
 
 bool CfgInstrumentationPass::instrumentFunction(
@@ -199,7 +202,7 @@ bool CfgInstrumentationPass::instrumentFunction(
         }
     }
 
-    f.print(llvm::dbgs(), nullptr);
+    llvm::dbgs() << f;
 
     return true;
 }
@@ -248,47 +251,60 @@ bool TracingPass::isInstrumentableKernel(const llvm::Function& f) const {
            f.getCallingConv() == llvm::CallingConv::AMDGPU_KERNEL;
 }
 
-bool TracingPass::addParams(llvm::Function& f,
-                            llvm::Function& original_function) {
-
-    llvm::ValueToValueMapTy vmap;
-
-    llvm::dbgs() << f << "\n#####\n" << original_function;
-
-    for (auto it1 = original_function.arg_begin(), it2 = f.arg_begin();
-         it1 != original_function.arg_end(); ++it1, ++it2) {
-        vmap[&*it1] = &*it2;
-    }
-    llvm::SmallVector<llvm::ReturnInst*, 8> returns;
-
-    llvm::CloneFunctionInto(&f, &original_function, vmap,
-                            llvm::CloneFunctionChangeType::LocalChangesOnly,
-                            returns);
-
-    return true;
-}
-
 bool TracingPass::instrumentFunction(llvm::Function& f,
                                      llvm::Function& original_function,
                                      AnalysisPass::Result& blocks) {
 
     auto& context = f.getContext();
-    auto instrumentation_handlers = declareInstrumentation(*f.getParent());
-    auto* instr_ptr = f.getArg(f.arg_size() - 1);
+    auto instrumentation_handlers =
+        declareTracingInstrumentation(*f.getParent());
+
+    auto* i32_ty = llvm::Type::getInt32Ty(context);
+    auto* storage_ptr = f.getArg(f.arg_size() - 2);
+    auto* offsets_ptr = f.getArg(f.arg_size() - 1);
 
     // Add counters
-    auto extra_args = getExtraArgsType(context);
-    // auto* array_type = llvm::ArrayType::get(extra_args, blocks.size());
 
     llvm::IRBuilder<> builder_locals(&f.getEntryBlock());
     setInsertPointPastAllocas(builder_locals, f);
 
-    return false;
+    // Create the local counter and initialize it to 0.
+    auto* idx =
+        builder_locals.CreateAlloca(i32_ty, nullptr, llvm::Twine("_trace_idx"));
+    builder_locals.CreateStore(llvm::ConstantInt::get(i32_ty, 0), idx);
+
+    auto* offset = builder_locals.CreateCall(
+        instrumentation_handlers._hip_get_trace_offset,
+        {storage_ptr, offsets_ptr, event->getEventSize(context)});
+
+    auto& function_block_list = f.getBasicBlockList();
+    auto curr_bb = f.begin();
+    auto index = 0u;
+
+    for (auto& bb_instr : blocks) {
+        while (index < bb_instr.id) {
+            ++index;
+            ++curr_bb;
+        }
+
+        builder_locals.SetInsertPoint(&(*curr_bb),
+                                      getFirstNonPHIOrDbgOrAlloca(*curr_bb));
+
+        builder_locals.CreateCall(
+            instrumentation_handlers._hip_create_event,
+            {storage_ptr, idx, event->getEventSize(context),
+             event->getEventCtor(context), getIndex(bb_instr.id, context)});
+    }
+
+    llvm::dbgs() << f;
+
+    return true;
 }
 
 llvm::SmallVector<llvm::Type*>
 TracingPass::getExtraArguments(llvm::LLVMContext& context) const {
-    return {};
+    return {event->getEventType(context)->getPointerTo(),
+            llvm::Type::getInt64PtrTy(context)};
 }
 
 void TracingPass::linkModuleUtils(llvm::Module& mod) {
@@ -318,12 +334,6 @@ void TracingPass::linkModuleUtils(llvm::Module& mod) {
         llvm::Attribute::NoInline);
     instrumentation_handlers._hip_store_ctr->addFnAttr(
         llvm::Attribute::AlwaysInline);
-}
-
-llvm::SmallVector<llvm::Type*>
-TracingPass::getExtraArgsType(llvm::LLVMContext& context) const {
-    return {llvm::Type::getInt8Ty(context),
-            event->getEventType(context)->getPointerTo()};
 }
 
 } // namespace hip
