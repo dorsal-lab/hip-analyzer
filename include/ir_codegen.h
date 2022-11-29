@@ -134,6 +134,12 @@ InstrumentedBlock getBlockInfo(const llvm::BasicBlock& block, unsigned int i);
 
 // ----- IR Modifiers ----- //
 
+/** \fn getFunction
+ * \brief Util to get the handle to a function in LLVM IR
+ */
+llvm::Function* getFunction(llvm::Module& mod, llvm::StringRef name,
+                            llvm::FunctionType* type);
+
 /** \fn getEventCtorType
  * \brief Return the generic event constructor type
  */

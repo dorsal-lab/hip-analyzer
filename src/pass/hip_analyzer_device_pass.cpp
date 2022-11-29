@@ -255,6 +255,7 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
                                      llvm::Function& original_function,
                                      AnalysisPass::Result& blocks) {
 
+    auto& mod = *f.getParent();
     auto& context = f.getContext();
     auto instrumentation_handlers =
         declareTracingInstrumentation(*f.getParent());
@@ -275,7 +276,7 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
 
     auto* offset = builder_locals.CreateCall(
         instrumentation_handlers._hip_get_trace_offset,
-        {storage_ptr, offsets_ptr, event->getEventSize(context)});
+        {storage_ptr, offsets_ptr, event->getEventSize(mod)});
 
     auto& function_block_list = f.getBasicBlockList();
     auto curr_bb = f.begin();
@@ -290,10 +291,10 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
         builder_locals.SetInsertPoint(&(*curr_bb),
                                       getFirstNonPHIOrDbgOrAlloca(*curr_bb));
 
-        builder_locals.CreateCall(
-            instrumentation_handlers._hip_create_event,
-            {storage_ptr, idx, event->getEventSize(context),
-             event->getEventCtor(context), getIndex(bb_instr.id, context)});
+        builder_locals.CreateCall(instrumentation_handlers._hip_create_event,
+                                  {storage_ptr, idx, event->getEventSize(mod),
+                                   event->getEventCtor(mod),
+                                   getIndex(bb_instr.id, context)});
     }
 
     llvm::dbgs() << f;

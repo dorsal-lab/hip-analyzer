@@ -175,9 +175,9 @@ inline __device__ uint64_t get_stamp() {
  * \brief Contains just the basic block id
  */
 struct Event {
-    size_t bb;
-
     __device__ Event(size_t bb) : bb(bb) {}
+
+    size_t bb;
 
     static std::string description;
     static std::string name;

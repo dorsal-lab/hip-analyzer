@@ -121,8 +121,15 @@ class TraceType {
     virtual ~TraceType() = default;
 
     virtual llvm::Type* getEventType(llvm::LLVMContext&) const = 0;
-    virtual llvm::Function* getEventCtor(llvm::LLVMContext&) const = 0;
-    virtual llvm::ConstantInt* getEventSize(llvm::LLVMContext&) const = 0;
+    virtual llvm::Function* getEventCtor(llvm::Module&) const = 0;
+    virtual llvm::ConstantInt* getEventSize(llvm::Module& mod) const {
+        auto& context = mod.getContext();
+        return llvm::ConstantInt::get(
+            llvm::Type::getInt64Ty(context),
+            mod.getDataLayout()
+                .getTypeAllocSize(getEventType(context))
+                .getFixedSize());
+    };
 };
 
 struct TracingPass : public KernelInstrumentationPass {
