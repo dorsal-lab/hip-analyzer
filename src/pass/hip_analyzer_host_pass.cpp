@@ -48,7 +48,11 @@ llvm::PreservedAnalyses HostPass::run(llvm::Module& mod,
             llvm::errs() << "Function " << f_original.getName() << '\n';
 
             // Duplicates the stub and calls the appropriate function
-            auto& stub_counter = addCountersDeviceStub(f_original);
+            auto* stub_counter = addCountersDeviceStub(f_original);
+
+            if (trace) {
+                auto* stub_trace = addTracingDeviceStub(f_original);
+            }
 
             // Replaces all call to the original stub with tmp_<stub
             // name>, and add the old function to an erase list
@@ -56,7 +60,7 @@ llvm::PreservedAnalyses HostPass::run(llvm::Module& mod,
                 to_delete.push_back(std::make_pair(&f_original, new_stub));
             }
 
-            stub_counter.print(llvm::dbgs());
+            stub_counter->print(llvm::dbgs());
         } else if (isKernelCallSite(f_original)) {
             // Kernel calling site
 
@@ -88,8 +92,28 @@ llvm::PreservedAnalyses HostPass::run(llvm::Module& mod,
     // alwaysinline
 }
 
-llvm::Function&
+llvm::Function*
 HostPass::addCountersDeviceStub(llvm::Function& f_original) const {
+    auto& context = f_original.getContext();
+
+    return duplicateStubWithArgs(
+        f_original, CfgInstrumentationPass::instrumented_prefix,
+        {CfgInstrumentationPass::getCounterType(context)->getPointerTo()});
+}
+
+llvm::Function*
+HostPass::addTracingDeviceStub(llvm::Function& f_original) const {
+    auto& context = f_original.getContext();
+    auto* i8_ptr = llvm::Type::getInt8PtrTy(context);
+
+    return duplicateStubWithArgs(f_original, TracingPass::instrumented_prefix,
+                                 {i8_ptr, i8_ptr});
+}
+
+llvm::Function*
+HostPass::duplicateStubWithArgs(llvm::Function& f_original,
+                                const std::string& prefix,
+                                llvm::ArrayRef<llvm::Type*> new_args) const {
     auto& mod = *f_original.getParent();
     auto& context = mod.getContext();
 
@@ -97,9 +121,7 @@ HostPass::addCountersDeviceStub(llvm::Function& f_original) const {
     auto* i8_ptr = llvm::Type::getInt8PtrTy(context);
     auto* i32_ptr = llvm::Type::getInt32PtrTy(context);
 
-    auto& f = cloneWithPrefix(
-        f_original, CfgInstrumentationPass::instrumented_prefix,
-        {CfgInstrumentationPass::getCounterType(context)->getPointerTo()});
+    auto& f = cloneWithPrefix(f_original, prefix, new_args);
 
     llvm::ValueToValueMapTy vmap;
 
@@ -113,16 +135,24 @@ HostPass::addCountersDeviceStub(llvm::Function& f_original) const {
                             llvm::CloneFunctionChangeType::LocalChangesOnly,
                             returns);
 
-    f.getArg(f.arg_size() - 1)->addAttr(llvm::Attribute::NoUndef);
+    llvm::SmallVector<llvm::Value*> new_vals;
+    auto i = f_original.arg_size();
+
+    for (auto* type : new_args) {
+        if (type->isPointerTy()) {
+            f.getArg(i)->addAttr(llvm::Attribute::NoUndef);
+        }
+        new_vals.push_back(f.getArg(i));
+        ++i;
+    }
 
     // Add additional arguments to the void* array : uint8_t* _counters;
 
-    pushAdditionalArguments(f, {f.getArg(f.arg_size() - 1)});
+    pushAdditionalArguments(f, new_vals);
 
     // Create global symbol
 
-    auto* global_sym = createKernelSymbol(
-        f_original, f, CfgInstrumentationPass::instrumented_prefix);
+    auto* global_sym = createKernelSymbol(f_original, f, prefix);
 
     // Modify the call to hipLaunchKernel
 
@@ -175,7 +205,7 @@ HostPass::addCountersDeviceStub(llvm::Function& f_original) const {
             llvm::ConstantPointerNull::get(i32_ptr),
         });
 
-    return f;
+    return &f;
 }
 
 llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {

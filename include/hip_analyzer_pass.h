@@ -171,7 +171,7 @@ struct TracingPass : public KernelInstrumentationPass {
  *
  */
 struct HostPass : public llvm::PassInfoMixin<HostPass> {
-    HostPass() {}
+    HostPass(bool tracing = false) : trace(tracing) {}
 
     llvm::PreservedAnalyses run(llvm::Module& mod,
                                 llvm::ModuleAnalysisManager& modm);
@@ -184,7 +184,21 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
      *
      * \returns Instrumented device stub
      */
-    llvm::Function& addCountersDeviceStub(llvm::Function& f_original) const;
+    llvm::Function* addCountersDeviceStub(llvm::Function& f_original) const;
+
+    /** \fn addTracingDeviceStub
+     * \brief Copies the device stub and adds additional arguments for the
+     * tracing instrumentation
+     *
+     * \param f_original Original kernel device stub
+     *
+     * \returns Instrumented device stub
+     */
+    llvm::Function* addTracingDeviceStub(llvm::Function& f_original) const;
+
+    llvm::Function*
+    duplicateStubWithArgs(llvm::Function& f_original, const std::string& prefix,
+                          llvm::ArrayRef<llvm::Type*> new_args) const;
 
     llvm::Function* replaceStubCall(llvm::Function& stub) const;
 
@@ -218,6 +232,9 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
      * \brief Returns the kernel identifier from device stub function
      */
     std::string kernelNameFromStub(llvm::Function& stub) const;
+
+  private:
+    bool trace;
 };
 
 } // namespace hip
