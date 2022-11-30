@@ -10,6 +10,7 @@ extern "C" {
 
 struct hipInstrumenter;
 struct hipStateRecoverer;
+struct hipQueueInfo;
 
 typedef uint8_t counter_t;
 
@@ -56,4 +57,27 @@ void hipStateRecovererRollback(hipStateRecoverer*);
  *
  */
 void freeHipStateRecoverer(hipStateRecoverer*);
+
+// ----- Event queue ----- //
+
+enum class EventType {
+    Event = 0,
+    TaggedEvent = 1,
+    WaveState = 2,
+};
+
+enum class QueueType {
+    Thread = 0,
+    Wave = 1,
+};
+
+hipQueueInfo* newHipQueueInfo(hipInstrumenter*, EventType, QueueType);
+
+void* hipQueueInfoAllocBuffer(hipQueueInfo*);
+
+void* hipQueueInfoAllocOffsets(hipQueueInfo*);
+
+void hipQueueInfoRecord(hipQueueInfo*);
+
+void hipQueueInfoFromDevice(hipQueueInfo*, void*);
 }

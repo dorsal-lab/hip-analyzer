@@ -91,6 +91,13 @@ struct QueueInfo {
         return ptr;
     }
 
+    void* allocBuffer() const {
+        void* ptr;
+        hip::check(hipMalloc(&ptr, totalSize()));
+        hip::check(hipMemset(ptr, 0u, totalSize()));
+        return ptr;
+    }
+
     /** \fn allocOffsets
      * \brief Allocates the offsets list on the device
      */

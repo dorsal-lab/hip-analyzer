@@ -6,7 +6,10 @@
 
 #include "hip_instrumentation/hip_instrumentation_cbindings.hpp"
 #include "hip_instrumentation/hip_instrumentation.hpp"
+#include "hip_instrumentation/queue_info.hpp"
 #include "hip_instrumentation/state_recoverer.hpp"
+
+#include "hip_instrumentation/gpu_queue.hpp"
 
 #include "hip/hip_runtime_api.h"
 
@@ -22,6 +25,13 @@ struct hipInstrumenter {
 struct hipStateRecoverer {
     hip::StateRecoverer boxed;
 };
+
+struct hipQueueInfo {
+    hip::QueueInfo boxed;
+    hipQueueInfo(hip::QueueInfo&& other) : boxed{other} {}
+};
+
+// ----- Instrumenter ----- //
 
 hipInstrumenter* hipNewInstrumenter(const char* kernel_name) {
     dim3 blocks, threads;
@@ -80,4 +90,55 @@ void hipStateRecovererRollback(hipStateRecoverer* recoverer) {
 }
 
 void freeHipStateRecoverer(hipStateRecoverer* recoverer) { delete recoverer; }
+
+// ----- Event queue ----- //
+
+hipQueueInfo* newHipQueueInfo(hipInstrumenter* instr, EventType event_type,
+                              QueueType queue_type) {
+    switch (queue_type) {
+    case QueueType::Thread:
+        switch (event_type) {
+        case EventType::Event:
+            return new hipQueueInfo{
+                hip::QueueInfo::thread<hip::Event>(instr->boxed)};
+        case EventType::TaggedEvent:
+            return new hipQueueInfo{
+                hip::QueueInfo::thread<hip::TaggedEvent>(instr->boxed)};
+
+        default:
+            throw std::runtime_error(
+                "newHipQueueInfo() : Unsupported queue type");
+        }
+    case QueueType::Wave:
+        switch (event_type) {
+        case EventType::Event:
+            return new hipQueueInfo{
+                hip::QueueInfo::wave<hip::Event>(instr->boxed)};
+
+        case EventType::TaggedEvent:
+            return new hipQueueInfo{
+                hip::QueueInfo::wave<hip::TaggedEvent>(instr->boxed)};
+
+        case EventType::WaveState:
+            return new hipQueueInfo{
+                hip::QueueInfo::wave<hip::WaveState>(instr->boxed)};
+        }
+    }
+}
+
+void* hipQueueInfoAllocBuffer(hipQueueInfo* queue_info) {
+    queue_info->boxed.allocBuffer();
+}
+
+void* hipQueueInfoAllocOffsets(hipQueueInfo* queue_info) {
+    return queue_info->boxed.allocOffsets();
+}
+
+void hipQueueInfoRecord(hipQueueInfo* queue_info) {
+    queue_info->boxed.record();
+}
+
+void hipQueueInfoFromDevice(hipQueueInfo* queue_info, void* ptr) {
+    queue_info->boxed.fromDevice(ptr);
+}
 }

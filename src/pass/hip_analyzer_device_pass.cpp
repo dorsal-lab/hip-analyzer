@@ -293,6 +293,7 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
 
     for (auto& bb_instr : blocks) {
         if (bb_instr.id == 0) {
+            // Already instrumented above
             continue;
         }
         while (index < bb_instr.id) {

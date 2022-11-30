@@ -10,10 +10,15 @@
 
 #include "queue_info.hpp"
 
+#ifdef __HIPCC__
 #include "cuda_wrappers/new"
+#else
+#define __device__
+#endif
 
 namespace hip {
 
+#ifdef __HIPCC__
 /** \class ThreadQueue
  * \brief A queue to be filled with events from every thread, of every block.
  */
@@ -137,6 +142,7 @@ template <typename T, typename... Args> std::string HipEventFields() {
         return ss.str();
     }
 }
+#endif
 
 namespace gcnasm {
 
@@ -145,8 +151,9 @@ namespace gcnasm {
  */
 inline __device__ uint32_t get_hw_id() {
     uint32_t hw_id;
+#ifdef __HIPCC__
     asm volatile("s_getreg_b32 %0, hwreg(HW_REG_HW_ID)" : "=s"(hw_id) :);
-
+#endif
     return hw_id;
 }
 
@@ -155,15 +162,17 @@ inline __device__ uint32_t get_hw_id() {
  */
 inline __device__ uint64_t get_exec() {
     uint64_t exec;
+#ifdef __HIPCC__
     asm volatile("s_mov_b64 %0, exec" : "=s"(exec) :);
-
+#endif
     return exec;
 }
 
 inline __device__ uint64_t get_stamp() {
     uint64_t stamp;
+#ifdef __HIPCC__
     asm volatile("s_memrealtime %0" : "=s"(stamp) :);
-
+#endif
     return stamp;
 }
 
