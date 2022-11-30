@@ -127,7 +127,7 @@ hipQueueInfo* newHipQueueInfo(hipInstrumenter* instr, EventType event_type,
 }
 
 void* hipQueueInfoAllocBuffer(hipQueueInfo* queue_info) {
-    queue_info->boxed.allocBuffer();
+    return queue_info->boxed.allocBuffer();
 }
 
 void* hipQueueInfoAllocOffsets(hipQueueInfo* queue_info) {

@@ -223,6 +223,7 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
     auto* uint8_type = llvm::Type::getInt8Ty(context);
     auto* uint8_ptr_type = uint8_type->getPointerTo();
     auto* uint64_type = llvm::Type::getInt64Ty(context);
+    auto* uint32_type = llvm::Type::getInt32Ty(context);
     auto* unqual_ptr_type = llvm::PointerType::getUnqual(context);
 
     auto void_from_ptr_type =
@@ -262,6 +263,23 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
 
     hipStateRecovererRollback =
         getFunction(mod, "hipStateRecovererRollback", void_from_ptr_type);
+
+    newHipQueueInfo =
+        getFunction(mod, "newHipQueueInfo",
+                    llvm::FunctionType::get(
+                        unqual_ptr_type,
+                        {unqual_ptr_type, uint32_type, uint32_type}, false));
+
+    hipQueueInfoAllocBuffer =
+        getFunction(mod, "hipQueueInfoAllocBuffer", ptr_from_ptr_type);
+
+    hipQueueInfoAllocOffsets =
+        getFunction(mod, "hipQueueInfoAllocOffsets", ptr_from_ptr_type);
+
+    hipQueueInfoRecord =
+        getFunction(mod, "hipQueueInfoRecord", void_from_ptr_type);
+    hipQueueInfoFromDevice =
+        getFunction(mod, "hipQueueInfoFromDevice", from_device_type);
 }
 
 CfgFunctions::CfgFunctions(llvm::Module& mod) {

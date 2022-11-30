@@ -54,19 +54,18 @@ void hipStateRecovererRegisterPointer(hipStateRecoverer*, void* potential_ptr);
 void hipStateRecovererRollback(hipStateRecoverer*);
 
 /** \fn freeHipStateRecoverer
- *
  */
 void freeHipStateRecoverer(hipStateRecoverer*);
 
 // ----- Event queue ----- //
 
-enum class EventType {
+enum class EventType : uint32_t {
     Event = 0,
     TaggedEvent = 1,
     WaveState = 2,
 };
 
-enum class QueueType {
+enum class QueueType : uint32_t {
     Thread = 0,
     Wave = 1,
 };
