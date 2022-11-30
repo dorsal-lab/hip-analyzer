@@ -20,7 +20,8 @@ bool isDeviceStub(llvm::Function& f) {
 
     return contains(name, device_stub_prefix) &&
            !contains(name, cloned_suffix +
-                               CfgInstrumentationPass::instrumented_prefix);
+                               CfgInstrumentationPass::instrumented_prefix) &&
+           !contains(name, cloned_suffix + TracingPass::instrumented_prefix);
 }
 
 bool isKernelCallSite(llvm::Function& f) {
@@ -29,7 +30,9 @@ bool isKernelCallSite(llvm::Function& f) {
     return hasFunctionCall(f, "hipLaunchKernel") && !isDeviceStub(f) &&
            !contains(f.getName().str(),
                      cloned_suffix +
-                         CfgInstrumentationPass::instrumented_prefix);
+                         CfgInstrumentationPass::instrumented_prefix) &&
+           !contains(f.getName().str(),
+                     cloned_suffix + TracingPass::instrumented_prefix);
 }
 
 llvm::PreservedAnalyses HostPass::run(llvm::Module& mod,
@@ -264,12 +267,44 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
 
     builder.CreateCall(counters_stub->getFunctionType(), counters_stub, args);
 
-    // TODO : If queue, then launch another kernel
+    llvm::Value *queue_info, *events_buffer, *events_offsets;
+
+    if (trace) {
+        // Launch right after the kernel so it executes in parallel
+        auto* const_0 = getIndex(0u, mod.getContext());
+        // 0, 0 -> thread<hip::Event>
+        queue_info = builder.CreateCall(instr_handlers.newHipQueueInfo,
+                                        {instr, const_0, const_0});
+    }
 
     // Store counters (runtime)
     builder.CreateCall(instr_handlers.hipInstrumenterFromDevice,
                        {instr, device_ptr});
+
+    if (trace) {
+        // TODO Rollback
+
+        events_buffer = builder.CreateCall(
+            instr_handlers.hipQueueInfoAllocBuffer, {queue_info});
+        events_offsets = builder.CreateCall(
+            instr_handlers.hipQueueInfoAllocOffsets, {queue_info});
+
+        // Launch tracing kernel
+
+        args.pop_back();
+        args.push_back(events_buffer);
+        args.push_back(events_offsets);
+        builder.CreateCall(/*tracing_stub*/ nullptr, args);
+    }
+
     builder.CreateCall(instr_handlers.hipInstrumenterRecord, {instr});
+
+    if (trace) {
+        // Store counters (runtime)
+        builder.CreateCall(instr_handlers.hipQueueInfoFromDevice,
+                           {queue_info, events_buffer});
+        builder.CreateCall(instr_handlers.hipQueueInfoRecord, {queue_info});
+    }
 
     // Free allocated instrumentation
     builder.CreateCall(instr_handlers.freeHipInstrumenter, {instr});
@@ -293,6 +328,7 @@ void HostPass::addDeviceStubCall(llvm::Function& f_original) const {
 
     // Get device stub
 
+    llvm::dbgs() << *kernel_call;
     auto* stub = getDeviceStub(dyn_cast<llvm::GlobalValue>(
         dyn_cast<llvm::ConstantExpr>(kernel_call->getArgOperand(0))
             ->getOperand(0)));

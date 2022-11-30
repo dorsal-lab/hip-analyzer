@@ -171,7 +171,7 @@ struct TracingPass : public KernelInstrumentationPass {
  *
  */
 struct HostPass : public llvm::PassInfoMixin<HostPass> {
-    HostPass(bool tracing = false) : trace(tracing) {}
+    HostPass(bool tracing = true) : trace(tracing) {}
 
     llvm::PreservedAnalyses run(llvm::Module& mod,
                                 llvm::ModuleAnalysisManager& modm);
