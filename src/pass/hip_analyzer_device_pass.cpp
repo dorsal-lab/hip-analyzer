@@ -132,7 +132,7 @@ bool CfgInstrumentationPass::instrumentFunction(
     AnalysisPass::Result& blocks) {
 
     auto& context = f.getContext();
-    auto instrumentation_handlers = declareInstrumentation(*f.getParent());
+    CfgFunctions instrumentation_handlers(*f.getParent());
     auto* instr_ptr = f.getArg(f.arg_size() - 1);
 
     // Add counters
@@ -231,7 +231,7 @@ void CfgInstrumentationPass::linkModuleUtils(llvm::Module& mod) {
     // Remove [[clang::optnone]] and add [[clang::always_inline]]
     // attributes
 
-    auto instrumentation_handlers = declareInstrumentation(mod);
+    CfgFunctions instrumentation_handlers(mod);
 
     instrumentation_handlers._hip_store_ctr->removeFnAttr(
         llvm::Attribute::OptimizeNone);
@@ -257,8 +257,7 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
 
     auto& mod = *f.getParent();
     auto& context = f.getContext();
-    auto instrumentation_handlers =
-        declareTracingInstrumentation(*f.getParent());
+    TracingFunctions instrumentation_handlers(mod);
 
     auto* i64_ty = llvm::Type::getInt64Ty(context);
     auto* i8_ptr_ty = llvm::Type::getInt8PtrTy(context);
@@ -340,7 +339,7 @@ void TracingPass::linkModuleUtils(llvm::Module& mod) {
     // Remove [[clang::optnone]] and add [[clang::always_inline]]
     // attributes
 
-    auto instrumentation_handlers = declareTracingInstrumentation(mod);
+    TracingFunctions instrumentation_handlers(mod);
 
     auto deopt = [](auto& f) {
         f->removeFnAttr(llvm::Attribute::OptimizeNone);

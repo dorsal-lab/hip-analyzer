@@ -40,8 +40,6 @@ struct InstrumentedBlock {
  * \brief Structure of pointers to instrumentation functions in the module
  */
 struct InstrumentationFunctions {
-    llvm::Function* _hip_store_ctr;
-
     // ----- C instrumentation API ----- //
 
     // hipInstrumenter
@@ -52,10 +50,34 @@ struct InstrumentationFunctions {
     // hipStateRecoverer
     llvm::Function *hipNewStateRecoverer, *hipStateRecovererRegisterPointer,
         *hipStateRecovererRollback, *freeHipStateRecoverer;
+
+    /** ctor
+     * \brief Forward-declare instrumentation functions in the module, and
+     * returns pointers to them
+     * */
+    InstrumentationFunctions(llvm::Module& mod);
+};
+
+struct CfgFunctions {
+    // ----- CfgCountersFunctions ----- //
+    llvm::Function* _hip_store_ctr;
+
+    /** ctor
+     * \brief Forward-declare cfg instrumentation functions in the module, and
+     * returns pointers to them
+     * */
+    CfgFunctions(llvm::Module& mod);
 };
 
 struct TracingFunctions {
+    // ----- Tracing functions ----- //
     llvm::Function *_hip_get_trace_offset, *_hip_create_event;
+
+    /** ctor
+     * \brief Forward-declare tracing functions in the module, and
+     * returns pointers to them
+     * */
+    TracingFunctions(llvm::Module& mod);
 };
 
 // ----- IR Utils ----- //
@@ -144,17 +166,6 @@ llvm::Function* getFunction(llvm::Module& mod, llvm::StringRef name,
  * \brief Return the generic event constructor type
  */
 llvm::FunctionType* getEventCtorType(llvm::LLVMContext& context);
-
-/** \fn declareInstrumentations
- * \brief Forward-declare instrumentation functions in the module, and returns
- * pointers to them
- */
-InstrumentationFunctions declareInstrumentation(llvm::Module& mod);
-
-/** \fn declareTracingInstrumentation
- *
- */
-TracingFunctions declareTracingInstrumentation(llvm::Module& mod);
 
 /** \fn cloneWithName
  * \brief Clones a function f with a different name, and eventually additional

@@ -182,7 +182,7 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
     auto& mod = *stub.getParent();
 
     auto fun_type = stub.getFunctionType();
-    auto instr_handlers = declareInstrumentation(mod);
+    InstrumentationFunctions instr_handlers(mod);
     auto* call_to_launch = firstCallToFunction(stub, "hipLaunchKernel");
     auto* i8_ptr = llvm::Type::getInt8PtrTy(mod.getContext());
 

@@ -216,8 +216,7 @@ llvm::Function* getFunction(llvm::Module& mod, llvm::StringRef name,
     return fun;
 }
 
-InstrumentationFunctions declareInstrumentation(llvm::Module& mod) {
-    InstrumentationFunctions funs;
+InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
     auto& context = mod.getContext();
 
     auto* void_type = llvm::Type::getVoidTy(context);
@@ -225,12 +224,6 @@ InstrumentationFunctions declareInstrumentation(llvm::Module& mod) {
     auto* uint8_ptr_type = uint8_type->getPointerTo();
     auto* uint64_type = llvm::Type::getInt64Ty(context);
     auto* unqual_ptr_type = llvm::PointerType::getUnqual(context);
-
-    auto* _hip_store_ctr_type = llvm::FunctionType::get(
-        void_type, {uint8_ptr_type, uint64_type, uint8_ptr_type}, false);
-
-    funs._hip_store_ctr =
-        getFunction(mod, "_hip_store_ctr", _hip_store_ctr_type);
 
     auto void_from_ptr_type =
         llvm::FunctionType::get(void_type, {unqual_ptr_type}, false);
@@ -241,36 +234,47 @@ InstrumentationFunctions declareInstrumentation(llvm::Module& mod) {
 
     // This is tedious, but now way around it
 
-    funs.freeHipInstrumenter =
+    freeHipInstrumenter =
         getFunction(mod, "freeHipInstrumenter", void_from_ptr_type);
 
-    funs.freeHipStateRecoverer =
+    freeHipStateRecoverer =
         getFunction(mod, "freeHipStateRecoverer", void_from_ptr_type);
 
-    funs.hipNewInstrumenter =
+    hipNewInstrumenter =
         getFunction(mod, "hipNewInstrumenter", ptr_from_ptr_type);
 
-    funs.hipNewStateRecoverer =
+    hipNewStateRecoverer =
         getFunction(mod, "hipNewStateRecoverer", recoverer_ctor_type);
 
-    funs.hipInstrumenterToDevice =
+    hipInstrumenterToDevice =
         getFunction(mod, "hipInstrumenterToDevice", ptr_from_ptr_type);
 
     auto from_device_type = llvm::FunctionType::get(
         void_type, {unqual_ptr_type, unqual_ptr_type}, false);
-    funs.hipInstrumenterFromDevice =
+    hipInstrumenterFromDevice =
         getFunction(mod, "hipInstrumenterFromDevice", from_device_type);
 
-    funs.hipInstrumenterRecord =
+    hipInstrumenterRecord =
         getFunction(mod, "hipInstrumenterRecord", void_from_ptr_type);
 
-    funs.hipStateRecovererRegisterPointer =
+    hipStateRecovererRegisterPointer =
         getFunction(mod, "hipStateRecovererRegisterPointer", from_device_type);
 
-    funs.hipStateRecovererRollback =
+    hipStateRecovererRollback =
         getFunction(mod, "hipStateRecovererRollback", void_from_ptr_type);
+}
 
-    return funs;
+CfgFunctions::CfgFunctions(llvm::Module& mod) {
+    auto& context = mod.getContext();
+
+    auto* void_type = llvm::Type::getVoidTy(context);
+    auto* uint8_ptr_type = llvm::Type::getInt8PtrTy(context);
+    auto* uint64_type = llvm::Type::getInt64Ty(context);
+
+    auto* _hip_store_ctr_type = llvm::FunctionType::get(
+        void_type, {uint8_ptr_type, uint64_type, uint8_ptr_type}, false);
+
+    _hip_store_ctr = getFunction(mod, "_hip_store_ctr", _hip_store_ctr_type);
 }
 
 llvm::FunctionType* getEventCtorType(llvm::LLVMContext& context) {
@@ -281,8 +285,7 @@ llvm::FunctionType* getEventCtorType(llvm::LLVMContext& context) {
                                    false);
 }
 
-TracingFunctions declareTracingInstrumentation(llvm::Module& mod) {
-    TracingFunctions funs;
+TracingFunctions::TracingFunctions(llvm::Module& mod) {
     auto& context = mod.getContext();
 
     auto* void_type = llvm::Type::getVoidTy(context);
@@ -293,21 +296,19 @@ TracingFunctions declareTracingInstrumentation(llvm::Module& mod) {
 
     auto* _hip_event_ctor_type = getEventCtorType(context);
 
-    funs._hip_get_trace_offset = getFunction(
+    _hip_get_trace_offset = getFunction(
         mod, "_hip_get_trace_offset",
         llvm::FunctionType::get(
             uint8_ptr_type,
             {uint8_ptr_type, uint64_type->getPointerTo(), uint64_type}, false));
 
-    funs._hip_create_event = getFunction(
+    _hip_create_event = getFunction(
         mod, "_hip_create_event",
         llvm::FunctionType::get(
             void_type,
             {uint8_ptr_type, uint64_type->getPointerTo(), uint64_type,
              _hip_event_ctor_type->getPointerTo(), uint64_type},
             false));
-
-    return funs;
 }
 
 llvm::Function& cloneWithName(llvm::Function& f, const std::string& name,
