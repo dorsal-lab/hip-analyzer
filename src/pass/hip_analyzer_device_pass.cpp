@@ -270,8 +270,8 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
     setInsertPointPastAllocas(builder_locals, f);
 
     // Create the local counter and initialize it to 0.
-    auto* idx =
-        builder_locals.CreateAlloca(i64_ty, nullptr, llvm::Twine("_trace_idx"));
+    auto* idx = builder_locals.CreateAlloca(i64_ty, 0, nullptr,
+                                            llvm::Twine("_trace_idx"));
     builder_locals.CreateStore(llvm::ConstantInt::get(i64_ty, 0), idx);
 
     auto* storage_ptr =
@@ -281,9 +281,15 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
         instrumentation_handlers._hip_get_trace_offset,
         {storage_ptr, offsets_ptr, event->getEventSize(mod)});
 
+    builder_locals.CreateCall(instrumentation_handlers._hip_create_event,
+                              {storage_ptr, idx, event->getEventSize(mod),
+                               event->getEventCtor(mod), getIndex(0, context)});
+
+    // Start at 1 because the first block is handled separately
+
     auto& function_block_list = f.getBasicBlockList();
-    auto curr_bb = f.begin();
-    auto index = 0u;
+    auto curr_bb = ++f.begin();
+    auto index = 1u;
 
     for (auto& bb_instr : blocks) {
         while (index < bb_instr.id) {
@@ -330,14 +336,16 @@ void TracingPass::linkModuleUtils(llvm::Module& mod) {
     // Remove [[clang::optnone]] and add [[clang::always_inline]]
     // attributes
 
-    auto instrumentation_handlers = declareInstrumentation(mod);
+    auto instrumentation_handlers = declareTracingInstrumentation(mod);
 
-    instrumentation_handlers._hip_store_ctr->removeFnAttr(
-        llvm::Attribute::OptimizeNone);
-    instrumentation_handlers._hip_store_ctr->removeFnAttr(
-        llvm::Attribute::NoInline);
-    instrumentation_handlers._hip_store_ctr->addFnAttr(
-        llvm::Attribute::AlwaysInline);
+    auto deopt = [](auto& f) {
+        f->removeFnAttr(llvm::Attribute::OptimizeNone);
+        f->removeFnAttr(llvm::Attribute::NoInline);
+        f->addFnAttr(llvm::Attribute::AlwaysInline);
+    };
+
+    deopt(instrumentation_handlers._hip_get_trace_offset);
+    deopt(instrumentation_handlers._hip_create_event);
 }
 
 } // namespace hip

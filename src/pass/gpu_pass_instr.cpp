@@ -57,6 +57,8 @@ namespace {
 [[clang::optnone]] __global__ void dummy_kernel_noopt(size_t _bb_count,
                                                       uint8_t* _instr_ptr) {
     _hip_store_ctr(nullptr, 0, nullptr);
+    _hip_get_trace_offset(nullptr, nullptr, 0);
+    _hip_create_event(nullptr, nullptr, 0, nullptr, 0);
 }
 
 } // namespace
