@@ -321,24 +321,6 @@ TracingPass::getExtraArguments(llvm::LLVMContext& context) const {
 }
 
 void TracingPass::linkModuleUtils(llvm::Module& mod) {
-    llvm::Linker linker(mod);
-    auto& context = mod.getContext();
-    context.setDiscardValueNames(false);
-
-    // Load compiled module
-    llvm::SMDiagnostic diag;
-    auto utils_mod = llvm::parseIRFile(utils_path, diag, context);
-    if (!utils_mod) {
-        llvm::errs() << diag.getMessage() << '\n';
-        throw std::runtime_error("TracingPass::linkModuleUtils()"
-                                 " : Could not load utils module");
-    }
-
-    linker.linkInModule(std::move(utils_mod));
-
-    // Remove [[clang::optnone]] and add [[clang::always_inline]]
-    // attributes
-
     TracingFunctions instrumentation_handlers(mod);
 
     auto deopt = [](auto& f) {

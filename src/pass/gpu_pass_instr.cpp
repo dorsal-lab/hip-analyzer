@@ -6,6 +6,8 @@
 
 #include "hip/hip_runtime.h"
 
+#include "hip_instrumentation/gpu_queue.hpp"
+
 extern "C" {
 
 // ----- Counters instrumentation ----- //
@@ -46,6 +48,20 @@ __device__ void _hip_create_event(void* storage, size_t* idx, size_t event_size,
     // Postfix increment global index
     auto curr_index = (*idx)++;
     ctor(&bitcast[curr_index * event_size], bb);
+}
+
+// ----- Events constructors ----- //
+
+__device__ void _hip_event_ctor(void* buf, size_t bb) {
+    new (buf) hip::Event{bb};
+}
+
+__device__ void _hip_tagged_event_ctor(void* buf, size_t bb) {
+    new (buf) hip::TaggedEvent{bb};
+}
+
+__device__ void _hip_wavestate_ctor(void* buf, size_t bb) {
+    new (buf) hip::WaveState{bb};
 }
 }
 

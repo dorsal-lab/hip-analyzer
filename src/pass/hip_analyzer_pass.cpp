@@ -17,6 +17,11 @@ static llvm::cl::opt<std::string>
     trace_type("trace_type", llvm::cl::desc("hip-analyzer trace type"),
                llvm::cl::init("trace-event"));
 
+static llvm::cl::opt<bool>
+    do_trace("hip-trace",
+             llvm::cl::desc("hip-analyzer add to trace kernel values"),
+             llvm::cl::init("false"));
+
 llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
     return {
         LLVM_PLUGIN_API_VERSION, "hip-analyzer", LLVM_VERSION_STRING,
@@ -40,7 +45,10 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
             pb.registerPipelineStartEPCallback(
                 [](llvm::ModulePassManager& pm, llvm::OptimizationLevel Level) {
                     pm.addPass(hip::CfgInstrumentationPass());
-                    pm.addPass(hip::HostPass());
+                    if (do_trace) {
+                        pm.addPass(hip::TracingPass(trace_type.getValue()));
+                    }
+                    pm.addPass(hip::HostPass(do_trace));
                 });
             pb.registerAnalysisRegistrationCallback(
                 [](llvm::FunctionAnalysisManager& fam) {
