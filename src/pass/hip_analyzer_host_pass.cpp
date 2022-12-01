@@ -231,6 +231,11 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
         {CfgInstrumentationPass::getCounterType(mod.getContext())
              ->getPointerTo()});
 
+    auto* tracing_stub = &cloneWithPrefix(
+        stub, TracingPass::instrumented_prefix, {i8_ptr, i8_ptr});
+    llvm::dbgs() << *counters_stub;
+    llvm::dbgs() << *tracing_stub;
+
     auto* bb = llvm::BasicBlock::Create(mod.getContext(), "", new_stub);
 
     llvm::IRBuilder<> builder(bb);
@@ -266,6 +271,7 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
     args.push_back(builder.CreateBitCast(device_ptr, i8_ptr));
 
     builder.CreateCall(counters_stub->getFunctionType(), counters_stub, args);
+    args.pop_back();
 
     llvm::Value *queue_info, *events_buffer, *events_offsets;
 
@@ -291,10 +297,10 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
 
         // Launch tracing kernel
 
-        args.pop_back();
         args.push_back(events_buffer);
         args.push_back(events_offsets);
-        builder.CreateCall(/*tracing_stub*/ nullptr, args);
+        builder.CreateCall(tracing_stub, args);
+        args.pop_back_n(2);
     }
 
     builder.CreateCall(instr_handlers.hipInstrumenterRecord, {instr});
