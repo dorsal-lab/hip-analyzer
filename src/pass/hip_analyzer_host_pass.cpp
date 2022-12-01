@@ -277,7 +277,8 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
 
     if (trace) {
         // Launch right after the kernel so it executes in parallel
-        auto* const_0 = getIndex(0u, mod.getContext());
+        auto* const_0 = llvm::ConstantInt::get(
+            llvm::Type::getInt32Ty(mod.getContext()), 0ul);
         // 0, 0 -> thread<hip::Event>
         queue_info = builder.CreateCall(instr_handlers.newHipQueueInfo,
                                         {instr, const_0, const_0});
@@ -297,8 +298,8 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
 
         // Launch tracing kernel
 
-        args.push_back(events_buffer);
-        args.push_back(events_offsets);
+        args.push_back(builder.CreateBitCast(events_buffer, i8_ptr));
+        args.push_back(builder.CreateBitCast(events_offsets, i8_ptr));
         builder.CreateCall(tracing_stub, args);
         args.pop_back_n(2);
     }
