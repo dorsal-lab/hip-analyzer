@@ -17,6 +17,8 @@ extern "C" {
 
 struct hipInstrumenter {
     hip::Instrumenter boxed;
+    size_t shared_mem;
+    hipStream_t stream;
 
     hipInstrumenter(hip::KernelInfo& ki) : boxed(ki) {}
     hipInstrumenter() = default;
@@ -47,11 +49,15 @@ hipInstrumenter* hipNewInstrumenter(const char* kernel_name) {
 
     auto* instr = new hipInstrumenter{};
 
-    unsigned int bblocks = instr->boxed.loadDatabase().size();
+    unsigned int bblocks = instr->boxed.loadDatabase(kernel_name).size();
 
     hip::KernelInfo ki{kernel_name, bblocks, blocks, threads};
 
     instr->boxed.setKernelInfo(ki);
+
+    // Save stream for eventual re-push
+    instr->shared_mem = shared_mem;
+    instr->stream = stream;
 
     // Revert call configuration
 
@@ -69,6 +75,9 @@ counter_t* hipInstrumenterToDevice(hipInstrumenter* instr) {
 }
 
 void hipInstrumenterFromDevice(hipInstrumenter* instr, void* device_ptr) {
+    if (hipDeviceSynchronize() != hipSuccess) {
+        return;
+    }
     instr->boxed.fromDevice(device_ptr);
 }
 
@@ -85,8 +94,18 @@ void hipStateRecovererRegisterPointer(hipStateRecoverer* recoverer,
     recoverer->boxed.registerCallArgs(potential_ptr);
 }
 
-void hipStateRecovererRollback(hipStateRecoverer* recoverer) {
+void hipStateRecovererRollback(hipStateRecoverer* recoverer,
+                               hipInstrumenter* instr) {
     recoverer->boxed.rollback();
+
+    // Revert call configuration
+    auto& ki = instr->boxed.kernelInfo();
+    if (__hipPushCallConfiguration(ki.blocks, ki.threads_per_blocks,
+                                   instr->shared_mem,
+                                   instr->stream) != hipSuccess) {
+        throw std::runtime_error(
+            "hipNewInstrumenter() : Could not push call configuration");
+    }
 }
 
 void freeHipStateRecoverer(hipStateRecoverer* recoverer) { delete recoverer; }
@@ -139,6 +158,9 @@ void hipQueueInfoRecord(hipQueueInfo* queue_info) {
 }
 
 void hipQueueInfoFromDevice(hipQueueInfo* queue_info, void* ptr) {
+    if (hipDeviceSynchronize() != hipSuccess) {
+        return;
+    }
     queue_info->boxed.fromDevice(ptr);
 }
 }

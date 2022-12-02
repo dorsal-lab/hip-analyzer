@@ -51,7 +51,7 @@ void hipStateRecovererRegisterPointer(hipStateRecoverer*, void* potential_ptr);
  * \brief Equivalent of hip::HipMemoryManager::rollback(), revert to the
  * original value of all arrays
  */
-void hipStateRecovererRollback(hipStateRecoverer*);
+void hipStateRecovererRollback(hipStateRecoverer*, hipInstrumenter*);
 
 /** \fn freeHipStateRecoverer
  */

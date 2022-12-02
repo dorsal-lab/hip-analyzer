@@ -48,13 +48,14 @@ llvm::PreservedAnalyses HostPass::run(llvm::Module& mod,
     for (auto& f_original : mod.functions()) {
         if (isDeviceStub(f_original) && !f_original.isDeclaration()) {
             // Device stub
-            llvm::errs() << "Function " << f_original.getName() << '\n';
 
             // Duplicates the stub and calls the appropriate function
             auto* stub_counter = addCountersDeviceStub(f_original);
+            llvm::dbgs() << *stub_counter;
 
             if (trace) {
                 auto* stub_trace = addTracingDeviceStub(f_original);
+                llvm::dbgs() << *stub_trace;
             }
 
             // Replaces all call to the original stub with tmp_<stub
@@ -63,7 +64,6 @@ llvm::PreservedAnalyses HostPass::run(llvm::Module& mod,
                 to_delete.push_back(std::make_pair(&f_original, new_stub));
             }
 
-            stub_counter->print(llvm::dbgs());
         } else if (isKernelCallSite(f_original)) {
             // Kernel calling site
 
@@ -231,10 +231,10 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
         {CfgInstrumentationPass::getCounterType(mod.getContext())
              ->getPointerTo()});
 
-    auto* tracing_stub = &cloneWithPrefix(
-        stub, TracingPass::instrumented_prefix, {i8_ptr, i8_ptr});
-    llvm::dbgs() << *counters_stub;
-    llvm::dbgs() << *tracing_stub;
+    auto* tracing_stub =
+        trace ? &cloneWithPrefix(stub, TracingPass::instrumented_prefix,
+                                 {i8_ptr, i8_ptr})
+              : nullptr;
 
     auto* bb = llvm::BasicBlock::Create(mod.getContext(), "", new_stub);
 
@@ -246,8 +246,12 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
 
     auto* instr = builder.CreateCall(
         instr_handlers.hipNewInstrumenter,
-        {builder.CreateBitCast(call_to_launch->getArgOperand(0),
-                               unqual_ptr_type)});
+        {builder.CreateBitCast(
+            builder.CreateGlobalStringPtr(
+                dyn_cast<llvm::ConstantExpr>(call_to_launch->getArgOperand(0))
+                    ->getOperand(0)
+                    ->getName()),
+            unqual_ptr_type)});
 
     auto* recoverer =
         builder.CreateCall(instr_handlers.hipNewStateRecoverer, {});
@@ -289,7 +293,8 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
                        {instr, device_ptr});
 
     if (trace) {
-        // TODO Rollback
+        builder.CreateCall(instr_handlers.hipStateRecovererRollback,
+                           {recoverer, instr});
 
         events_buffer = builder.CreateCall(
             instr_handlers.hipQueueInfoAllocBuffer, {queue_info});
@@ -323,6 +328,8 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
 
     stub.replaceAllUsesWith(new_stub);
 
+    llvm::dbgs() << *new_stub;
+
     return new_stub;
 }
 
@@ -335,7 +342,7 @@ void HostPass::addDeviceStubCall(llvm::Function& f_original) const {
 
     // Get device stub
 
-    llvm::dbgs() << *kernel_call;
+    // llvm::dbgs() << *kernel_call;
     auto* stub = getDeviceStub(dyn_cast<llvm::GlobalValue>(
         dyn_cast<llvm::ConstantExpr>(kernel_call->getArgOperand(0))
             ->getOperand(0)));
@@ -356,7 +363,7 @@ void HostPass::addDeviceStubCall(llvm::Function& f_original) const {
         for (auto* use_stack : stack_storage->users()) {
             if (auto* store_inst = dyn_cast<llvm::StoreInst>(use_stack)) {
                 if (stack_storage == store_inst->getPointerOperand()) {
-                    llvm::dbgs() << *store_inst << '\n';
+                    // llvm::dbgs() << *store_inst << '\n';
 
                     // Handle boolean values
                     auto* arg = stub->getArg(idx);

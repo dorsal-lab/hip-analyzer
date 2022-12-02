@@ -262,7 +262,9 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
         getFunction(mod, "hipStateRecovererRegisterPointer", from_device_type);
 
     hipStateRecovererRollback =
-        getFunction(mod, "hipStateRecovererRollback", void_from_ptr_type);
+        getFunction(mod, "hipStateRecovererRollback",
+                    llvm::FunctionType::get(
+                        void_type, {unqual_ptr_type, unqual_ptr_type}, false));
 
     newHipQueueInfo =
         getFunction(mod, "newHipQueueInfo",
@@ -360,7 +362,6 @@ llvm::Function& cloneWithPrefix(llvm::Function& f, const std::string& prefix,
 
 void pushAdditionalArguments(llvm::Function& f,
                              llvm::ArrayRef<llvm::Value*> kernel_args) {
-    llvm::dbgs() << f;
     auto push_call = firstInstructionOf<llvm::CallInst>(f);
     --push_call;
 

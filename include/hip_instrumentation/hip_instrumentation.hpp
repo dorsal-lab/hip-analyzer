@@ -89,11 +89,20 @@ class Instrumenter {
      * \brief Load blocks from database
      */
     const std::vector<hip::BasicBlock>&
-    loadDatabase(const std::string& filename);
+    loadDatabase(const std::string& kernel_name);
+
+    /** \fn loadDatabase
+     * \brief Load blocks from database
+     */
+    const std::vector<hip::BasicBlock>&
+    loadDatabase(const std::string& filename_in,
+                 const std::string& kernel_name);
+
+    std::string getDatabaseName() const;
 
     /** \fn toDevice
-     * \brief Allocates data on both the host and the device, returns the device
-     * pointer.
+     * \brief Allocates data on both the host and the device, returns the
+     * device pointer.
      */
     counter_t* toDevice();
 

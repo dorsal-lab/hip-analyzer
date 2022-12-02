@@ -20,7 +20,7 @@ static llvm::cl::opt<std::string>
 static llvm::cl::opt<bool>
     do_trace("hip-trace",
              llvm::cl::desc("hip-analyzer add to trace kernel values"),
-             llvm::cl::init("false"));
+             llvm::cl::init(true));
 
 llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
     return {

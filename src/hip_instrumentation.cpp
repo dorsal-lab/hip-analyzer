@@ -607,23 +607,39 @@ size_t Instrumenter::loadBin(const std::string& filename) {
     return in.gcount();
 }
 
-const std::vector<hip::BasicBlock>& Instrumenter::loadDatabase() {
+std::string Instrumenter::getDatabaseName() const {
     namespace fs = std::filesystem;
 
     if (auto* env = std::getenv(HIP_ANALYZER_ENV)) {
-        return loadDatabase(env);
+        return env;
     } else if (fs::exists(kernel_info->name + ".json")) {
-        return loadDatabase(kernel_info->name + ".json");
+        return kernel_info->name + ".json";
     } else if (fs::exists(HIP_ANALYZER_DEFAULT_FILE)) {
-        return loadDatabase(HIP_ANALYZER_DEFAULT_FILE);
+        return HIP_ANALYZER_DEFAULT_FILE;
+    } else {
+        throw std::runtime_error(
+            "hip::Instrumenter::loadDatabase() : Could not file database file");
+    }
+}
+
+const std::vector<hip::BasicBlock>& Instrumenter::loadDatabase() {
+    if (!kernel_info.has_value()) {
+        throw std::runtime_error("hip::Instrumenter::loadDatabase() : Unknown "
+                                 "kernel name, cannot load database");
     }
 
-    throw std::runtime_error(
-        "hip::Instrumenter::loadDatabase() : Could not file database file");
+    return loadDatabase(getDatabaseName(), kernel_info->name);
 }
+
 const std::vector<hip::BasicBlock>&
-Instrumenter::loadDatabase(const std::string& filename_in) {
-    blocks = BasicBlock::fromJsonArray(filename_in);
+Instrumenter::loadDatabase(const std::string& kernel_name) {
+    return loadDatabase(getDatabaseName(), kernel_name);
+}
+
+const std::vector<hip::BasicBlock>&
+Instrumenter::loadDatabase(const std::string& filename_in,
+                           const std::string& kernel_name) {
+    blocks = BasicBlock::fromJsonArray(filename_in, kernel_name);
 
     return blocks;
 }

@@ -140,6 +140,7 @@ target_link_libraries(
     LLVMCore
     LLVMSupport
     LLVMAnalysis
+    jsoncpp
 )
 
 add_library(hip_instrumentation

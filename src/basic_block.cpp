@@ -89,14 +89,29 @@ BasicBlock BasicBlock::fromJson(const std::string& json) {
     return {id, clang_id, flops, begin_loc, end_loc, f_ld, f_st};
 }
 
-std::vector<BasicBlock> BasicBlock::fromJsonArray(const std::string& json) {
+std::vector<BasicBlock>
+BasicBlock::fromJsonArray(const std::string& json,
+                          const std::string& kernel_name) {
     std::vector<BasicBlock> blocks;
     Json::Value root;
 
     std::ifstream file_in(json);
+    if (!file_in.is_open()) {
+        throw std::runtime_error("hip::BasicBlock::fromJsonArray() : Could not "
+                                 "open database file (" +
+                                 json + ')');
+    }
+
     file_in >> root;
 
-    for (auto value : root) {
+    auto& kernel_info = root[kernel_name];
+
+    if (kernel_info.isNull()) {
+        throw std::runtime_error("hip::BasicBlock::fromJsonArray() : Could not "
+                                 "find kernel in database");
+    }
+
+    for (auto value : kernel_info) {
         unsigned int id = value.get("id", 0u).asUInt();
         unsigned int clang_id = value.get("clang_id", 0u).asUInt();
         unsigned int flops = value.get("flops", 0u).asUInt();
@@ -112,8 +127,8 @@ std::vector<BasicBlock> BasicBlock::fromJsonArray(const std::string& json) {
     return blocks;
 }
 
-std::string BasicBlock::getEnvDatabaseFile(const std::string& kernel_name) {
-    // Unused arg kernel name
+std::string BasicBlock::getEnvDatabaseFile(
+    [[maybe_unused]] const std::string& kernel_name) {
     if (const char* env = std::getenv(hip::env_var_name)) {
         return {env};
     } else {

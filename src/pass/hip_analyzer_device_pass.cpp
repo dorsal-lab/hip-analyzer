@@ -13,6 +13,8 @@
 #include "llvm/Linker/Linker.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
+#include <json/json.h>
+
 #include "ir_codegen.h"
 
 namespace hip {
@@ -40,8 +42,23 @@ AnalysisPass::Result AnalysisPass::run(llvm::Function& fn,
         ++i;
     }
 
+    Json::Value root{Json::objectValue};
+    std::ifstream in("hip_analyzer.json");
+    if (in.is_open()) {
+        in >> root;
+    }
+
+    auto report = BasicBlock::jsonArray(blocks_legacy);
+    std::stringstream ss;
+    ss << report;
+
+    Json::Value new_report;
+    ss >> new_report;
+
+    root[fn.getName().str()] = new_report;
+
     std::ofstream out("hip_analyzer.json");
-    out << BasicBlock::jsonArray(blocks_legacy);
+    out << root;
     out.close();
 
     return blocks;
@@ -79,7 +96,7 @@ KernelInstrumentationPass::run(llvm::Module& mod,
         auto& fm = modm.getResult<llvm::FunctionAnalysisManagerModuleProxy>(mod)
                        .getManager();
 
-        auto blocks = fm.getResult<AnalysisPass>(f);
+        auto blocks = fm.getResult<AnalysisPass>(f_original);
 
         modified |= instrumentFunction(f, f_original, blocks);
     }

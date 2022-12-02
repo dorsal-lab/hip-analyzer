@@ -50,13 +50,15 @@ struct BasicBlock {
     /** \fn fromJsonArray
      * \brief Load block from JSON array format
      */
-    static std::vector<BasicBlock> fromJsonArray(const std::string& json);
+    static std::vector<BasicBlock>
+    fromJsonArray(const std::string& json, const std::string& kernel_name);
 
     /** \fn getEnvDatabaseFile
      * \brief Returns a path to the instrumentation database, stored either as
      * an environment variable or using the default value
      */
-    static std::string getEnvDatabaseFile(const std::string& kernel_name);
+    static std::string
+    getEnvDatabaseFile([[maybe_unused]] const std::string& kernel_name);
 
     /** \fn normalized
      * \brief Returns a (longer) vector in a "normalized" form : the id is its
