@@ -293,12 +293,12 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
     auto* storage_ptr =
         builder_locals.CreateBitCast(f.getArg(f.arg_size() - 2), i8_ptr_ty);
 
-    auto* offset = builder_locals.CreateCall(
+    auto* thread_storage = builder_locals.CreateCall(
         instrumentation_handlers._hip_get_trace_offset,
         {storage_ptr, offsets_ptr, event->getEventSize(mod)});
 
     builder_locals.CreateCall(instrumentation_handlers._hip_create_event,
-                              {storage_ptr, idx, event->getEventSize(mod),
+                              {thread_storage, idx, event->getEventSize(mod),
                                event->getEventCtor(mod), getIndex(0, context)});
 
     // Start at 1 because the first block is handled separately
@@ -320,10 +320,10 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
         builder_locals.SetInsertPoint(&(*curr_bb),
                                       getFirstNonPHIOrDbgOrAlloca(*curr_bb));
 
-        builder_locals.CreateCall(instrumentation_handlers._hip_create_event,
-                                  {storage_ptr, idx, event->getEventSize(mod),
-                                   event->getEventCtor(mod),
-                                   getIndex(bb_instr.id, context)});
+        builder_locals.CreateCall(
+            instrumentation_handlers._hip_create_event,
+            {thread_storage, idx, event->getEventSize(mod),
+             event->getEventCtor(mod), getIndex(bb_instr.id, context)});
     }
 
     llvm::dbgs() << f;

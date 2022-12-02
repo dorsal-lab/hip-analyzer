@@ -279,20 +279,20 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
 
     llvm::Value *queue_info, *events_buffer, *events_offsets;
 
-    if (trace) {
-        // Launch right after the kernel so it executes in parallel
-        auto* const_0 = llvm::ConstantInt::get(
-            llvm::Type::getInt32Ty(mod.getContext()), 0ul);
-        // 0, 0 -> thread<hip::Event>
-        queue_info = builder.CreateCall(instr_handlers.newHipQueueInfo,
-                                        {instr, const_0, const_0});
-    }
-
     // Store counters (runtime)
     builder.CreateCall(instr_handlers.hipInstrumenterFromDevice,
                        {instr, device_ptr});
 
     if (trace) {
+        // Launch right after the kernel so it executes in parallel
+        auto* const_0 = llvm::ConstantInt::get(
+            llvm::Type::getInt32Ty(mod.getContext()), 0ul);
+
+        // 0, 0 -> thread<hip::Event>
+
+        queue_info = builder.CreateCall(instr_handlers.newHipQueueInfo,
+                                        {instr, const_0, const_0});
+
         builder.CreateCall(instr_handlers.hipStateRecovererRollback,
                            {recoverer, instr});
 
