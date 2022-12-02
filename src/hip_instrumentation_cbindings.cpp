@@ -114,15 +114,16 @@ void freeHipStateRecoverer(hipStateRecoverer* recoverer) { delete recoverer; }
 
 hipQueueInfo* newHipQueueInfo(hipInstrumenter* instr, EventType event_type,
                               QueueType queue_type) {
+    constexpr auto extra_size = 0u;
     switch (queue_type) {
     case QueueType::Thread:
         switch (event_type) {
         case EventType::Event:
             return new hipQueueInfo{
-                hip::QueueInfo::thread<hip::Event>(instr->boxed)};
+                hip::QueueInfo::thread<hip::Event>(instr->boxed, extra_size)};
         case EventType::TaggedEvent:
-            return new hipQueueInfo{
-                hip::QueueInfo::thread<hip::TaggedEvent>(instr->boxed)};
+            return new hipQueueInfo{hip::QueueInfo::thread<hip::TaggedEvent>(
+                instr->boxed, extra_size)};
 
         default:
             throw std::runtime_error(
@@ -132,15 +133,15 @@ hipQueueInfo* newHipQueueInfo(hipInstrumenter* instr, EventType event_type,
         switch (event_type) {
         case EventType::Event:
             return new hipQueueInfo{
-                hip::QueueInfo::wave<hip::Event>(instr->boxed)};
+                hip::QueueInfo::wave<hip::Event>(instr->boxed, extra_size)};
 
         case EventType::TaggedEvent:
-            return new hipQueueInfo{
-                hip::QueueInfo::wave<hip::TaggedEvent>(instr->boxed)};
+            return new hipQueueInfo{hip::QueueInfo::wave<hip::TaggedEvent>(
+                instr->boxed, extra_size)};
 
         case EventType::WaveState:
             return new hipQueueInfo{
-                hip::QueueInfo::wave<hip::WaveState>(instr->boxed)};
+                hip::QueueInfo::wave<hip::WaveState>(instr->boxed, extra_size)};
         }
     }
 }
