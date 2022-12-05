@@ -11,6 +11,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Linker/Linker.h"
+#include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <json/json.h>
@@ -81,6 +82,11 @@ KernelInstrumentationPass::run(llvm::Module& mod,
             continue;
         }
 
+        auto& fm = modm.getResult<llvm::FunctionAnalysisManagerModuleProxy>(mod)
+                       .getManager();
+
+        llvm::SimplifyCFGPass().run(f_original, fm);
+
         llvm::dbgs() << "Function " << f_original.getName() << '\n'
                      << f_original;
 
@@ -92,9 +98,6 @@ KernelInstrumentationPass::run(llvm::Module& mod,
 
         llvm::errs() << "Function " << f.getName() << '\n';
         f.print(llvm::dbgs(), nullptr);
-
-        auto& fm = modm.getResult<llvm::FunctionAnalysisManagerModuleProxy>(mod)
-                       .getManager();
 
         auto blocks = fm.getResult<AnalysisPass>(f_original);
 
