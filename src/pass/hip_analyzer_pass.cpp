@@ -15,7 +15,7 @@ static llvm::cl::opt<std::string>
 
 static llvm::cl::opt<std::string>
     trace_type("trace_type", llvm::cl::desc("hip-analyzer trace type"),
-               llvm::cl::init("trace-event"));
+               llvm::cl::init("trace-wavestate"));
 
 static llvm::cl::opt<bool>
     do_trace("hip-trace",

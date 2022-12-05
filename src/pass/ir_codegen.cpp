@@ -316,19 +316,27 @@ TracingFunctions::TracingFunctions(llvm::Module& mod) {
 
     auto* _hip_event_ctor_type = getEventCtorType(context);
 
-    _hip_get_trace_offset = getFunction(
-        mod, "_hip_get_trace_offset",
-        llvm::FunctionType::get(
-            uint8_ptr_type,
-            {uint8_ptr_type, uint64_type->getPointerTo(), uint64_type}, false));
+    auto* offset_getter_type = llvm::FunctionType::get(
+        uint8_ptr_type,
+        {uint8_ptr_type, uint64_type->getPointerTo(), uint64_type}, false);
 
-    _hip_create_event = getFunction(
-        mod, "_hip_create_event",
-        llvm::FunctionType::get(
-            void_type,
-            {uint8_ptr_type, uint64_type->getPointerTo(), uint64_type,
-             _hip_event_ctor_type->getPointerTo(), uint64_type},
-            false));
+    auto* event_creator_type = llvm::FunctionType::get(
+        void_type,
+        {uint8_ptr_type, uint64_type->getPointerTo(), uint64_type,
+         _hip_event_ctor_type->getPointerTo(), uint64_type},
+        false);
+
+    _hip_get_trace_offset =
+        getFunction(mod, "_hip_get_trace_offset", offset_getter_type);
+
+    _hip_get_wave_trace_offset =
+        getFunction(mod, "_hip_get_wave_trace_offset", offset_getter_type);
+
+    _hip_create_event =
+        getFunction(mod, "_hip_create_event", event_creator_type);
+
+    _hip_create_wave_event =
+        getFunction(mod, "_hip_create_wave_event", event_creator_type);
 }
 
 llvm::Function& cloneWithName(llvm::Function& f, const std::string& name,

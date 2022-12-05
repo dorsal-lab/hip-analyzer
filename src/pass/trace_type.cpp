@@ -50,6 +50,10 @@ class WaveState : public TraceType {
         return getFunction(mod, "_hip_wavestate_ctor",
                            getEventCtorType(mod.getContext()));
     }
+
+    llvm::Function* getOffsetGetter(llvm::Module& mod) const override {
+        return TracingFunctions{mod}._hip_get_wave_trace_offset;
+    }
 };
 
 } // namespace

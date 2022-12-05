@@ -120,8 +120,21 @@ class TraceType {
     static std::unique_ptr<TraceType> create(const std::string& trace_type);
     virtual ~TraceType() = default;
 
+    /** \fn getEventType
+     * \brief Returns the event type (struct containing all the traced types)
+     */
     virtual llvm::Type* getEventType(llvm::LLVMContext&) const = 0;
+
+    /** \fn getEventCtor
+     * \brief Returns the event constructor, which populates the aformentioned
+     * struct. The event constructor calls the underlying C++ object constructor
+     * using the placement-new syntax
+     */
     virtual llvm::Function* getEventCtor(llvm::Module&) const = 0;
+
+    /** \fn getEventSize
+     * \brief Returns the size (in bytes) of the event type
+     */
     virtual llvm::ConstantInt* getEventSize(llvm::Module& mod) const {
         auto& context = mod.getContext();
         return llvm::ConstantInt::get(
@@ -130,6 +143,25 @@ class TraceType {
                 .getTypeAllocSize(getEventType(context))
                 .getFixedSize());
     };
+
+    /** \fn getOffsetGetter
+     * \brief Returns the offset getter that is appropriate for this trace type
+     * (thread or wave)
+     */
+    virtual llvm::Function* getOffsetGetter(llvm::Module& mod) const {
+        return TracingFunctions{mod}._hip_get_trace_offset;
+    }
+
+    /** \fn getEventCreator
+     * \brief Returns the event creator that is appropriate for this trace type.
+     *
+     * \details Called before the event *constructor*, the creator is
+     * responsible for the management of the queue type. It then calls the event
+     * constructor at the appropriate address
+     */
+    virtual llvm::Function* getEventCreator(llvm::Module& mod) const {
+        return TracingFunctions{mod}._hip_create_event;
+    }
 };
 
 struct TracingPass : public KernelInstrumentationPass {

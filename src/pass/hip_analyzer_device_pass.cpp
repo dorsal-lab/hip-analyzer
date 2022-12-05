@@ -294,10 +294,10 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
         builder_locals.CreateBitCast(f.getArg(f.arg_size() - 2), i8_ptr_ty);
 
     auto* thread_storage = builder_locals.CreateCall(
-        instrumentation_handlers._hip_get_trace_offset,
+        event->getOffsetGetter(mod),
         {storage_ptr, offsets_ptr, event->getEventSize(mod)});
 
-    builder_locals.CreateCall(instrumentation_handlers._hip_create_event,
+    builder_locals.CreateCall(event->getEventCreator(mod),
                               {thread_storage, idx, event->getEventSize(mod),
                                event->getEventCtor(mod), getIndex(0, context)});
 
@@ -321,7 +321,7 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
                                       getFirstNonPHIOrDbgOrAlloca(*curr_bb));
 
         builder_locals.CreateCall(
-            instrumentation_handlers._hip_create_event,
+            event->getEventCreator(mod),
             {thread_storage, idx, event->getEventSize(mod),
              event->getEventCtor(mod), getIndex(bb_instr.id, context)});
     }

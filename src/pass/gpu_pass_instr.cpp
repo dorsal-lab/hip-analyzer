@@ -38,6 +38,28 @@ __device__ void* _hip_get_trace_offset(void* storage, size_t* offsets,
     return &bitcast[offset * event_size];
 }
 
+__device__ void* _hip_get_wave_trace_offset(void* storage, size_t* offsets,
+                                            size_t event_size) {
+    size_t waves_per_block;
+    if (blockDim.x % warpSize == 0) {
+        waves_per_block = blockDim.x / warpSize;
+    } else {
+        waves_per_block = blockDim.x / warpSize + 1;
+    }
+
+    auto wave_in_block = threadIdx.x / warpSize;
+
+    size_t wavefront_id = blockIdx.x * waves_per_block + wave_in_block;
+
+    auto offset = offsets[wavefront_id];
+
+    // We are going to calculate a byte offset, cast to byte-sized (nice pun)
+    // array
+    auto* bitcast = reinterpret_cast<uint8_t*>(storage);
+
+    return &bitcast[offset * event_size];
+}
+
 // Generic function pointer to : void event_ctor(void* storage, size_t bb);
 using event_ctor = void (*)(void*, size_t);
 
@@ -47,7 +69,20 @@ __device__ void _hip_create_event(void* storage, size_t* idx, size_t event_size,
 
     // Postfix increment global index
     auto curr_index = (*idx)++;
+
     ctor(&bitcast[curr_index * event_size], bb);
+}
+
+__device__ void _hip_create_wave_event(void* storage, size_t* idx,
+                                       size_t event_size, event_ctor ctor,
+                                       size_t bb) {
+    if (threadIdx.x % warpSize == 0) {
+        auto* bitcast = reinterpret_cast<uint8_t*>(storage);
+        // Postfix increment global index
+        auto curr_index = (*idx)++;
+
+        ctor(&bitcast[curr_index * event_size], bb);
+    }
 }
 
 // ----- Events constructors ----- //
@@ -75,6 +110,9 @@ namespace {
     _hip_store_ctr(nullptr, 0, nullptr);
     _hip_get_trace_offset(nullptr, nullptr, 0);
     _hip_create_event(nullptr, nullptr, 0, nullptr, 0);
+    _hip_event_ctor(nullptr, 0);
+    _hip_tagged_event_ctor(nullptr, 0);
+    _hip_wavestate_ctor(nullptr, 0);
 }
 
 } // namespace

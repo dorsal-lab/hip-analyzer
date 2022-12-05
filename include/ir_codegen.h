@@ -75,7 +75,12 @@ struct CfgFunctions {
 
 struct TracingFunctions {
     // ----- Tracing functions ----- //
+
+    // ThreadQueue
     llvm::Function *_hip_get_trace_offset, *_hip_create_event;
+
+    // WaveQueue
+    llvm::Function *_hip_get_wave_trace_offset, *_hip_create_wave_event;
 
     /** ctor
      * \brief Forward-declare tracing functions in the module, and
