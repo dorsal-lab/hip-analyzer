@@ -246,6 +246,17 @@ void CfgInstrumentationPass::linkModuleUtils(llvm::Module& mod) {
                                  " : Could not load utils module");
     }
 
+    auto reopt = [](auto& f) {
+        f.removeFnAttr(llvm::Attribute::OptimizeNone);
+        f.removeFnAttr(llvm::Attribute::NoInline);
+        f.addFnAttr(llvm::Attribute::AlwaysInline);
+    };
+
+    // Mark all functions as always inline, at link time.
+    for (llvm::Function& f : utils_mod->functions()) {
+        reopt(f);
+    }
+
     linker.linkInModule(std::move(utils_mod));
 
     // Remove [[clang::optnone]] and add [[clang::always_inline]]
@@ -340,17 +351,6 @@ TracingPass::getExtraArguments(llvm::LLVMContext& context) const {
             llvm::Type::getInt64PtrTy(context)};
 }
 
-void TracingPass::linkModuleUtils(llvm::Module& mod) {
-    TracingFunctions instrumentation_handlers(mod);
-
-    auto deopt = [](auto& f) {
-        f->removeFnAttr(llvm::Attribute::OptimizeNone);
-        f->removeFnAttr(llvm::Attribute::NoInline);
-        f->addFnAttr(llvm::Attribute::AlwaysInline);
-    };
-
-    deopt(instrumentation_handlers._hip_get_trace_offset);
-    deopt(instrumentation_handlers._hip_create_event);
-}
+void TracingPass::linkModuleUtils(llvm::Module& mod) {}
 
 } // namespace hip
