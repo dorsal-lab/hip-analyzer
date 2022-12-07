@@ -13,6 +13,7 @@
 #include "llvm/Linker/Linker.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/LoopSimplify.h"
 
 #include <json/json.h>
 
@@ -85,7 +86,7 @@ KernelInstrumentationPass::run(llvm::Module& mod,
         auto& fm = modm.getResult<llvm::FunctionAnalysisManagerModuleProxy>(mod)
                        .getManager();
 
-        llvm::SimplifyCFGPass().run(f_original, fm);
+        optimizeFunction(f_original, fm);
 
         llvm::dbgs() << "Function " << f_original.getName() << '\n'
                      << f_original;

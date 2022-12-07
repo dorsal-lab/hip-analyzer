@@ -183,6 +183,11 @@ llvm::FunctionType* getEventCtorType(llvm::LLVMContext& context);
 llvm::Function& cloneWithName(llvm::Function& f, const std::string& name,
                               llvm::ArrayRef<llvm::Type*> extra_args = {});
 
+/** \fn optimizeFunction
+ * \brief Run all optimizations on a given function
+ */
+void optimizeFunction(llvm::Function& f, llvm::FunctionAnalysisManager& fm);
+
 /** \brief Suffix to distinguish already cloned function, placeholder for a real
  * attribute
  */

@@ -11,6 +11,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Scalar/SimplifyCFG.h"
 
 #include "ir_codegen.h"
 #include "llvm_instr_counters.h"
@@ -360,6 +361,10 @@ llvm::Function& cloneWithName(llvm::Function& f, const std::string& name,
     } else {
         throw std::runtime_error("Could not clone function");
     }
+}
+
+void optimizeFunction(llvm::Function& f, llvm::FunctionAnalysisManager& fm) {
+    llvm::SimplifyCFGPass().run(f, fm);
 }
 
 llvm::Function& cloneWithPrefix(llvm::Function& f, const std::string& prefix,
