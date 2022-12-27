@@ -475,7 +475,7 @@ void pushAdditionalArguments(llvm::Function& f,
     // Insert new args
 
     auto i = array_size; // Insert at end
-    builder.SetInsertPoint(&(*firstInstructionOf<llvm::GetElementPtrInst>(f)));
+    builder.SetInsertPoint(new_alloca_array->getNextNode());
 
     for (auto new_arg : new_args) {
         auto* gep = builder.CreateInBoundsGEP(
