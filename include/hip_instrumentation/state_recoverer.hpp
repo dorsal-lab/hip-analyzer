@@ -11,6 +11,9 @@
 #include <type_traits>
 #include <vector>
 
+#include <iomanip>
+#include <iostream>
+
 #include "hip/hip_runtime.h"
 
 namespace hip {
@@ -140,6 +143,7 @@ class HipMemoryManager {
         try {
             return alloc_map.at(ptr);
         } catch (std::out_of_range e) {
+            std::cerr << "Accessing " << std::hex << ptr << std::dec << '\n';
             throw std::runtime_error("HipMemoryManager::getTaggedPtr() : "
                                      "Unregistered pointer access");
         }
@@ -169,6 +173,13 @@ template <typename T> hipError_t HipMemoryManager::hipFree(T* ptr) {
 }
 
 template <typename T> void StateRecoverer::registerCallArgs(T* ptr) {
+    if (ptr == nullptr) {
+        // It is well possible that a kernel takes a nullptr as an argument
+        // (deprecation, unused, e.g. rodinia::kmeans). While I don't condone
+        // this, we have to just ignore such an argument
+        return;
+    }
+
     TaggedPointer& tagged_ptr =
         HipMemoryManager::getInstance().getTaggedPtr(ptr);
 
