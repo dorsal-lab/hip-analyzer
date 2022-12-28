@@ -9,6 +9,7 @@
 #include "hip/hip_runtime.h"
 
 #include <optional>
+#include <unordered_map>
 #include <vector>
 
 #include "basic_block.hpp"
@@ -168,7 +169,9 @@ class Instrumenter {
      */
     const KernelInfo& setKernelInfo(KernelInfo& ki) {
         kernel_info.emplace(ki);
-        host_counters.assign(ki.instr_size, 0u);
+        host_counters.reserve(ki.instr_size);
+        host_counters.resize(ki.instr_size);
+
         return *kernel_info;
     }
 
@@ -195,7 +198,7 @@ class Instrumenter {
     std::vector<counter_t> host_counters;
     std::optional<KernelInfo> kernel_info;
 
-    std::vector<hip::BasicBlock> blocks;
+    std::vector<hip::BasicBlock>* blocks;
 
     /** \brief std::chrono stamp for quick identification
      */
@@ -205,6 +208,9 @@ class Instrumenter {
      */
     uint64_t stamp_begin;
     uint64_t stamp_end;
+
+    static std::unordered_map<std::string, std::vector<hip::BasicBlock>>
+        known_blocks;
 };
 
 } // namespace hip

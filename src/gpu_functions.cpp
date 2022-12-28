@@ -15,7 +15,7 @@
 unsigned int hip::Instrumenter::reduceFlops(const counter_t* device_ptr,
                                             hipStream_t stream) const {
 
-    if (blocks.empty()) {
+    if (blocks->empty()) {
         // The block database has to be loaded prior to reduction!
         throw std::runtime_error("BasicBlock::normalized : Empty vector");
     }
@@ -50,7 +50,7 @@ unsigned int hip::Instrumenter::reduceFlops(const counter_t* device_ptr,
                                  kernel_info->basic_blocks};
 
     // Basic blocks
-    auto blocks_info = hip::BasicBlock::normalized(blocks);
+    auto blocks_info = hip::BasicBlock::normalized(*blocks);
     auto blocks_info_size = blocks_info.size() * sizeof(hip::BasicBlock);
 
     hip::BasicBlock* blocks_info_ptr;

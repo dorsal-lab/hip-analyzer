@@ -360,6 +360,9 @@ KernelInfo KernelInfo::fromJson(const std::string& filename) {
     return {kernel_name, bblocks, blocks, threads};
 }
 
+std::unordered_map<std::string, std::vector<hip::BasicBlock>>
+    Instrumenter::known_blocks;
+
 Instrumenter::Instrumenter(KernelInfo& ki) : Instrumenter() {
     kernel_info.emplace(ki);
     host_counters.assign(ki.instr_size, 0u);
@@ -628,20 +631,31 @@ const std::vector<hip::BasicBlock>& Instrumenter::loadDatabase() {
                                  "kernel name, cannot load database");
     }
 
-    return loadDatabase(getDatabaseName(), kernel_info->name);
+    return loadDatabase(kernel_info->name);
 }
 
 const std::vector<hip::BasicBlock>&
 Instrumenter::loadDatabase(const std::string& kernel_name) {
-    return loadDatabase(getDatabaseName(), kernel_name);
+    // First, attempt to get the data from the stored database to avoid parsing
+    // json (slow)
+    auto it = known_blocks.find(kernel_name);
+    if (it != std::end(known_blocks)) {
+        blocks = &it->second;
+        return it->second;
+    } else {
+        return loadDatabase(getDatabaseName(), kernel_name);
+    }
 }
 
 const std::vector<hip::BasicBlock>&
 Instrumenter::loadDatabase(const std::string& filename_in,
                            const std::string& kernel_name) {
-    blocks = BasicBlock::fromJsonArray(filename_in, kernel_name);
+    auto loaded_blocks = BasicBlock::fromJsonArray(filename_in, kernel_name);
+    auto entry = known_blocks.emplace(kernel_name, std::move(loaded_blocks));
 
-    return blocks;
+    blocks = &entry.first->second;
+
+    return *blocks;
 }
 
 void Instrumenter::record() {
