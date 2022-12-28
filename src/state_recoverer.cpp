@@ -16,8 +16,8 @@ namespace hip {
 StateRecoverer::~StateRecoverer() {
     // Need to free all allocated values, unfortunately we have to manage the
     // memory ourselves
-    for (auto& [tagged_ptr, cpu_ptr] : saved_values) {
-        delete[] cpu_ptr;
+    for (auto& [tagged_ptr, gpu_ptr] : saved_values) {
+        hip::check(hipFree(gpu_ptr));
     }
 }
 
@@ -31,20 +31,21 @@ void StateRecoverer::saveState(const std::vector<TaggedPointer>& pointers) {
 uint8_t* StateRecoverer::saveElement(const TaggedPointer& ptr) {
     // Allocate a byte array to store the values
 
-    uint8_t* cpu_ptr = new uint8_t[ptr.size];
+    uint8_t* gpu_ptr;
+    hip::check(hipMalloc(&gpu_ptr, ptr.size));
 
     // Copy the data back from the GPU
 
-    hip::check(hipMemcpy(cpu_ptr, ptr.ptr, ptr.size, hipMemcpyDeviceToHost));
+    hip::check(hipMemcpy(gpu_ptr, ptr.ptr, ptr.size, hipMemcpyDeviceToDevice));
 
-    return cpu_ptr;
+    return gpu_ptr;
 }
 
 void StateRecoverer::rollback() const {
-    for (auto [tagged_ptr, cpu_ptr] : saved_values) {
+    for (auto [tagged_ptr, gpu_ptr] : saved_values) {
         if (tagged_ptr.dirty) {
-            hip::check(hipMemcpy(const_cast<void*>(tagged_ptr.ptr), cpu_ptr,
-                                 tagged_ptr.size, hipMemcpyHostToDevice));
+            hip::check(hipMemcpy(const_cast<void*>(tagged_ptr.ptr), gpu_ptr,
+                                 tagged_ptr.size, hipMemcpyDeviceToDevice));
 
             tagged_ptr.dirty = false;
         }
