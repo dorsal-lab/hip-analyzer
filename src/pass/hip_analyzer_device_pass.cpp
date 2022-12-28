@@ -140,7 +140,13 @@ bool KernelInstrumentationPass::addParams(llvm::Function& f,
 // ----- hip::CfgInstrumentationPass ----- //
 
 const std::string CfgInstrumentationPass::instrumented_prefix = "counters_";
-const std::string CfgInstrumentationPass::utils_path = "gpu_pass_instr.ll";
+const std::string CfgInstrumentationPass::utils_path = []() -> std::string {
+    if (auto* env = std::getenv("HIP_ANALYZER_INSTR")) {
+        return env;
+    } else {
+        return "gpu_pass_instr.ll";
+    }
+}();
 
 bool CfgInstrumentationPass::isInstrumentableKernel(
     const llvm::Function& f) const {
