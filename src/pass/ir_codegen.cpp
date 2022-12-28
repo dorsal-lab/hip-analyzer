@@ -280,9 +280,7 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
         getFunction(mod, "hipQueueInfoAllocOffsets", ptr_from_ptr_type);
 
     hipQueueInfoRecord =
-        getFunction(mod, "hipQueueInfoRecord", void_from_ptr_type);
-    hipQueueInfoFromDevice =
-        getFunction(mod, "hipQueueInfoFromDevice", from_device_type);
+        getFunction(mod, "hipQueueInfoRecord", from_device_type);
 }
 
 CfgFunctions::CfgFunctions(llvm::Module& mod) {

@@ -76,7 +76,5 @@ void* hipQueueInfoAllocBuffer(hipQueueInfo*);
 
 void* hipQueueInfoAllocOffsets(hipQueueInfo*);
 
-void hipQueueInfoRecord(hipQueueInfo*);
-
-void hipQueueInfoFromDevice(hipQueueInfo*, void*);
+void hipQueueInfoRecord(hipQueueInfo*, void*);
 }

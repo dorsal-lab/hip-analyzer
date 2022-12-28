@@ -43,9 +43,9 @@ class HipTraceManager {
 
     // <queue data> - <offsets> - <event size> - <event description (types,
     // sizes)> - <event type name>
-    using EventsQueuePayload =
-        std::tuple<std::vector<std::byte>, std::vector<size_t>, size_t,
-                   std::string, std::string>;
+    /*using EventsQueuePayload = std::tuple<void*, std::vector<size_t>, size_t,
+                                          std::string, std::string>;*/
+    using EventsQueuePayload = std::tuple<void*, QueueInfo>;
 
     // Either a counters payload or an events payload
     using Payload = std::variant<CountersQueuePayload, EventsQueuePayload>;
@@ -64,7 +64,7 @@ class HipTraceManager {
 
     void registerCounters(Instrumenter& instr, Counters&& counters);
 
-    void registerQueue(QueueInfo& queue, std::vector<std::byte>&& queue_data);
+    void registerQueue(QueueInfo& queue, void* queue_data);
 
   private:
     HipTraceManager();
@@ -142,9 +142,9 @@ std::ostream& dumpTraceBin(std::ostream& out,
 }
 
 std::ostream& dumpEventsBin(std::ostream& out,
-                            std::vector<std::byte>& queue_data,
-                            std::vector<size_t>& offsets, size_t event_size,
-                            std::string_view event_desc,
+                            const std::vector<std::byte>& queue_data,
+                            const std::vector<size_t>& offsets,
+                            size_t event_size, std::string_view event_desc,
                             std::string_view event_name) {
 
     // Write header, but we don't need to include as much info as before since
@@ -219,16 +219,13 @@ void HipTraceManager::registerCounters(Instrumenter& instr,
     cond.notify_one();
 }
 
-void HipTraceManager::registerQueue(QueueInfo& queue_info,
-                                    std::vector<std::byte>&& queue_data) {
+void HipTraceManager::registerQueue(QueueInfo& queue_info, void* queue_data) {
     std::lock_guard lock{mutex};
 
     std::vector offsets(queue_info.offsets().begin(),
                         queue_info.offsets().end());
 
-    queue.push({EventsQueuePayload{std::move(queue_data), std::move(offsets),
-                                   queue_info.elemSize(), queue_info.getDesc(),
-                                   queue_info.getName()}});
+    queue.push({EventsQueuePayload{queue_data, std::move(queue_info)}});
 
     cond.notify_one();
 }
@@ -289,9 +286,18 @@ void HipTraceManager::runThread() {
 
                     dumpTraceBin(out, counters, kernel_info, stamp, rocm_stamp);
                 } else if constexpr (std::is_same_v<T, EventsQueuePayload>) {
-                    auto& [events, offsets, size, desc, name] = val;
+                    auto& [events, queue_info] = val;
 
-                    dumpEventsBin(out, events, offsets, size, desc, name);
+                    queue_info.fromDevice(events);
+                    hip::check(hipFree(events));
+                    /*
+                                        std::move(offsets),
+                                                       queue_info.elemSize(),
+                       queue_info.getDesc(), queue_info.getName()}}
+                    */
+                    dumpEventsBin(out, queue_info.events(),
+                                  queue_info.offsets(), queue_info.elemSize(),
+                                  queue_info.getDesc(), queue_info.getName());
                 } else {
                     static_assert(always_false_v<T>, "Non-exhaustive visitor");
                 }
@@ -664,10 +670,10 @@ void Instrumenter::record() {
     trace_manager.registerCounters(*this, std::move(host_counters));
 }
 
-void QueueInfo::record() {
+void QueueInfo::record(void* gpu_events) {
     auto& trace_manager = HipTraceManager::getInstance();
 
-    trace_manager.registerQueue(*this, std::move(cpu_queue));
+    trace_manager.registerQueue(*this, gpu_events);
 }
 
 } // namespace hip

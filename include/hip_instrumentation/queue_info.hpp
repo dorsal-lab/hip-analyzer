@@ -51,6 +51,11 @@ struct QueueInfo {
      */
     const std::vector<size_t>& offsets() const { return offsets_vec; }
 
+    /** \fn events
+     * \brief Returns events
+     */
+    const std::vector<std::byte>& events() const { return cpu_queue; }
+
     /** \fn parallelism
      * \brief Returns the number of parallel queues effectively allocated
      */
@@ -118,7 +123,7 @@ struct QueueInfo {
     /** \fn record
      * \brief Transfers the queue to the trace manager
      */
-    void record();
+    void record(void* ptr);
 
   private:
     QueueInfo(Instrumenter& instr, size_t elem_size, bool is_thread,

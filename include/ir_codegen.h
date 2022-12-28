@@ -53,7 +53,7 @@ struct InstrumentationFunctions {
 
     // hipQueueInfo
     llvm::Function *newHipQueueInfo, *hipQueueInfoAllocBuffer,
-        *hipQueueInfoAllocOffsets, *hipQueueInfoRecord, *hipQueueInfoFromDevice;
+        *hipQueueInfoAllocOffsets, *hipQueueInfoRecord;
 
     /** ctor
      * \brief Forward-declare instrumentation functions in the module, and

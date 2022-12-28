@@ -61,11 +61,7 @@ int main() {
     enqueue<<<blocks, threads>>>(storage, offsets);
     hip::check(hipDeviceSynchronize());
 
-    queue_cpu.fromDevice(storage);
-    queue_cpu.record();
-
-    hip::check(hipFree(storage));
-    hip::check(hipFree(offsets));
+    queue_cpu.record(storage);
 
     return 0;
 }

@@ -105,6 +105,7 @@ BasicBlock::fromJsonArray(const std::string& json,
     file_in >> root;
 
     auto& kernel_info = root[kernel_name];
+    blocks.reserve(kernel_info.size());
 
     if (kernel_info.isNull()) {
         throw std::runtime_error("hip::BasicBlock::fromJsonArray() : Could not "

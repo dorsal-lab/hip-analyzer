@@ -32,7 +32,7 @@ void QueueInfo::computeSize() {
     auto thread_stride = kernel.basic_blocks;
     auto blocks_stride = kernel.total_threads_per_blocks;
 
-    offsets_vec.reserve(thread_stride * blocks_stride);
+    offsets_vec.reserve(thread_stride * blocks_stride * kernel.basic_blocks);
     offsets_vec.push_back(0u);
 
     size_t nb_events = 0u;
@@ -70,7 +70,7 @@ void QueueInfo::computeSize() {
                                          max_per_bblock.end(), extra_size);
             offsets_vec.push_back(nb_events);
 
-            max_per_bblock = std::vector<size_t>{kernel.basic_blocks, 0u};
+            max_per_bblock.assign(kernel.basic_blocks, 0u);
             ++wave;
         };
 

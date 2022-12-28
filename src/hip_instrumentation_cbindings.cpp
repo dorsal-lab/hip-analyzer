@@ -13,6 +13,18 @@
 
 #include "hip/hip_runtime_api.h"
 
+#include <chrono>
+#include <fstream>
+
+auto timer = std::move([]() {
+    std::ofstream file{"timing.csv", std::ofstream::trunc};
+    file << "kernel,counters_prep,save_alloc,counters,counters_record,queue_"
+            "prep,tracing,tracing_record\n";
+    return file;
+}());
+
+auto last_t = std::chrono::steady_clock::now();
+
 extern "C" {
 
 struct hipInstrumenter {
@@ -36,6 +48,9 @@ struct hipQueueInfo {
 // ----- Instrumenter ----- //
 
 hipInstrumenter* hipNewInstrumenter(const char* kernel_name) {
+    timer << kernel_name << ',';
+    last_t = std::chrono::steady_clock::now();
+
     dim3 blocks, threads;
     size_t shared_mem;
     hipStream_t stream;
@@ -71,23 +86,60 @@ hipInstrumenter* hipNewInstrumenter(const char* kernel_name) {
 }
 
 counter_t* hipInstrumenterToDevice(hipInstrumenter* instr) {
-    return instr->boxed.toDevice();
+    auto* c = instr->boxed.toDevice();
+
+    auto t = std::chrono::steady_clock::now();
+    timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
+                 .count()
+          << ',';
+    last_t = std::chrono::steady_clock::now();
+
+    return c;
 }
 
 void hipInstrumenterFromDevice(hipInstrumenter* instr, void* device_ptr) {
     if (hipDeviceSynchronize() != hipSuccess) {
         return;
     }
+
+    // Counters kernel timing
+    auto t = std::chrono::steady_clock::now();
+    timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
+                 .count()
+          << ',';
+
+    last_t = std::chrono::steady_clock::now();
+
     instr->boxed.fromDevice(device_ptr);
+
+    t = std::chrono::steady_clock::now();
+    timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
+                 .count()
+          << ',';
 }
 
 void hipInstrumenterRecord(hipInstrumenter* instr) { instr->boxed.record(); }
 
-void freeHipInstrumenter(hipInstrumenter* instr) { delete instr; }
+void freeHipInstrumenter(hipInstrumenter* instr) {
+    delete instr;
+    timer << '\n';
+    timer.flush();
+}
 
 // ----- State recoverer ----- //
 
-hipStateRecoverer* hipNewStateRecoverer() { return new hipStateRecoverer; }
+hipStateRecoverer* hipNewStateRecoverer() {
+    auto* s = new hipStateRecoverer;
+
+    auto t = std::chrono::steady_clock::now();
+    timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
+                 .count()
+          << ',';
+
+    last_t = std::chrono::steady_clock::now();
+
+    return s;
+}
 
 void hipStateRecovererRegisterPointer(hipStateRecoverer* recoverer,
                                       void* potential_ptr) {
@@ -114,6 +166,8 @@ void freeHipStateRecoverer(hipStateRecoverer* recoverer) { delete recoverer; }
 
 hipQueueInfo* newHipQueueInfo(hipInstrumenter* instr, EventType event_type,
                               QueueType queue_type) {
+    last_t = std::chrono::steady_clock::now();
+
     constexpr auto extra_size = 0u;
     switch (queue_type) {
     case QueueType::Thread:
@@ -151,17 +205,35 @@ void* hipQueueInfoAllocBuffer(hipQueueInfo* queue_info) {
 }
 
 void* hipQueueInfoAllocOffsets(hipQueueInfo* queue_info) {
-    return queue_info->boxed.allocOffsets();
+    void* o = queue_info->boxed.allocOffsets();
+
+    auto t = std::chrono::steady_clock::now();
+    timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
+                 .count()
+          << ',';
+
+    last_t = std::chrono::steady_clock::now();
+
+    return o;
 }
 
-void hipQueueInfoRecord(hipQueueInfo* queue_info) {
-    queue_info->boxed.record();
-}
-
-void hipQueueInfoFromDevice(hipQueueInfo* queue_info, void* ptr) {
+void hipQueueInfoRecord(hipQueueInfo* queue_info, void* ptr) {
     if (hipDeviceSynchronize() != hipSuccess) {
         return;
     }
-    queue_info->boxed.fromDevice(ptr);
+
+    // Tracing kernel timing
+    auto t = std::chrono::steady_clock::now();
+    timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
+                 .count()
+          << ',';
+
+    last_t = std::chrono::steady_clock::now();
+
+    queue_info->boxed.record(ptr);
+
+    t = std::chrono::steady_clock::now();
+    timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
+                 .count();
 }
 }

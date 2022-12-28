@@ -313,9 +313,8 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
 
     if (trace) {
         // Store counters (runtime)
-        builder.CreateCall(instr_handlers.hipQueueInfoFromDevice,
+        builder.CreateCall(instr_handlers.hipQueueInfoRecord,
                            {queue_info, events_buffer});
-        builder.CreateCall(instr_handlers.hipQueueInfoRecord, {queue_info});
     }
 
     // Free allocated instrumentation
