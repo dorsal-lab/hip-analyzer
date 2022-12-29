@@ -16,18 +16,7 @@
 #include <chrono>
 #include <fstream>
 
-auto timer = []() {
-    std::string prefix = "";
-    if (auto* benchmark = std::getenv("RODINIA_BENCHMARK")) {
-        prefix = benchmark;
-        prefix += '_';
-    }
-
-    std::ofstream file{prefix + "timing.csv", std::ofstream::trunc};
-    file << "kernel,counters_prep,save_alloc,counters,counters_record,queue_"
-            "prep,tracing,tracing_record\n";
-    return file;
-}();
+std::ofstream timer;
 
 auto last_t = std::chrono::steady_clock::now();
 
@@ -54,6 +43,19 @@ struct hipQueueInfo {
 // ----- Instrumenter ----- //
 
 hipInstrumenter* hipNewInstrumenter(const char* kernel_name) {
+    if (!timer.is_open()) {
+
+        std::string prefix = "";
+        if (auto* benchmark = std::getenv("RODINIA_BENCHMARK")) {
+            prefix = benchmark;
+            prefix += '_';
+        }
+
+        timer.open(prefix + "timing.csv", std::ofstream::trunc);
+        timer << "kernel,counters_prep,save_alloc,counters,counters_record,"
+                 "queue_"
+                 "prep,tracing,tracing_record\n";
+    }
     timer << kernel_name << ',';
     last_t = std::chrono::steady_clock::now();
 
@@ -245,21 +247,21 @@ void hipQueueInfoRecord(hipQueueInfo* queue_info, void* ptr) {
 
 // ----- Experimental - Kernel timer ----- //
 
-auto kernel_timer_output = []() {
-    std::string prefix = "original";
-    if (auto* benchmark = std::getenv("RODINIA_BENCHMARK")) {
-        prefix = benchmark;
-        prefix += '_';
-    }
-
-    std::ofstream file{prefix + "timing.csv", std::ofstream::trunc};
-    file << "kernel,original\n";
-    return file;
-}();
+std::ofstream kernel_timer_output;
 
 auto kernel_timer = std::chrono::steady_clock::now();
 
 void begin_kernel_timer(const char* kernel) {
+    if (!kernel_timer_output.is_open()) {
+        std::string prefix = "original";
+        if (auto* benchmark = std::getenv("RODINIA_BENCHMARK")) {
+            prefix += benchmark;
+            prefix += '_';
+        }
+
+        kernel_timer_output.open(prefix + "timing.csv", std::ofstream::trunc);
+        kernel_timer_output << "kernel,original\n";
+    }
     kernel_timer_output << kernel << ',';
     kernel_timer = std::chrono::steady_clock::now();
 }
@@ -274,5 +276,6 @@ void end_kernel_timer() {
                                t1 - kernel_timer)
                                .count()
                         << '\n';
+    kernel_timer_output.flush();
 }
 }
