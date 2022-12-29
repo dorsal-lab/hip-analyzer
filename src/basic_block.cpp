@@ -21,16 +21,15 @@ namespace hip {
 BasicBlock::BasicBlock(uint32_t i, uint32_t c, uint32_t f,
                        const std::string& begin, const std::string& end,
                        uint32_t f_ld, uint32_t f_st)
-    : id(i), clang_id(c), flops(f),
+    : id(i), clang_id(c), flops(f), floating_ld(f_ld), floating_st(f_st),
       begin_loc(std::make_unique<std::string>(begin)),
-      end_loc(std::make_unique<std::string>(end)), floating_ld(f_ld),
-      floating_st(f_st) {}
+      end_loc(std::make_unique<std::string>(end)) {}
 
 BasicBlock::BasicBlock(const BasicBlock& other)
     : id(other.id), clang_id(other.clang_id), flops(other.flops),
+      floating_ld(other.floating_ld), floating_st(other.floating_st),
       begin_loc(std::make_unique<std::string>(*other.begin_loc)),
-      end_loc(std::make_unique<std::string>(*other.end_loc)),
-      floating_ld(other.floating_ld), floating_st(other.floating_st) {}
+      end_loc(std::make_unique<std::string>(*other.end_loc)) {}
 
 BasicBlock& BasicBlock::operator=(const BasicBlock& other) {
     id = other.id;

@@ -182,7 +182,6 @@ bool CfgInstrumentationPass::instrumentFunction(
 
     // Instrument each basic block
 
-    auto& function_block_list = f.getBasicBlockList();
     auto curr_bb = f.begin();
     auto index = 0u;
 
@@ -204,7 +203,7 @@ bool CfgInstrumentationPass::instrumentFunction(
         auto* incremented = builder_locals.CreateAdd(
             curr_ptr, llvm::ConstantInt::get(counter_type, 1u));
 
-        auto* store = builder_locals.CreateStore(incremented, inbound_ptr);
+        builder_locals.CreateStore(incremented, inbound_ptr);
     }
 
     // Call saving method
@@ -324,7 +323,6 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
 
     // Start at 1 because the first block is handled separately
 
-    auto& function_block_list = f.getBasicBlockList();
     auto curr_bb = ++f.begin();
     auto index = 1u;
 

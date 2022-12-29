@@ -222,8 +222,6 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
 
     auto* void_type = llvm::Type::getVoidTy(context);
     auto* uint8_type = llvm::Type::getInt8Ty(context);
-    auto* uint8_ptr_type = uint8_type->getPointerTo();
-    auto* uint64_type = llvm::Type::getInt64Ty(context);
     auto* uint32_type = llvm::Type::getInt32Ty(context);
     auto* unqual_ptr_type = llvm::PointerType::getUnqual(context);
 
@@ -311,7 +309,6 @@ TracingFunctions::TracingFunctions(llvm::Module& mod) {
     auto* uint8_type = llvm::Type::getInt8Ty(context);
     auto* uint8_ptr_type = uint8_type->getPointerTo();
     auto* uint64_type = llvm::Type::getInt64Ty(context);
-    auto* unqual_ptr_type = llvm::PointerType::getUnqual(context);
 
     auto* _hip_event_ctor_type = getEventCtorType(context);
 

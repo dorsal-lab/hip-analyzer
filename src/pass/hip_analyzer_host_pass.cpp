@@ -42,8 +42,6 @@ llvm::PreservedAnalyses HostPass::run(llvm::Module& mod,
         return llvm::PreservedAnalyses::all();
     }
 
-    bool modified = false;
-
     llvm::SmallVector<std::pair<llvm::Function*, llvm::Function*>, 8> to_delete;
     for (auto& f_original : mod.functions()) {
         if (isDeviceStub(f_original) && !f_original.isDeclaration()) {
@@ -334,7 +332,6 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
 
 void HostPass::addDeviceStubCall(llvm::Function& f_original) const {
     auto* kernel_call = firstCallToFunction(f_original, "hipLaunchKernel");
-    auto* inliner_bb = kernel_call->getParent();
 
     auto* gep_of_array =
         dyn_cast<llvm::GetElementPtrInst>(kernel_call->getArgOperand(5));
