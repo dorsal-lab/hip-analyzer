@@ -136,6 +136,7 @@ add_library(
     hip-kernel-timer-pass SHARED
     src/pass/kernel_timer_pass.cpp
     src/pass/ir_codegen.cpp
+    src/llvm_instr_counters.cpp
     src/basic_block.cpp
 )
 
