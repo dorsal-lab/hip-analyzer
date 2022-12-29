@@ -33,8 +33,8 @@ struct KernelInfo {
     KernelInfo(const KernelInfo&) = default;
 
     const std::string name;
-    const dim3 blocks, threads_per_blocks;
     const unsigned int basic_blocks;
+    const dim3 blocks, threads_per_blocks;
 
     const uint32_t total_blocks;
     const uint32_t total_threads_per_blocks;
@@ -170,7 +170,7 @@ class Instrumenter {
     const KernelInfo& setKernelInfo(KernelInfo& ki) {
         kernel_info.emplace(ki);
         host_counters.reserve(ki.instr_size);
-        host_counters.resize(ki.instr_size);
+        host_counters.assign(ki.instr_size, 0u);
 
         return *kernel_info;
     }

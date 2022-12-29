@@ -16,12 +16,12 @@
 #include <chrono>
 #include <fstream>
 
-auto timer = std::move([]() {
+auto timer = []() {
     std::ofstream file{"timing.csv", std::ofstream::trunc};
     file << "kernel,counters_prep,save_alloc,counters,counters_record,queue_"
             "prep,tracing,tracing_record\n";
     return file;
-}());
+}();
 
 auto last_t = std::chrono::steady_clock::now();
 

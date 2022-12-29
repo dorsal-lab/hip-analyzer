@@ -222,9 +222,6 @@ void HipTraceManager::registerCounters(Instrumenter& instr,
 void HipTraceManager::registerQueue(QueueInfo& queue_info, void* queue_data) {
     std::lock_guard lock{mutex};
 
-    std::vector offsets(queue_info.offsets().begin(),
-                        queue_info.offsets().end());
-
     queue.push({EventsQueuePayload{queue_data, std::move(queue_info)}});
 
     cond.notify_one();
@@ -305,14 +302,6 @@ void HipTraceManager::runThread() {
             *payload);
     }
 }
-
-// GCN Assembly
-
-/** \brief Saves the EXEC registers in two VGPRs (variables h & l)
- */
-constexpr auto save_register =
-    "asm volatile (\"s_mov_b32 s6, exec_lo\\n s_mov_b32 s7, exec_hi\\n "
-    "v_mov_b32 %0, s6\\n v_mov_b32 %1, s7\":\"=v\" (l), \"=v\" (h):);";
 
 // ---- Instrumentation ----- //
 
@@ -560,7 +549,7 @@ bool Instrumenter::parseHeader(const std::string& header) {
                                      header);
         }
 
-        return std::move(buf);
+        return buf;
     };
 
     auto trace_type = get_token();

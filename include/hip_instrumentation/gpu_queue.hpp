@@ -150,7 +150,7 @@ namespace gcnasm {
  * \brief Returns the value of the harware id register
  */
 inline __device__ uint32_t get_hw_id() {
-    uint32_t hw_id;
+    uint32_t hw_id = 0u;
 #ifdef __HIPCC__
     asm volatile("s_getreg_b32 %0, hwreg(HW_REG_HW_ID)" : "=s"(hw_id) :);
 #endif
@@ -161,7 +161,7 @@ inline __device__ uint32_t get_hw_id() {
  * \brief Returns the value of the EXEC register (execution mask)
  */
 inline __device__ uint64_t get_exec() {
-    uint64_t exec;
+    uint64_t exec = 0u;
 #ifdef __HIPCC__
     asm volatile("s_mov_b64 %0, exec" : "=s"(exec) :);
 #endif
@@ -169,7 +169,7 @@ inline __device__ uint64_t get_exec() {
 }
 
 inline __device__ uint64_t get_stamp() {
-    uint64_t stamp;
+    uint64_t stamp = 0u;
 #ifdef __HIPCC__
     asm volatile("s_memrealtime %0" : "=s"(stamp) :);
 #endif

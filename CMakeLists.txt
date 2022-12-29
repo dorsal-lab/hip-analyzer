@@ -3,7 +3,7 @@ project(hip-analyzer LANGUAGES C CXX)
 
 
 set(CMAKE_CXX_STANDARD 20)
-list(APPEND CMAKE_CXX_FLAGS "-fPIE -fno-rtti")
+list(APPEND CMAKE_CXX_FLAGS "-Wall -O3 -fPIE -fno-rtti")
 
 # ---- Paths setup ----- #
 
