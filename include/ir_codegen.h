@@ -9,7 +9,10 @@
 #include <unordered_map>
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
+#include "llvm/Passes/PassBuilder.h"
 
 #include "hip_instrumentation/basic_block.hpp"
 

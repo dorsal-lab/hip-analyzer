@@ -17,7 +17,13 @@
 #include <fstream>
 
 auto timer = []() {
-    std::ofstream file{"timing.csv", std::ofstream::trunc};
+    std::string prefix = "";
+    if (auto* benchmark = std::getenv("RODINIA_BENCHMARK")) {
+        prefix = benchmark;
+        prefix += '_';
+    }
+
+    std::ofstream file{prefix + "timing.csv", std::ofstream::trunc};
     file << "kernel,counters_prep,save_alloc,counters,counters_record,queue_"
             "prep,tracing,tracing_record\n";
     return file;
@@ -168,7 +174,7 @@ hipQueueInfo* newHipQueueInfo(hipInstrumenter* instr, EventType event_type,
                               QueueType queue_type) {
     last_t = std::chrono::steady_clock::now();
 
-    constexpr auto extra_size = 0u;
+    constexpr auto extra_size = 1u;
     switch (queue_type) {
     case QueueType::Thread:
         switch (event_type) {
@@ -235,5 +241,38 @@ void hipQueueInfoRecord(hipQueueInfo* queue_info, void* ptr) {
     t = std::chrono::steady_clock::now();
     timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
                  .count();
+}
+
+// ----- Experimental - Kernel timer ----- //
+
+auto kernel_timer_output = []() {
+    std::string prefix = "original";
+    if (auto* benchmark = std::getenv("RODINIA_BENCHMARK")) {
+        prefix = benchmark;
+        prefix += '_';
+    }
+
+    std::ofstream file{prefix + "timing.csv", std::ofstream::trunc};
+    file << "kernel,original\n";
+    return file;
+}();
+
+auto kernel_timer = std::chrono::steady_clock::now();
+
+void begin_kernel_timer(const char* kernel) {
+    kernel_timer_output << kernel << ',';
+    kernel_timer = std::chrono::steady_clock::now();
+}
+
+void end_kernel_timer() {
+    if (hipDeviceSynchronize() != hipSuccess) {
+        return;
+    }
+
+    auto t1 = std::chrono::steady_clock::now();
+    kernel_timer_output << std::chrono::duration_cast<std::chrono::nanoseconds>(
+                               t1 - kernel_timer)
+                               .count()
+                        << '\n';
 }
 }

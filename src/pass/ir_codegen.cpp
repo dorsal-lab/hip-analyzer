@@ -221,7 +221,6 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
     auto& context = mod.getContext();
 
     auto* void_type = llvm::Type::getVoidTy(context);
-    auto* uint8_type = llvm::Type::getInt8Ty(context);
     auto* uint32_type = llvm::Type::getInt32Ty(context);
     auto* unqual_ptr_type = llvm::PointerType::getUnqual(context);
 

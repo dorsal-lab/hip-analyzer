@@ -132,10 +132,26 @@ add_library(
     src/basic_block.cpp
 )
 
+add_library(
+    hip-kernel-timer-pass SHARED
+    src/pass/kernel_timer_pass.cpp
+    src/pass/ir_codegen.cpp
+    src/basic_block.cpp
+)
+
 add_dependencies(hip-analyzer-pass gpu_pass_instr)
 
 target_link_libraries(
     hip-analyzer-pass
+    LLVMPasses
+    LLVMCore
+    LLVMSupport
+    LLVMAnalysis
+    jsoncpp
+)
+
+target_link_libraries(
+    hip-kernel-timer-pass
     LLVMPasses
     LLVMCore
     LLVMSupport
