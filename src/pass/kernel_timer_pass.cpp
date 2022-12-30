@@ -99,6 +99,8 @@ hip::KernelTimerPass::run(llvm::Module& mod,
                     builder.SetInsertPoint(call_to_launch->getNextNode());
 
                     builder.CreateCall(functions.end_kernel_timer, {});
+
+		    llvm::dbgs() << f << '\n';
                 }
             }
         }

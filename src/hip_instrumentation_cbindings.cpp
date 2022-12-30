@@ -37,6 +37,7 @@ struct hipStateRecoverer {
 
 struct hipQueueInfo {
     hip::QueueInfo boxed;
+    void* offsets;
     hipQueueInfo(hip::QueueInfo&& other) : boxed{other} {}
 };
 
@@ -149,14 +150,14 @@ hipStateRecoverer* hipNewStateRecoverer() {
     return s;
 }
 
-void hipStateRecovererRegisterPointer(hipStateRecoverer* recoverer,
-                                      void* potential_ptr) {
-    recoverer->boxed.registerCallArgs(potential_ptr);
+void* hipStateRecovererRegisterPointer(hipStateRecoverer* recoverer,
+                                       void* potential_ptr) {
+    return recoverer->boxed.registerCallArgs(potential_ptr);
 }
 
 void hipStateRecovererRollback(hipStateRecoverer* recoverer,
                                hipInstrumenter* instr) {
-    recoverer->boxed.rollback();
+    // recoverer->boxed.rollback();
 
     // Revert call configuration
     auto& ki = instr->boxed.kernelInfo();
@@ -214,6 +215,7 @@ void* hipQueueInfoAllocBuffer(hipQueueInfo* queue_info) {
 
 void* hipQueueInfoAllocOffsets(hipQueueInfo* queue_info) {
     void* o = queue_info->boxed.allocOffsets();
+    queue_info->offsets = o;
 
     auto t = std::chrono::steady_clock::now();
     timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
@@ -239,6 +241,7 @@ void hipQueueInfoRecord(hipQueueInfo* queue_info, void* ptr) {
     last_t = std::chrono::steady_clock::now();
 
     queue_info->boxed.record(ptr);
+    hip::check(hipFree(queue_info->offsets));
 
     t = std::chrono::steady_clock::now();
     timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)

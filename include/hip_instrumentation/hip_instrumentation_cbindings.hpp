@@ -45,7 +45,7 @@ hipStateRecoverer* hipNewStateRecoverer();
  * \brief Equivalent of hip::HipMemoryManager::registerCallArgs(T...), register
  * pointers as used in the shadow memory
  */
-void hipStateRecovererRegisterPointer(hipStateRecoverer*, void* potential_ptr);
+void* hipStateRecovererRegisterPointer(hipStateRecoverer*, void* potential_ptr);
 
 /** \fn hipMemoryManagerRollback
  * \brief Equivalent of hip::HipMemoryManager::rollback(), revert to the

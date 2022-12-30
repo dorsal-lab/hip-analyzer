@@ -256,8 +256,10 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
     hipInstrumenterRecord =
         getFunction(mod, "hipInstrumenterRecord", void_from_ptr_type);
 
-    hipStateRecovererRegisterPointer =
-        getFunction(mod, "hipStateRecovererRegisterPointer", from_device_type);
+    hipStateRecovererRegisterPointer = getFunction(
+        mod, "hipStateRecovererRegisterPointer",
+        llvm::FunctionType::get(unqual_ptr_type,
+                                {unqual_ptr_type, unqual_ptr_type}, false));
 
     hipStateRecovererRollback =
         getFunction(mod, "hipStateRecovererRollback",

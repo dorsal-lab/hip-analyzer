@@ -89,7 +89,7 @@ class StateRecoverer {
         registerCallArgs(args...);
     }
 
-    template <typename T> void registerCallArgs(T* value);
+    template <typename T> void* registerCallArgs(T* value);
     template <typename T> void registerCallArgs(const T* value) {}
     template <typename T> void registerCallArgs(T value) {}
 
@@ -172,20 +172,22 @@ template <typename T> hipError_t HipMemoryManager::hipFree(T* ptr) {
     return hipFreeWrapper(static_cast<void*>(ptr));
 }
 
-template <typename T> void StateRecoverer::registerCallArgs(T* ptr) {
+template <typename T> void* StateRecoverer::registerCallArgs(T* ptr) {
     if (ptr == nullptr) {
         // It is well possible that a kernel takes a nullptr as an argument
         // (deprecation, unused, e.g. rodinia::kmeans). While I don't condone
         // this, we have to just ignore such an argument
-        return;
+        return nullptr;
     }
 
     TaggedPointer& tagged_ptr =
         HipMemoryManager::getInstance().getTaggedPtr(ptr);
 
-    uint8_t* cpu_ptr = saveElement(tagged_ptr);
+    uint8_t* gpu_ptr = saveElement(tagged_ptr);
     tagged_ptr.dirty = true;
-    saved_values.emplace_back(tagged_ptr, cpu_ptr);
+    saved_values.emplace_back(tagged_ptr, gpu_ptr);
+
+    return gpu_ptr;
 }
 
 } // namespace hip
