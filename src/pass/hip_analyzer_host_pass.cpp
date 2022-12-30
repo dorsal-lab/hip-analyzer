@@ -275,6 +275,9 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
         }
 
         if (stub_arg_it->hasByValAttr()) {
+            // Necessary to be added to the arguments if they are to be passed
+            // by value and not by address! Otherwise the emitted assembly is
+            // wrong and ends up forwarding bad arguments to the kernel
             arg.addAttr(stub_arg_it->getAttribute(llvm::Attribute::ByVal));
         }
 
