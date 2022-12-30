@@ -211,11 +211,12 @@ HostPass::duplicateStubWithArgs(llvm::Function& f_original,
 
 llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
     auto& mod = *stub.getParent();
+    auto& context = mod.getContext();
 
     auto fun_type = stub.getFunctionType();
     InstrumentationFunctions instr_handlers(mod);
     auto* call_to_launch = firstCallToFunction(stub, "hipLaunchKernel");
-    auto* i8_ptr = llvm::Type::getInt8PtrTy(mod.getContext());
+    auto* i8_ptr = llvm::Type::getInt8PtrTy(context);
 
     auto* new_stub = dyn_cast<llvm::Function>(
         mod.getOrInsertFunction(
@@ -224,21 +225,20 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
                fun_type)
             .getCallee());
 
+    auto* bb = llvm::BasicBlock::Create(context, "", new_stub);
+
     auto* counters_stub = &cloneWithPrefix(
         stub, CfgInstrumentationPass::instrumented_prefix,
-        {CfgInstrumentationPass::getCounterType(mod.getContext())
-             ->getPointerTo()});
+        {CfgInstrumentationPass::getCounterType(context)->getPointerTo()});
 
     auto* tracing_stub =
         trace ? &cloneWithPrefix(stub, TracingPass::instrumented_prefix,
                                  {i8_ptr, i8_ptr})
               : nullptr;
 
-    auto* bb = llvm::BasicBlock::Create(mod.getContext(), "", new_stub);
-
     llvm::IRBuilder<> builder(bb);
 
-    auto unqual_ptr_type = llvm::PointerType::getUnqual(mod.getContext());
+    auto unqual_ptr_type = llvm::PointerType::getUnqual(context);
 
     // Create instr object
 
@@ -257,9 +257,11 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
     // Create call to newly created stub
     llvm::SmallVector<llvm::Value*> args;
     llvm::SmallVector<llvm::Value*> tracing_args;
+
+    auto stub_arg_it = stub.args().begin();
     for (llvm::Argument& arg : new_stub->args()) {
         // Save value if vector
-        if (arg.getType()->isPointerTy()) {
+        if (arg.getType()->isPointerTy() && !stub_arg_it->hasByValAttr()) {
             auto* bitcast = builder.CreateBitCast(&arg, unqual_ptr_type);
             args.push_back(&arg);
             tracing_args.push_back(builder.CreateBitCast(
@@ -271,6 +273,12 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
             args.push_back(&arg);
             tracing_args.push_back(&arg);
         }
+
+        if (stub_arg_it->hasByValAttr()) {
+            arg.addAttr(stub_arg_it->getAttribute(llvm::Attribute::ByVal));
+        }
+
+        ++stub_arg_it;
     }
 
     auto* device_ptr =
@@ -288,8 +296,8 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
 
     if (trace) {
         // Launch right after the kernel so it executes in parallel
-        auto* const_0 = llvm::ConstantInt::get(
-            llvm::Type::getInt32Ty(mod.getContext()), 0ul);
+        auto* const_0 =
+            llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0ul);
 
         // 0, 0 -> thread<hip::Event>
 
