@@ -120,6 +120,7 @@ void hipInstrumenterFromDevice(hipInstrumenter* instr, void* device_ptr) {
     last_t = std::chrono::steady_clock::now();
 
     instr->boxed.fromDevice(device_ptr);
+    hip::check(hipFree(device_ptr));
 
     t = std::chrono::steady_clock::now();
     timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
