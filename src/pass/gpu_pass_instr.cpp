@@ -76,7 +76,8 @@ __device__ void _hip_create_event(void* storage, size_t* idx, size_t event_size,
 __device__ void _hip_create_wave_event(void* storage, size_t* idx,
                                        size_t event_size, event_ctor ctor,
                                        size_t bb) {
-    if (threadIdx.x % warpSize == 0) {
+    uint64_t thread = __lastbit_u32_u64(hip::gcnasm::get_exec());
+    if (threadIdx.x % warpSize == thread) {
         auto* bitcast = reinterpret_cast<uint8_t*>(storage);
         // Postfix increment global index
         auto curr_index = (*idx)++;
