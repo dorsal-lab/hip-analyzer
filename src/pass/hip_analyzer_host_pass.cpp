@@ -299,13 +299,11 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
 
     if (trace) {
         // Launch right after the kernel so it executes in parallel
-        auto* const_0 =
-            llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0ul);
 
-        // 0, 0 -> thread<hip::Event>
+        auto [event, queue] = trace_type->getQueueType(mod);
 
         queue_info = builder.CreateCall(instr_handlers.newHipQueueInfo,
-                                        {instr, const_0, const_0});
+                                        {instr, event, queue});
 
         builder.CreateCall(instr_handlers.hipStateRecovererRollback,
                            {recoverer, instr});

@@ -30,7 +30,7 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
                 [&](llvm::StringRef name, llvm::ModulePassManager& mpm,
                     llvm::ArrayRef<llvm::PassBuilder::PipelineElement>) {
                     if (name == "hip-analyzer-host") {
-                        mpm.addPass(hip::HostPass());
+                        mpm.addPass(hip::HostPass(true));
                         return true;
                     } else if (name == "hip-analyzer-counters") {
                         mpm.addPass(hip::CfgInstrumentationPass());
@@ -48,7 +48,7 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
                     if (do_trace) {
                         pm.addPass(hip::TracingPass(trace_type.getValue()));
                     }
-                    pm.addPass(hip::HostPass(do_trace));
+                    pm.addPass(hip::HostPass(do_trace, trace_type.getValue()));
                 });
             pb.registerAnalysisRegistrationCallback(
                 [](llvm::FunctionAnalysisManager& fam) {

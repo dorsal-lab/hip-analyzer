@@ -15,6 +15,8 @@
 #include "hip_instrumentation/basic_block.hpp"
 #include "ir_codegen.h"
 
+#include <utility>
+
 namespace hip {
 
 // ----- Constants ----- //
@@ -162,6 +164,16 @@ class TraceType {
     virtual llvm::Function* getEventCreator(llvm::Module& mod) const {
         return TracingFunctions{mod}._hip_create_event;
     }
+
+    virtual std::pair<llvm::Value*, llvm::Value*>
+    getQueueType(llvm::Module& mod) const;
+
+  protected:
+    static std::pair<llvm::Value*, llvm::Value*>
+    getPair(llvm::LLVMContext& context, uint64_t event, uint64_t queue) {
+        return {llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), event),
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), queue)};
+    }
 };
 
 struct TracingPass : public KernelInstrumentationPass {
@@ -203,7 +215,12 @@ struct TracingPass : public KernelInstrumentationPass {
  *
  */
 struct HostPass : public llvm::PassInfoMixin<HostPass> {
-    HostPass(bool tracing = true) : trace(tracing) {}
+    HostPass(bool tracing, const std::string& trace_ty = "trace-wavestate")
+        : trace(tracing) {
+        if (tracing) {
+            trace_type = TraceType::create(trace_ty);
+        }
+    }
 
     llvm::PreservedAnalyses run(llvm::Module& mod,
                                 llvm::ModuleAnalysisManager& modm);
@@ -267,6 +284,7 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
 
   private:
     bool trace;
+    std::unique_ptr<TraceType> trace_type;
 };
 
 } // namespace hip
