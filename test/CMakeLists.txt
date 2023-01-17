@@ -128,3 +128,21 @@ add_custom_command(
 add_executable(gpu_queue_wave ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_wave.o)
 target_link_libraries(gpu_queue_wave hip_instrumentation)
 set_target_properties(gpu_queue_wave PROPERTIES LINKER_LANGUAGE CXX)
+
+# ----- wavestate ----- #
+
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/wavestate.o
+    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/wavestate.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/wavestate.o
+    DEPENDS
+        ${CMAKE_BINARY_DIR}/gpu_pass_instr.ll
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/queue_info.hpp
+        ${CMAKE_SOURCE_DIR}/test/wavestate.cpp
+    VERBATIM
+)
+
+add_executable(wavestate ${CMAKE_CURRENT_BINARY_DIR}/wavestate.o)
+target_link_libraries(wavestate hip_instrumentation)
+set_target_properties(wavestate PROPERTIES LINKER_LANGUAGE CXX)

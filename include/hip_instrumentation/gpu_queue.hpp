@@ -206,6 +206,7 @@ struct TaggedEvent {
 };
 
 struct WaveState {
+    __device__ WaveState() {}
     __device__ WaveState(size_t bb) : bb(bb) {
         stamp = gcnasm::get_stamp();
         exec = gcnasm::get_exec();

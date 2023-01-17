@@ -12,6 +12,16 @@ extern "C" {
 
 // ----- Counters instrumentation ----- //
 
+/** \fn _hip_inc_wave_ctr
+ * \brief Increment a wave counter
+ */
+__device__ void _hip_inc_wave_ctr(uint8_t* counter) {
+    uint64_t thread = __lastbit_u32_u64(hip::gcnasm::get_exec());
+    if (threadIdx.x % warpSize == thread) {
+        ++(*counter);
+    }
+}
+
 /** \fn _hip_store_ctr
  * \brief Store the counters in the provided _instr_ptr
  */
@@ -77,12 +87,14 @@ __device__ void _hip_create_wave_event(void* storage, size_t* idx,
                                        size_t event_size, event_ctor ctor,
                                        size_t bb) {
     uint64_t thread = __lastbit_u32_u64(hip::gcnasm::get_exec());
+    hip::WaveState state;
+    ctor(&state, bb);
     if (threadIdx.x % warpSize == thread) {
-        auto* bitcast = reinterpret_cast<uint8_t*>(storage);
+        auto* bitcast = reinterpret_cast<hip::WaveState*>(storage);
         // Postfix increment global index
         auto curr_index = (*idx)++;
 
-        ctor(&bitcast[curr_index * event_size], bb);
+        bitcast[curr_index] = state;
     }
 }
 
