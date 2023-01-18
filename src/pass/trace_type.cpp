@@ -40,6 +40,7 @@ class TaggedEvent : public TraceType {
         return getFunction(mod, "_hip_tagged_event_ctor",
                            getEventCtorType(mod.getContext()));
     }
+
     std::pair<llvm::Value*, llvm::Value*>
     getQueueType(llvm::Module& mod) const override {
         return getPair(mod.getContext(), 1, 0);
@@ -58,6 +59,10 @@ class WaveState : public TraceType {
     llvm::Function* getEventCtor(llvm::Module& mod) const override {
         return getFunction(mod, "_hip_wavestate_ctor",
                            getEventCtorType(mod.getContext()));
+    }
+
+    virtual llvm::Function* getEventCreator(llvm::Module& mod) const override {
+        return TracingFunctions{mod}._hip_create_wave_event;
     }
 
     llvm::Function* getOffsetGetter(llvm::Module& mod) const override {

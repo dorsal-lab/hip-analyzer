@@ -88,7 +88,7 @@ void QueueInfo::computeSize() {
                     auto counter_bb = counters[block * blocks_stride +
                                                thread * thread_stride + bb];
                     if (counter_bb > max_per_bblock[bb]) {
-                        max_per_bblock[bb] = counter_bb;
+                        max_per_bblock[bb] = counter_bb * extra_size;
                     }
                 }
             }

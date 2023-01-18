@@ -14,10 +14,9 @@
 
 __global__ void create_one_event(void* buffer, size_t bb) {
     size_t idx = 0;
-    if (threadIdx.x % 2 == 0) {
-        _hip_create_wave_event(buffer, &idx, sizeof(hip::WaveState),
-                               _hip_wavestate_ctor, bb);
-    }
+
+    _hip_create_wave_event(buffer, &idx, sizeof(hip::WaveState),
+                           _hip_wavestate_ctor, bb);
 }
 
 bool test_n_threads(size_t n, size_t bb) {

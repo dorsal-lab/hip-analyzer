@@ -178,7 +178,7 @@ hipQueueInfo* newHipQueueInfo(hipInstrumenter* instr, EventType event_type,
                               QueueType queue_type) {
     last_t = std::chrono::steady_clock::now();
 
-    constexpr auto extra_size = 1u;
+    constexpr auto extra_size = 8u;
     switch (queue_type) {
     case QueueType::Thread:
         switch (event_type) {
