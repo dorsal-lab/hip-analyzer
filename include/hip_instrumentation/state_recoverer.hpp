@@ -8,6 +8,7 @@
 
 #include <map>
 #include <memory>
+#include <mutex>
 #include <type_traits>
 #include <vector>
 
@@ -140,6 +141,7 @@ class HipMemoryManager {
      * \brief Returns the tagged pointer, if any, corresponding to an address
      */
     TaggedPointer& getTaggedPtr(void* ptr) {
+        std::scoped_lock lock(mutex);
         try {
             return alloc_map.at(ptr);
         } catch (std::out_of_range e) {
@@ -155,6 +157,8 @@ class HipMemoryManager {
     hipError_t hipMallocWrapper(void** ptr, size_t size, size_t el_size);
     hipError_t hipFreeWrapper(void* ptr);
 
+    std::mutex mutex;
+
     void* so_handle;
     hipError_t (*hipMallocHandler)(void** ptr, size_t size);
     hipError_t (*hipFreeHandler)(void* ptr);
@@ -165,10 +169,12 @@ class HipMemoryManager {
 
 template <typename T>
 hipError_t HipMemoryManager::hipMalloc(T** ptr, size_t size) {
+    std::scoped_lock lock(mutex);
     return hipMallocWrapper(reinterpret_cast<void**>(ptr), size, sizeof(size));
 }
 
 template <typename T> hipError_t HipMemoryManager::hipFree(T* ptr) {
+    std::scoped_lock lock(mutex);
     return hipFreeWrapper(static_cast<void*>(ptr));
 }
 
