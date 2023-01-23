@@ -154,6 +154,13 @@ class TraceType {
         return TracingFunctions{mod}._hip_get_trace_offset;
     }
 
+    virtual llvm::Value* getTracingIndex(llvm::Module& module,
+                                         llvm::IRBuilder<>& builder) {
+        auto* i64_ty = llvm::Type::getInt64Ty(module.getContext());
+        return builder.CreateAlloca(i64_ty, 0, nullptr,
+                                    llvm::Twine("_trace_idx"));
+    }
+
     /** \fn getEventCreator
      * \brief Returns the event creator that is appropriate for this trace type.
      *

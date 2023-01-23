@@ -105,6 +105,8 @@ KernelInstrumentationPass::run(llvm::Module& mod,
         modified |= instrumentFunction(f, f_original, blocks);
     }
 
+    // assertModuleIntegrity(mod);
+
     // If we instrumented a kernel, link the necessary utilities function
     if (modified) {
         linkModuleUtils(mod);
@@ -306,8 +308,8 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
     setInsertPointPastAllocas(builder_locals, f);
 
     // Create the local counter and initialize it to 0.
-    auto* idx = builder_locals.CreateAlloca(i64_ty, 0, nullptr,
-                                            llvm::Twine("_trace_idx"));
+    auto* idx = event->getTracingIndex(mod, builder_locals);
+
     builder_locals.CreateStore(llvm::ConstantInt::get(i64_ty, 0), idx);
 
     auto* storage_ptr =

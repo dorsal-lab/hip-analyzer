@@ -83,6 +83,11 @@ __device__ void _hip_create_event(void* storage, size_t* idx, size_t event_size,
     ctor(&bitcast[curr_index * event_size], bb);
 }
 
+__device__ size_t* _hip_wave_get_index_in_block(size_t* idx_array) {
+    auto wave_in_block = threadIdx.x / warpSize;
+    return &idx_array[wave_in_block];
+}
+
 __device__ void _hip_create_wave_event(void* storage, size_t* idx,
                                        size_t event_size, event_ctor ctor,
                                        size_t bb) {
