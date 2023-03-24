@@ -12,7 +12,8 @@ Currently, the goal is to allow the user to add custom software counters and tra
 
 ## Building the tool
 
-Using `hip-analyzer` requires, until further improvements, compiling [ROCm-LLVM](https://github.com/RadeonOpenCompute/llvm-project) as a standalone component with `BUILD_SHARED_LIBS` enabled. Use the tag corresponding to your ROCm install.
+Using `hip-analyzer` requires, until further improvements, compiling [ROCm-LLVM](https://github.com/RadeonOpenCompute/llvm-project) as a standalone component with `BUILD_SHARED_LIBS` and `ENABLE_LLVM_SHARED`
+enabled. Use the tag corresponding to your ROCm install.
 
 Run the following command :
 
