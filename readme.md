@@ -12,14 +12,19 @@ Currently, the goal is to allow the user to add custom software counters and tra
 
 ## Building the tool
 
+Using `hip-analyzer` requires, until further improvements, compiling [ROCm-LLVM](https://github.com/RadeonOpenCompute/llvm-project) as a standalone component with `BUILD_SHARED_LIBS` enabled. Use the tag corresponding to your ROCm install.
+
 Run the following command :
 
 ```bash
 mkdir build && cd build
-cmake -DCMAKE_C_COMPILER=/opt/rocm-5.0.0/llvm/bin/clang -DCMAKE_CXX_COMPILER=/opt/rocm-5.0.0/llvm/bin/clang++ -DROCM_PATH=/opt/rocm ..
+cmake -DCMAKE_C_COMPILER=/opt/rocm/llvm/bin/clang -DCMAKE_CXX_COMPILER=/opt/rocm/llvm/bin/clang++ -DROCM_PATH=/opt/rocm -DROCM_LLVM=<path to llvm install directory>..
 ```
 
 ## Running
+
+The `HIP_CLANG_PATH` environment variable must be set to the binary dir of the custom LLVM build to ensure 
+that `hipcc` invokes the correct compiler.
 
 ### Currently supported way
 
