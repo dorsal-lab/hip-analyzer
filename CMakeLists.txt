@@ -50,40 +50,6 @@ include_directories(/usr/include/jsoncpp) # quick hack but I'm tired of fighting
 
 # ----- Targets definitions ----- #
 
-# Main tool
-
-add_executable(hip-analyzer
-    src/main.cpp
-    src/hip_runtime_matcher.cpp
-    src/cfg_instrumentation.cpp
-    src/instr_generator.cpp
-    src/cfg_inner_matchers.cpp
-    src/basic_block.cpp
-    src/llvm_ir_consumer.cpp
-    src/llvm_instr_counters.cpp
-    src/actions_processor.cpp
-)
-
-target_link_libraries(hip-analyzer
-    clangToolingCore
-    clangTooling
-    clangFrontend
-    clangAST
-    clangASTMatchers
-    clangAnalysis
-    clangBasic
-    clangSerialization
-    clangCodeGen
-    clangRewrite
-    clangLex
-    LLVMAnalysis
-    LLVMFrontendOpenMP
-    LLVMObject
-    LLVMCore
-    LLVMSupport
-    jsoncpp
-)
-
 # Instrumentation library
 
 add_custom_command(

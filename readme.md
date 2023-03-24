@@ -26,8 +26,6 @@ cmake -DCMAKE_C_COMPILER=/opt/rocm/llvm/bin/clang -DCMAKE_CXX_COMPILER=/opt/rocm
 The `HIP_CLANG_PATH` environment variable must be set to the binary dir of the custom LLVM build to ensure 
 that `hipcc` invokes the correct compiler.
 
-### Currently supported way
-
 The tool now relies on a set of LLVM IR passes which can be found in the `libhip-analyzer-pass.so` shared library. It can be run using the `opt` tool on LLVM IR modules, or directly in the `hipcc` compiler, using a few compiler flags.
 
 `hipcc` (prefered way, one-shot compilation):
@@ -42,15 +40,3 @@ hipcc <input> -o <output> -fpass-plugin=libhip-analyzer-passes.so
 opt -load=libhip-analyzer-passes.so <module> [--hip-analyzer-counters | --hip-analyzer-trace | --hip-analyzer-host]
 ```
 The flags to use depends on the module you're using (whether it be host or device)
-
-
-
-
-### Legacy front-end plugin
-```bash
-build/hip-analyzer -p <path to compilation database> <input file> -k <kernel name> -o <output file>
-```
-
-The compilation database can be obtained using CMake (`-DCMAKE_EXPORT_COMPILE_COMMANDS=On`) or the [`bear` tool](https://github.com/rizsotto/Bear).
-
-The output file has to be linked with `libhip_instrumentation.a`, generated during compilation. It provides runtime utilities for the instrumentation as well as GPU reductions for the instrumentation data (e.g. sum the total count for a basic block).
