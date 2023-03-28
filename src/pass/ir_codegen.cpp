@@ -222,7 +222,9 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
 
     auto* void_type = llvm::Type::getVoidTy(context);
     auto* uint32_type = llvm::Type::getInt32Ty(context);
-    auto* unqual_ptr_type = llvm::PointerType::getUnqual(context);
+    auto* unqual_ptr_type = llvm::Type::getInt8PtrTy(context);
+    // FIXME kind of a hack so far, but HIP has not
+    // updated to opaque pointers so far
 
     auto void_from_ptr_type =
         llvm::FunctionType::get(void_type, {unqual_ptr_type}, false);

@@ -116,6 +116,7 @@ llvm::Function*
 HostPass::duplicateStubWithArgs(llvm::Function& f_original,
                                 const std::string& prefix,
                                 llvm::ArrayRef<llvm::Type*> new_args) const {
+    llvm::dbgs() << "DuplicateStubWithArgs : " << f_original.getName() << '\n';
     auto& mod = *f_original.getParent();
     auto& context = mod.getContext();
 
@@ -166,11 +167,15 @@ HostPass::duplicateStubWithArgs(llvm::Function& f_original,
     // Modify __hip_module_ctor to register kernel
 
     auto* device_ctor = dyn_cast<llvm::Function>(
-        mod.getOrInsertFunction(
-               "__hip_module_ctor",
-               llvm::FunctionType::get(llvm::Type::getVoidTy(context), {i8_ptr},
-                                       false))
+        mod.getOrInsertFunction("__hip_module_ctor",
+                                llvm::FunctionType::get(
+                                    llvm::Type::getVoidTy(context), {}, false))
             .getCallee());
+
+    if (device_ctor == nullptr) {
+        llvm::dbgs() << "################\n" << mod << '\n';
+        throw std::runtime_error("Could not find hip device ctor");
+    }
 
     llvm::CallInst* register_function;
 
@@ -239,7 +244,7 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
 
     llvm::IRBuilder<> builder(bb);
 
-    auto unqual_ptr_type = llvm::PointerType::getUnqual(context);
+    auto unqual_ptr_type = llvm::Type::getInt8PtrTy(context);
 
     // Create instr object
 
