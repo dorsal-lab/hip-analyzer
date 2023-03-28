@@ -116,6 +116,17 @@ KernelInstrumentationPass::run(llvm::Module& mod,
                     : llvm::PreservedAnalyses::all();
 }
 
+bool KernelInstrumentationPass::isInstrumentableKernel(
+    const llvm::Function& f) const {
+    return !f.isDeclaration() && // Is it a function definition
+           f.getCallingConv() ==
+               llvm::CallingConv::AMDGPU_KERNEL && // Is it a kernel
+           !contains(f.getName().str(),
+                     cloned_suffix) && // Is it not already cloned
+           !contains(f.getName().str(),
+                     dummy_kernel_name); // Is it *not* a dummy kernel
+}
+
 bool KernelInstrumentationPass::addParams(llvm::Function& f,
                                           llvm::Function& original_function) {
 
@@ -124,7 +135,7 @@ bool KernelInstrumentationPass::addParams(llvm::Function& f,
 
     llvm::ValueToValueMapTy vmap;
 
-    llvm::dbgs() << f << "\n#####\n" << original_function;
+    llvm::dbgs() << f << "\n#####\n" << original_function << '\n';
 
     for (auto it1 = original_function.arg_begin(), it2 = f.arg_begin();
          it1 != original_function.arg_end(); ++it1, ++it2) {
@@ -149,12 +160,6 @@ const std::string CfgInstrumentationPass::utils_path = []() -> std::string {
         return "gpu_pass_instr.ll";
     }
 }();
-
-bool CfgInstrumentationPass::isInstrumentableKernel(
-    const llvm::Function& f) const {
-    return !f.isDeclaration() && !contains(f.getName().str(), cloned_suffix) &&
-           f.getCallingConv() == llvm::CallingConv::AMDGPU_KERNEL;
-}
 
 bool CfgInstrumentationPass::instrumentFunction(
     llvm::Function& f, llvm::Function& original_function,
@@ -284,11 +289,6 @@ void CfgInstrumentationPass::linkModuleUtils(llvm::Module& mod) {
 
 const std::string TracingPass::instrumented_prefix = "tracing_";
 const std::string TracingPass::utils_path = "gpu_pass_instr.ll";
-
-bool TracingPass::isInstrumentableKernel(const llvm::Function& f) const {
-    return !f.isDeclaration() && !contains(f.getName().str(), cloned_suffix) &&
-           f.getCallingConv() == llvm::CallingConv::AMDGPU_KERNEL;
-}
 
 bool TracingPass::instrumentFunction(llvm::Function& f,
                                      llvm::Function& original_function,

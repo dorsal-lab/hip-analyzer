@@ -26,6 +26,12 @@ namespace hip {
  */
 constexpr std::string_view device_stub_prefix = "__device_stub__";
 
+/** \brief We link a dummy kernel to prevent optimizing some functions away. Do
+ * not instrument it as it would be a waste of time
+ * */
+constexpr std::string_view dummy_kernel_name =
+    "_ZN12_GLOBAL__N_118dummy_kernel_nooptEmPh";
+
 // ----- Passes ----- //
 
 /** \struct AnalysisPass
@@ -53,7 +59,7 @@ struct KernelInstrumentationPass
      * \brief Returns whether a function is a kernel that will be
      * instrumented (todo?)
      */
-    virtual bool isInstrumentableKernel(const llvm::Function& f) const = 0;
+    virtual bool isInstrumentableKernel(const llvm::Function& f) const;
 
     /** \fn addParams
      * \brief Clone function with new parameters
@@ -89,8 +95,6 @@ struct CfgInstrumentationPass : public KernelInstrumentationPass {
     static const std::string utils_path;
 
     CfgInstrumentationPass() {}
-
-    bool isInstrumentableKernel(const llvm::Function& f) const override;
 
     bool instrumentFunction(llvm::Function& f,
                             llvm::Function& original_function,
@@ -195,8 +199,6 @@ struct TracingPass : public KernelInstrumentationPass {
                 "\".");
         }
     }
-
-    bool isInstrumentableKernel(const llvm::Function& f) const override;
 
     bool instrumentFunction(llvm::Function& f,
                             llvm::Function& original_function,

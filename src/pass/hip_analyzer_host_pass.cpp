@@ -21,7 +21,8 @@ bool isDeviceStub(llvm::Function& f) {
     return contains(name, device_stub_prefix) &&
            !contains(name, cloned_suffix +
                                CfgInstrumentationPass::instrumented_prefix) &&
-           !contains(name, cloned_suffix + TracingPass::instrumented_prefix);
+           !contains(name, cloned_suffix + TracingPass::instrumented_prefix) &&
+           !contains(name, dummy_kernel_name);
 }
 
 bool isKernelCallSite(llvm::Function& f) {
