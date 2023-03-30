@@ -73,14 +73,12 @@ __device__ void* _hip_get_wave_trace_offset(void* storage, size_t* offsets,
 // Generic function pointer to : void event_ctor(void* storage, size_t bb);
 using event_ctor = void (*)(void*, size_t);
 
-__device__ void _hip_create_event(void* storage, size_t* idx, size_t event_size,
-                                  event_ctor ctor, size_t bb) {
+__device__ void _hip_create_event(void* storage, uint32_t idx,
+                                  size_t event_size, event_ctor ctor,
+                                  size_t bb) {
     auto* bitcast = reinterpret_cast<uint8_t*>(storage);
 
-    // Postfix increment global index
-    auto curr_index = (*idx)++;
-
-    ctor(&bitcast[curr_index * event_size], bb);
+    ctor(&bitcast[idx * event_size], bb);
 }
 
 __device__ size_t* _hip_wave_get_index_in_block(size_t* idx_array) {
@@ -88,7 +86,7 @@ __device__ size_t* _hip_wave_get_index_in_block(size_t* idx_array) {
     return &idx_array[wave_in_block];
 }
 
-__device__ void _hip_create_wave_event(void* storage, size_t* idx,
+__device__ void _hip_create_wave_event(void* storage, uint32_t idx,
                                        size_t event_size, event_ctor ctor,
                                        size_t bb) {
     uint64_t thread = __lastbit_u32_u64(hip::gcnasm::get_exec());
@@ -96,10 +94,9 @@ __device__ void _hip_create_wave_event(void* storage, size_t* idx,
     ctor(&state, bb);
     if (threadIdx.x % warpSize == thread) {
         auto* bitcast = reinterpret_cast<hip::WaveState*>(storage);
-        // Postfix increment global index
-        auto curr_index = (*idx)++;
-
-        bitcast[curr_index] = state;
+        bitcast[idx] = state;
+        // Incrementing idx is now left to the instrumenter as it may be stored
+        // in a SGPR
     }
 }
 
@@ -127,7 +124,7 @@ namespace {
                                                       uint8_t* _instr_ptr) {
     _hip_store_ctr(nullptr, 0, nullptr);
     _hip_get_trace_offset(nullptr, nullptr, 0);
-    _hip_create_event(nullptr, nullptr, 0, nullptr, 0);
+    _hip_create_event(nullptr, 0, 0, nullptr, 0);
     _hip_event_ctor(nullptr, 0);
     _hip_tagged_event_ctor(nullptr, 0);
     _hip_wavestate_ctor(nullptr, 0);

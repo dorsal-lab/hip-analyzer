@@ -15,7 +15,7 @@
 __global__ void create_one_event(void* buffer, size_t bb) {
     size_t idx = 0;
 
-    _hip_create_wave_event(buffer, &idx, sizeof(hip::WaveState),
+    _hip_create_wave_event(buffer, idx, sizeof(hip::WaveState),
                            _hip_wavestate_ctor, bb);
 }
 

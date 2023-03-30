@@ -18,6 +18,18 @@
 
 namespace hip {
 
+/** \brief Different address spaces supported by the backend
+ */
+namespace addrspaces {
+
+constexpr unsigned int global = 1u;   // Global memory
+constexpr unsigned int region = 2u;   // Device-specific
+constexpr unsigned int local = 3u;    // LDS
+constexpr unsigned int constant = 4u; // Global, but constant
+constexpr unsigned int thread = 5u;   // Thread-private data
+
+} // namespace addrspaces
+
 enum class InstrumentationType { Counters, Tracing };
 
 struct InstrumentationContext {

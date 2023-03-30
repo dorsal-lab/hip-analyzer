@@ -312,6 +312,7 @@ TracingFunctions::TracingFunctions(llvm::Module& mod) {
     auto* uint8_type = llvm::Type::getInt8Ty(context);
     auto* uint8_ptr_type = uint8_type->getPointerTo();
     auto* uint64_type = llvm::Type::getInt64Ty(context);
+    auto* uint32_type = llvm::Type::getInt32Ty(context);
 
     auto* _hip_event_ctor_type = getEventCtorType(context);
 
@@ -321,7 +322,7 @@ TracingFunctions::TracingFunctions(llvm::Module& mod) {
 
     auto* event_creator_type = llvm::FunctionType::get(
         void_type,
-        {uint8_ptr_type, uint64_type->getPointerTo(), uint64_type,
+        {uint8_ptr_type, uint32_type, uint64_type,
          _hip_event_ctor_type->getPointerTo(), uint64_type},
         false);
 

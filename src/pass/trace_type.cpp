@@ -7,11 +7,160 @@
 #include "hip_analyzer_pass.h"
 
 #include "ir_codegen.h"
+#include "llvm/IR/CFG.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/InlineAsm.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/Value.h"
 
 namespace hip {
 namespace {
 
-class Event : public TraceType {
+// ----- Thread or Wave event production mode ----- //
+
+class ThreadTrace : public TraceType {
+  public:
+    const std::map<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*>>&
+    initTracingIndices(llvm::Function& kernel) override final {
+        idx_map.clear(); // Reset map
+
+        auto& entry = kernel.getEntryBlock();
+        llvm::IRBuilder<> builder_locals(&entry);
+        setInsertPointPastAllocas(builder_locals, kernel);
+
+        auto* i32_ty = llvm::Type::getInt32Ty(kernel.getContext());
+        auto* trace_idx = builder_locals.CreateAlloca(
+            i32_ty, 0, nullptr, llvm::Twine("_trace_idx"));
+
+        for (auto& bb : kernel) {
+            builder_locals.SetInsertPoint(&bb);
+            auto* incremented = getCounterAndIncrement(
+                *kernel.getParent(), builder_locals, trace_idx);
+
+            idx_map.insert({&bb, {trace_idx, incremented}});
+            // incremented will not actually be used as it is stored in the
+            // allocated
+        }
+
+        return idx_map;
+    }
+
+    llvm::Value* getCounterAndIncrement(llvm::Module& mod,
+                                        llvm::IRBuilder<>& builder,
+                                        llvm::Value* counter) override final {
+        if (counter->getType()->isPointerTy()) {
+            // Load the value
+            auto* loaded = builder.CreateLoad(
+                counter->getType()->getPointerElementType(),
+                counter); // We'll have to deal with the deprecation warning
+                          // until AMD decides to enable opaque pointers in
+                          // device compilation
+
+            // Increment the value
+            auto* inced = builder.CreateAdd(loaded, builder.getInt32(1));
+
+            // Store the old value
+            builder.CreateStore(inced, counter);
+            return inced;
+        } else {
+            // Increment & return the value
+            return builder.CreateAdd(counter, builder.getInt32(1));
+        }
+    }
+
+    void finalizeTracingIndices(llvm::Function& kernel) override {
+        // Everything was already computed when initializing
+    }
+
+  private:
+    std::map<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*>> idx_map;
+};
+
+class WaveTrace : public TraceType {
+  public:
+    const std::map<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*>>&
+    initTracingIndices(llvm::Function& kernel) override final {
+        idx_map.clear(); // Reset map
+
+        auto& entry = kernel.getEntryBlock();
+        llvm::IRBuilder<> builder_locals(&entry);
+        setInsertPointPastAllocas(builder_locals, kernel);
+
+        auto* zero = builder_locals.getInt32(0);
+        auto* i32_ty = llvm::Type::getInt32Ty(kernel.getContext());
+
+        for (auto& bb : kernel) {
+            builder_locals.SetInsertPoint(&bb.front());
+
+            auto* dummy_idx = builder_locals.CreateIntrinsic(
+                llvm::Intrinsic::ssa_copy, {i32_ty}, {zero});
+
+            auto* incremented = getCounterAndIncrement(
+                *kernel.getParent(), builder_locals, dummy_idx);
+
+            idx_map.insert({&bb, {dummy_idx, incremented}});
+        }
+
+        return idx_map;
+    }
+
+    void finalizeTracingIndices(llvm::Function& kernel) override {
+        // Construct phi nodes from predecessors of each bb, then replace all
+        // uses of the original value with the phi node
+        auto* i32_ty = llvm::Type::getInt32Ty(kernel.getContext());
+
+        for (auto& bb : kernel) {
+            llvm::IRBuilder<> builder_locals(&bb.front());
+
+            if (bb.isEntryBlock()) {
+                idx_map[&bb].first->replaceAllUsesWith(
+                    builder_locals.getInt32(0));
+                continue;
+            }
+
+            // TODO check NumReservedValues
+            auto* phi = builder_locals.CreatePHI(i32_ty, 0);
+
+            for (const auto& pred : llvm::predecessors(&bb)) {
+                phi->addIncoming(idx_map[pred].second, pred);
+            }
+
+            // Replace the dummy value created in initTracingIndices by the Phi
+            // node
+            idx_map[&bb].first->replaceAllUsesWith(phi);
+            dyn_cast<llvm::Instruction>(idx_map[&bb].first)->eraseFromParent();
+            idx_map[&bb].first = phi;
+        }
+    }
+
+    llvm::Value* getCounterAndIncrement(llvm::Module& mod,
+                                        llvm::IRBuilder<>& builder,
+                                        llvm::Value* counter) override final {
+        if (counter->getType()->isPointerTy()) {
+            throw std::runtime_error("Cannot store wave counters in an "
+                                     "alloca-ted value (or is it in LDS?)");
+        }
+        // Increment the value, but with inline asm
+        auto* int32_ty = builder.getInt32Ty();
+
+        auto* f_ty = llvm::FunctionType::get(int32_ty, {int32_ty}, false);
+
+        auto* inc_sgpr =
+            llvm::InlineAsm::get(f_ty, inline_asm, asm_constraints, true);
+
+        return builder.CreateCall(inc_sgpr, {counter});
+    }
+
+  private:
+    static constexpr auto* inline_asm = "s_add_u32 $0, $0, 1";
+    static constexpr auto* asm_constraints = "=r,0";
+
+    std::map<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*>> idx_map;
+};
+
+// ----- Event types ----- //
+
+class Event : public ThreadTrace {
   public:
     llvm::Type* getEventType(llvm::LLVMContext& context) const override {
         return llvm::StructType::create(
@@ -29,11 +178,11 @@ class Event : public TraceType {
     }
 };
 
-class TaggedEvent : public TraceType {
+class TaggedEvent : public ThreadTrace {
   public:
     llvm::Type* getEventType(llvm::LLVMContext& context) const override {
         auto* i64 = llvm::Type::getInt64Ty(context);
-        return llvm::StructType::create(context, {i64, i64}, "hipEvent");
+        return llvm::StructType::create(context, {i64, i64}, "hipTaggedEvent");
     }
 
     llvm::Function* getEventCtor(llvm::Module& mod) const override {
@@ -47,13 +196,13 @@ class TaggedEvent : public TraceType {
     }
 };
 
-class WaveState : public TraceType {
+class WaveState : public WaveTrace {
   public:
     llvm::Type* getEventType(llvm::LLVMContext& context) const override {
         auto* i64 = llvm::Type::getInt64Ty(context);
         auto* i32 = llvm::Type::getInt32Ty(context);
         return llvm::StructType::create(context, {i64, i64, i64, i32},
-                                        "hipEvent");
+                                        "hipWaveState");
     }
 
     llvm::Function* getEventCtor(llvm::Module& mod) const override {
@@ -72,31 +221,6 @@ class WaveState : public TraceType {
     std::pair<llvm::Value*, llvm::Value*>
     getQueueType(llvm::Module& mod) const override {
         return getPair(mod.getContext(), 2, 1);
-    }
-
-    llvm::Value* getTracingIndex(llvm::Module& module,
-                                 llvm::IRBuilder<>& builder) override {
-        constexpr auto num_waves = 16u;
-
-        auto* i8_ty = llvm::Type::getInt8Ty(module.getContext());
-        auto* i64_ty = llvm::Type::getInt64Ty(module.getContext());
-        auto* i64_ptr_ty = i64_ty->getPointerTo();
-
-        auto* array_ty = llvm::ArrayType::get(i64_ty, num_waves);
-
-        auto* array = builder.CreateAlloca(array_ty, 5, nullptr,
-                                           llvm::Twine("_trace_idx"));
-        auto* array_ptr = builder.CreatePointerCast(array, i64_ptr_ty);
-
-        builder.CreateMemSet(array_ptr, llvm::ConstantInt::get(i8_ty, 0u),
-                             num_waves * 8,
-                             llvm::MaybeAlign(llvm::Align::Constant<8>()));
-
-        auto* _hip_wave_get_index_in_block = getFunction(
-            module, "_hip_wave_get_index_in_block",
-            llvm::FunctionType::get(i64_ptr_ty, {i64_ptr_ty}, false));
-
-        return builder.CreateCall(_hip_wave_get_index_in_block, {array_ptr});
     }
 };
 

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -158,12 +159,19 @@ class TraceType {
         return TracingFunctions{mod}._hip_get_trace_offset;
     }
 
-    virtual llvm::Value* getTracingIndex(llvm::Module& module,
-                                         llvm::IRBuilder<>& builder) {
-        auto* i64_ty = llvm::Type::getInt64Ty(module.getContext());
-        return builder.CreateAlloca(i64_ty, 0, nullptr,
-                                    llvm::Twine("_trace_idx"));
-    }
+    /** \fn initTracingIndices
+     * \brief Some tracing types require a much more involved infrastructure for
+     * keeping counters (wave specifically). We have to create a map assigning
+     * values of counters (pre-increment, post-increment) for each basic block.
+     */
+    virtual const std::map<llvm::BasicBlock*,
+                           std::pair<llvm::Value*, llvm::Value*>>&
+    initTracingIndices(llvm::Function& kernel) = 0;
+
+    /** \fn finalizeTracingIndices
+     * \brief
+     */
+    virtual void finalizeTracingIndices(llvm::Function& kernel) = 0;
 
     /** \fn getEventCreator
      * \brief Returns the event creator that is appropriate for this trace type.
@@ -177,7 +185,16 @@ class TraceType {
     }
 
     virtual std::pair<llvm::Value*, llvm::Value*>
-    getQueueType(llvm::Module& mod) const;
+    getQueueType(llvm::Module& mod) const = 0;
+
+    /** \fn getCounterAndIncrement
+     * \brief Increment a int32 counter and return the old value (effectively
+     * returns counter++;). If \p counter is a pointer to int32, load the value
+     * and store the incremented val.
+     */
+    virtual llvm::Value* getCounterAndIncrement(llvm::Module& mod,
+                                                llvm::IRBuilder<>& builder,
+                                                llvm::Value* counter) = 0;
 
   protected:
     static std::pair<llvm::Value*, llvm::Value*>

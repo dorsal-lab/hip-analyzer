@@ -143,7 +143,6 @@ target_link_libraries(hip_instrumentation
     rocprofiler64
     dl
     pthread
-    Terminfo::terminfo
 )
 
 

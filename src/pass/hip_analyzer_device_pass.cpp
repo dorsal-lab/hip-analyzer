@@ -298,7 +298,6 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
     auto& context = f.getContext();
     TracingFunctions instrumentation_handlers(mod);
 
-    auto* i64_ty = llvm::Type::getInt64Ty(context);
     auto* i8_ptr_ty = llvm::Type::getInt8PtrTy(context);
     auto* offsets_ptr = f.getArg(f.arg_size() - 1);
 
@@ -308,9 +307,7 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
     setInsertPointPastAllocas(builder_locals, f);
 
     // Create the local counter and initialize it to 0.
-    auto* idx = event->getTracingIndex(mod, builder_locals);
-
-    builder_locals.CreateStore(llvm::ConstantInt::get(i64_ty, 0), idx);
+    auto& idx_map = event->initTracingIndices(f);
 
     auto* storage_ptr =
         builder_locals.CreateBitCast(f.getArg(f.arg_size() - 2), i8_ptr_ty);
@@ -318,10 +315,11 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
     auto* thread_storage = builder_locals.CreateCall(
         event->getOffsetGetter(mod),
         {storage_ptr, offsets_ptr, event->getEventSize(mod)});
-
+    /*
     builder_locals.CreateCall(event->getEventCreator(mod),
                               {thread_storage, idx, event->getEventSize(mod),
                                event->getEventCtor(mod), getIndex(0, context)});
+    */
 
     // Start at 1 because the first block is handled separately
 
@@ -341,11 +339,18 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
         builder_locals.SetInsertPoint(&(*curr_bb),
                                       getFirstNonPHIOrDbgOrAlloca(*curr_bb));
 
+        const auto [pre_inc, post_inc] = idx_map.at(&(*curr_bb));
+
         builder_locals.CreateCall(
             event->getEventCreator(mod),
-            {thread_storage, idx, event->getEventSize(mod),
+            {thread_storage, pre_inc, event->getEventSize(mod),
              event->getEventCtor(mod), getIndex(bb_instr.id, context)});
+
+        // counter = event->getCounterAndIncrement(mod, builder_locals, idx);
+        // To be inserted by the tracetype
     }
+
+    event->finalizeTracingIndices(f);
 
     llvm::dbgs() << f;
 
