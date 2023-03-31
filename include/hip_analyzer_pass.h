@@ -173,6 +173,12 @@ class TraceType {
      */
     virtual void finalizeTracingIndices(llvm::Function& kernel) = 0;
 
+    /** \fn traceIdxAtBlock
+     * \brief Returns the trace index in a given basic block. Preferred way to
+     * access the counter rather than indexing in the return index map.
+     */
+    virtual llvm::Value* traceIdxAtBlock(llvm::BasicBlock& bb) = 0;
+
     /** \fn getEventCreator
      * \brief Returns the event creator that is appropriate for this trace type.
      *

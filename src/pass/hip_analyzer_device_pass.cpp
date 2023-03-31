@@ -307,7 +307,7 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
     setInsertPointPastAllocas(builder_locals, f);
 
     // Create the local counter and initialize it to 0.
-    auto& idx_map = event->initTracingIndices(f);
+    event->initTracingIndices(f);
 
     auto* storage_ptr =
         builder_locals.CreateBitCast(f.getArg(f.arg_size() - 2), i8_ptr_ty);
@@ -339,15 +339,12 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
         builder_locals.SetInsertPoint(&(*curr_bb),
                                       getFirstNonPHIOrDbgOrAlloca(*curr_bb));
 
-        const auto [pre_inc, post_inc] = idx_map.at(&(*curr_bb));
+        auto* counter = event->traceIdxAtBlock(*curr_bb);
 
         builder_locals.CreateCall(
             event->getEventCreator(mod),
-            {thread_storage, pre_inc, event->getEventSize(mod),
+            {thread_storage, counter, event->getEventSize(mod),
              event->getEventCtor(mod), getIndex(bb_instr.id, context)});
-
-        // counter = event->getCounterAndIncrement(mod, builder_locals, idx);
-        // To be inserted by the tracetype
     }
 
     event->finalizeTracingIndices(f);

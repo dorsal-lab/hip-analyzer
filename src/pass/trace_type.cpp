@@ -69,13 +69,22 @@ class ThreadTrace : public TraceType {
     }
 
     void finalizeTracingIndices(llvm::Function& kernel) override {
-        // Everything was already computed when initializing
+        // Everything was already computed when initializing, do nothing
+    }
+
+    llvm::Value* traceIdxAtBlock(llvm::BasicBlock& bb) override {
+        return idx_map.at(&bb).first;
     }
 
   private:
     std::map<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*>> idx_map;
 };
 
+/** \class WaveTrace
+ * \brief A trace whose producer is a wavefront, and not a single thread. We
+ * have to ensuire that the trace index is global to the whole wavefront and
+ * that a single event is created no matter the number of active threads
+ */
 class WaveTrace : public TraceType {
   public:
     const std::map<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*>>&
@@ -88,6 +97,8 @@ class WaveTrace : public TraceType {
 
         auto* zero = builder_locals.getInt32(0);
         auto* i32_ty = llvm::Type::getInt32Ty(kernel.getContext());
+
+        alloca = builder_locals.CreateAlloca(i32_ty, 0, nullptr, "");
 
         for (auto& bb : kernel) {
             builder_locals.SetInsertPoint(&bb.front());
@@ -145,17 +156,42 @@ class WaveTrace : public TraceType {
 
         auto* f_ty = llvm::FunctionType::get(int32_ty, {int32_ty}, false);
 
-        auto* inc_sgpr =
-            llvm::InlineAsm::get(f_ty, inline_asm, asm_constraints, true);
+        auto* inc_sgpr = llvm::InlineAsm::get(f_ty, sgpr_inline_asm,
+                                              sgpr_asm_constraints, true);
 
         return builder.CreateCall(inc_sgpr, {counter});
     }
 
+    llvm::Value* traceIdxAtBlock(llvm::BasicBlock& bb) override {
+        const auto [pre_inc, post_inc] = idx_map.at(&bb);
+
+        llvm::IRBuilder<> builder(dyn_cast<llvm::Instruction>(pre_inc));
+
+        auto* int32_ty = builder.getInt32Ty();
+        auto* f_ty = llvm::FunctionType::get(int32_ty, {int32_ty}, false);
+
+        auto* copy_to_vgpr = llvm::InlineAsm::get(f_ty, vgpr_inline_asm,
+                                                  vgpr_asm_constraints, true);
+
+        auto* copy = builder.CreateCall(copy_to_vgpr, {pre_inc});
+
+        builder.CreateStore(copy, alloca);
+
+        llvm::dbgs() << bb;
+        return alloca;
+    }
+
   private:
-    static constexpr auto* inline_asm = "s_add_u32 $0, $0, 1";
-    static constexpr auto* asm_constraints = "=r,0";
+    // Inline asm to increase a (supposedly) sgpr
+    static constexpr auto* sgpr_inline_asm = "s_add_u32 $0, $0, 1";
+    static constexpr auto* sgpr_asm_constraints = "=sg,0";
+
+    // Inline asm to copy a sgpr (the counter) to a vgpr
+    static constexpr auto* vgpr_inline_asm = "v_mov_b32 $0, $1";
+    static constexpr auto* vgpr_asm_constraints = "=v,sg";
 
     std::map<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*>> idx_map;
+    llvm::Value* alloca = nullptr;
 };
 
 // ----- Event types ----- //
