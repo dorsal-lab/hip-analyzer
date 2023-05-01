@@ -100,7 +100,7 @@ hip::KernelTimerPass::run(llvm::Module& mod,
 
                     builder.CreateCall(functions.end_kernel_timer, {});
 
-		    llvm::dbgs() << f << '\n';
+                    llvm::dbgs() << f << '\n';
                 }
             }
         }

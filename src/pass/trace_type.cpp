@@ -163,6 +163,7 @@ class WaveTrace : public TraceType {
     }
 
     llvm::Value* traceIdxAtBlock(llvm::BasicBlock& bb) override {
+
         const auto [pre_inc, post_inc] = idx_map.at(&bb);
 
         llvm::IRBuilder<> builder(dyn_cast<llvm::Instruction>(pre_inc));
@@ -184,11 +185,11 @@ class WaveTrace : public TraceType {
   private:
     // Inline asm to increase a (supposedly) sgpr
     static constexpr auto* sgpr_inline_asm = "s_add_u32 $0, $0, 1";
-    static constexpr auto* sgpr_asm_constraints = "=sg,0";
+    static constexpr auto* sgpr_asm_constraints = "={s0},{s0}";
 
     // Inline asm to copy a sgpr (the counter) to a vgpr
-    static constexpr auto* vgpr_inline_asm = "v_mov_b32 $0, $1";
-    static constexpr auto* vgpr_asm_constraints = "=v,sg";
+    static constexpr auto* vgpr_inline_asm = "v_mov_b32_e32 $0, $1";
+    static constexpr auto* vgpr_asm_constraints = "=v,{s0}";
 
     std::map<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*>> idx_map;
     llvm::Value* alloca = nullptr;
