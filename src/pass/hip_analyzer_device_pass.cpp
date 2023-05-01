@@ -341,10 +341,8 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
 
         auto* counter = event->traceIdxAtBlock(*curr_bb);
 
-        builder_locals.CreateCall(
-            event->getEventCreator(mod),
-            {thread_storage, counter, event->getEventSize(mod),
-             event->getEventCtor(mod), getIndex(bb_instr.id, context)});
+        event->createEvent(mod, builder_locals, thread_storage, counter,
+                           bb_instr.id);
     }
 
     event->finalizeTracingIndices(f);

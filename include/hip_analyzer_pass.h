@@ -16,6 +16,7 @@
 #include "hip_instrumentation/basic_block.hpp"
 #include "ir_codegen.h"
 
+#include <cstdint>
 #include <utility>
 
 namespace hip {
@@ -142,7 +143,7 @@ class TraceType {
     /** \fn getEventSize
      * \brief Returns the size (in bytes) of the event type
      */
-    virtual llvm::ConstantInt* getEventSize(llvm::Module& mod) const {
+    virtual llvm::ConstantInt* getEventSize(const llvm::Module& mod) const {
         auto& context = mod.getContext();
         return llvm::ConstantInt::get(
             llvm::Type::getInt64Ty(context),
@@ -210,6 +211,14 @@ class TraceType {
     virtual llvm::Value* getCounterAndIncrement(llvm::Module& mod,
                                                 llvm::IRBuilder<>& builder,
                                                 llvm::Value* counter) = 0;
+
+    virtual void createEvent(llvm::Module& mod, llvm::IRBuilder<>& builder,
+                             llvm::Value* thread_storage, llvm::Value* counter,
+                             uint64_t bb) {
+        builder.CreateCall(getEventCreator(mod),
+                           {thread_storage, counter, getEventSize(mod),
+                            getEventCtor(mod), getIndex(bb, mod.getContext())});
+    }
 
   protected:
     static std::pair<llvm::Value*, llvm::Value*>

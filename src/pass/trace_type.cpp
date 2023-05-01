@@ -184,12 +184,14 @@ class WaveTrace : public TraceType {
         llvm::IRBuilder<> builder(dyn_cast<llvm::Instruction>(pre_inc));
 
         auto* int32_ty = builder.getInt32Ty();
-        auto* f_ty = llvm::FunctionType::get(int32_ty, {int32_ty}, false);
+        auto* f_ty =
+            llvm::FunctionType::get(int32_ty, {int32_ty, int32_ty}, false);
 
         auto* copy_to_vgpr = llvm::InlineAsm::get(f_ty, vgpr_inline_asm,
                                                   vgpr_asm_constraints, true);
 
-        auto* copy = builder.CreateCall(copy_to_vgpr, {pre_inc});
+        auto* copy = builder.CreateCall(
+            copy_to_vgpr, {pre_inc, getEventSize(*bb.getModule())});
 
         builder.CreateStore(copy, alloca);
 
@@ -197,10 +199,14 @@ class WaveTrace : public TraceType {
         return alloca;
     }
 
+    virtual void createEvent(llvm::Module& mod, llvm::IRBuilder<>& builder,
+                             llvm::Value* thread_storage, llvm::Value* counter,
+                             uint64_t bb) override = 0;
+
   private:
     // Inline asm to increase a (supposedly) sgpr
-    static constexpr auto* sgpr_inline_asm = "s_add_u32 $0, $0, 1";
-    static constexpr auto* sgpr_asm_constraints = "={s0},{s0}";
+    static constexpr auto* sgpr_inline_asm = "s_add_u32 $0, $0, $1";
+    static constexpr auto* sgpr_asm_constraints = "={s0},{s0},i";
 
     // Inline asm to copy a sgpr (the counter) to a vgpr
     static constexpr auto* vgpr_inline_asm = "v_mov_b32_e32 $0, $1";
@@ -278,6 +284,33 @@ class WaveState : public WaveTrace {
     getQueueType(llvm::Module& mod) const override {
         return getPair(mod.getContext(), 2, 1);
     }
+
+    void createEvent(llvm::Module& mod, llvm::IRBuilder<>& builder,
+                     llvm::Value* thread_storage, llvm::Value* counter,
+                     uint64_t bb) override {
+        auto* int32_ty = builder.getInt32Ty();
+        auto* ptr_ty = builder.getPtrTy();
+        auto* ctor_ty = llvm::FunctionType::get(builder.getVoidTy(),
+                                                {int32_ty, ptr_ty}, false);
+
+        auto* ctor = llvm::InlineAsm::get(ctor_ty, wave_event_ctor_asm,
+                                          wave_event_ctor_constraints, true);
+
+        builder.CreateCall(ctor, {counter})
+    }
+
+  private:
+    static constexpr auto* wave_event_ctor_asm =
+        // Prepare payload
+        "s_memrealtime s0\n"
+        "s_mov_b64 s2, exec\n"
+        "s_mov_b32 s5, hwreg(HW_REG_HW_ID)\n"
+        "s_mov_i32 s4, $0\n" // bb
+
+        // Write to mem
+        "s_store_dwordx4 s0, $1, 0"
+        "s_store_dwordx2 s4, $1, 4";
+    static constexpr auto* wave_event_ctor_constraints = "r,r";
 };
 
 } // namespace
