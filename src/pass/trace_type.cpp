@@ -296,7 +296,7 @@ class WaveState : public WaveTrace {
         auto* ctor = llvm::InlineAsm::get(ctor_ty, wave_event_ctor_asm,
                                           wave_event_ctor_constraints, true);
 
-        builder.CreateCall(ctor, {counter})
+        builder.CreateCall(ctor, {getIndex(bb, mod.getContext()), counter});
     }
 
   private:
@@ -310,7 +310,7 @@ class WaveState : public WaveTrace {
         // Write to mem
         "s_store_dwordx4 s0, $1, 0"
         "s_store_dwordx2 s4, $1, 4";
-    static constexpr auto* wave_event_ctor_constraints = "r,r";
+    static constexpr auto* wave_event_ctor_constraints = "i,r";
 };
 
 } // namespace
