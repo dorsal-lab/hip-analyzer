@@ -121,8 +121,8 @@ class WaveTrace : public TraceType {
         auto* int32_ty = builder.getInt32Ty();
         auto* f_ty = llvm::FunctionType::get(int32_ty, {int32_ty}, false);
 
-        auto* readfirstlane = llvm::InlineAsm::get(f_ty, vgpr_inline_asm,
-                                                   vgpr_asm_constraints, true);
+        auto* readfirstlane = llvm::InlineAsm::get(
+            f_ty, readfirstlane_asm, readfirstlane_asm_constraints, true);
         auto* vgpr =
             builder.CreateCall(getOffsetGetter(mod),
                                {storage_ptr, offsets_ptr, getEventSize(mod)});
