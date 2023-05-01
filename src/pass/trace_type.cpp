@@ -115,6 +115,21 @@ class WaveTrace : public TraceType {
         return idx_map;
     }
 
+    llvm::Value* getThreadStorage(llvm::Module& mod, llvm::IRBuilder<>& builder,
+                                  llvm::Value* storage_ptr,
+                                  llvm::Value* offsets_ptr) override final {
+        auto* int32_ty = builder.getInt32Ty();
+        auto* f_ty = llvm::FunctionType::get(int32_ty, {int32_ty}, false);
+
+        auto* readfirstlane = llvm::InlineAsm::get(f_ty, vgpr_inline_asm,
+                                                   vgpr_asm_constraints, true);
+        auto* vgpr =
+            builder.CreateCall(getOffsetGetter(mod),
+                               {storage_ptr, offsets_ptr, getEventSize(mod)});
+        return builder.CreateCall(
+            readfirstlane, {vgpr}); // Hopefully will be stored in a SGPR!
+    }
+
     void finalizeTracingIndices(llvm::Function& kernel) override {
         // Construct phi nodes from predecessors of each bb, then replace all
         // uses of the original value with the phi node
@@ -190,6 +205,10 @@ class WaveTrace : public TraceType {
     // Inline asm to copy a sgpr (the counter) to a vgpr
     static constexpr auto* vgpr_inline_asm = "v_mov_b32_e32 $0, $1";
     static constexpr auto* vgpr_asm_constraints = "=v,{s0}";
+
+    // Readfirstlane to extract a vgpr value to a sgpr
+    static constexpr auto* readfirstlane_asm = "v_readfirstlane $0, $1";
+    static constexpr auto* readfirstlane_asm_constraints = "=s, v";
 
     std::map<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*>> idx_map;
     llvm::Value* alloca = nullptr;

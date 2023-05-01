@@ -312,9 +312,9 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
     auto* storage_ptr =
         builder_locals.CreateBitCast(f.getArg(f.arg_size() - 2), i8_ptr_ty);
 
-    auto* thread_storage = builder_locals.CreateCall(
-        event->getOffsetGetter(mod),
-        {storage_ptr, offsets_ptr, event->getEventSize(mod)});
+    auto* thread_storage =
+        event->getThreadStorage(mod, builder_locals, storage_ptr, offsets_ptr);
+
     /*
     builder_locals.CreateCall(event->getEventCreator(mod),
                               {thread_storage, idx, event->getEventSize(mod),

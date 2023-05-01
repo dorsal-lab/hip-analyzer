@@ -159,6 +159,15 @@ class TraceType {
         return TracingFunctions{mod}._hip_get_trace_offset;
     }
 
+    virtual llvm::Value* getThreadStorage(llvm::Module& mod,
+                                          llvm::IRBuilder<>& builder,
+                                          llvm::Value* storage_ptr,
+                                          llvm::Value* offsets_ptr) {
+        return builder.CreateCall(
+            getOffsetGetter(mod),
+            {storage_ptr, offsets_ptr, getEventSize(mod)});
+    }
+
     /** \fn initTracingIndices
      * \brief Some tracing types require a much more involved infrastructure for
      * keeping counters (wave specifically). We have to create a map assigning
