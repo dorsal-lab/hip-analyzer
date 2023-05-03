@@ -222,9 +222,7 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
 
     auto* void_type = llvm::Type::getVoidTy(context);
     auto* uint32_type = llvm::Type::getInt32Ty(context);
-    auto* unqual_ptr_type = llvm::Type::getInt8PtrTy(context);
-    // FIXME kind of a hack so far, but HIP has not
-    // updated to opaque pointers so far
+    auto* unqual_ptr_type = llvm::PointerType::getUnqual(context);
 
     auto void_from_ptr_type =
         llvm::FunctionType::get(void_type, {unqual_ptr_type}, false);
@@ -288,21 +286,20 @@ CfgFunctions::CfgFunctions(llvm::Module& mod) {
     auto& context = mod.getContext();
 
     auto* void_type = llvm::Type::getVoidTy(context);
-    auto* uint8_ptr_type = llvm::Type::getInt8PtrTy(context);
+    auto* ptr_type = llvm::PointerType::getUnqual(context);
     auto* uint64_type = llvm::Type::getInt64Ty(context);
 
     auto* _hip_store_ctr_type = llvm::FunctionType::get(
-        void_type, {uint8_ptr_type, uint64_type, uint8_ptr_type}, false);
+        void_type, {ptr_type, uint64_type, ptr_type}, false);
 
     _hip_store_ctr = getFunction(mod, "_hip_store_ctr", _hip_store_ctr_type);
 }
 
 llvm::FunctionType* getEventCtorType(llvm::LLVMContext& context) {
     auto* void_type = llvm::Type::getVoidTy(context);
-    auto* uint8_ptr_type = llvm::Type::getInt8PtrTy(context);
+    auto* ptr_type = llvm::PointerType::getUnqual(context);
     auto* uint64_type = llvm::Type::getInt64Ty(context);
-    return llvm::FunctionType::get(void_type, {uint8_ptr_type, uint64_type},
-                                   false);
+    return llvm::FunctionType::get(void_type, {ptr_type, uint64_type}, false);
 }
 
 TracingFunctions::TracingFunctions(llvm::Module& mod) {
@@ -311,17 +308,16 @@ TracingFunctions::TracingFunctions(llvm::Module& mod) {
     auto* void_type = llvm::Type::getVoidTy(context);
     auto* ptr_type = llvm::PointerType::getUnqual(context);
     auto* uint64_type = llvm::Type::getInt64Ty(context);
-    auto* uint32_type = llvm::Type::getInt32Ty(context);
+    // auto* uint32_type = llvm::Type::getInt32Ty(context);
 
-    auto* _hip_event_ctor_type = getEventCtorType(context);
+    // Unqual ptr hides function pointers?
+    // auto* _hip_event_ctor_type = getEventCtorType(context);
 
     auto* offset_getter_type = llvm::FunctionType::get(
-        ptr_type, {ptr_type, uint64_type->getPointerTo(), uint64_type}, false);
+        ptr_type, {ptr_type, ptr_type, uint64_type}, false);
 
     auto* event_creator_type = llvm::FunctionType::get(
-        void_type,
-        {ptr_type, uint32_type->getPointerTo(), uint64_type,
-         _hip_event_ctor_type->getPointerTo(), uint64_type},
+        void_type, {ptr_type, ptr_type, uint64_type, ptr_type, uint64_type},
         false);
 
     _hip_get_trace_offset =
