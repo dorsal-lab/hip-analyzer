@@ -79,7 +79,7 @@ add_custom_command(
 
 add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/gpu_pass_instr.ll
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -c -S -emit-llvm ${CMAKE_SOURCE_DIR}/src/pass/gpu_pass_instr.cpp --cuda-device-only -O0 -o gpu_pass_instr.ll -Wno-unused-command-line-argument -I${CMAKE_SOURCE_DIR}/include -std=c++20
+    COMMAND ${ROCM_PATH}/hip/bin/hipcc -c -S -emit-llvm ${CMAKE_SOURCE_DIR}/src/pass/gpu_pass_instr.hip --cuda-device-only -O0 -o gpu_pass_instr.ll -Wno-unused-command-line-argument -I${CMAKE_SOURCE_DIR}/include -std=c++20
     DEPENDS
         ${CMAKE_SOURCE_DIR}/src/pass/gpu_pass_instr.cpp
     VERBATIM
