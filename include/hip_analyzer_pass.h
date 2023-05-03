@@ -220,6 +220,14 @@ class TraceType {
                             getEventCtor(mod), getIndex(bb, mod.getContext())});
     }
 
+    /** \fn getCounterType
+     * \brief Returns the scalar counter type used as a trace index. Defaults to
+     * a 32-bit integer
+     */
+    virtual llvm::Type* getCounterType(llvm::Module& mod) const {
+        return llvm::Type::getInt32Ty(mod.getContext());
+    }
+
   protected:
     static std::pair<llvm::Value*, llvm::Value*>
     getPair(llvm::LLVMContext& context, uint64_t event, uint64_t queue) {

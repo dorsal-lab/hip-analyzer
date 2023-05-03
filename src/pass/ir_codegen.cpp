@@ -309,20 +309,18 @@ TracingFunctions::TracingFunctions(llvm::Module& mod) {
     auto& context = mod.getContext();
 
     auto* void_type = llvm::Type::getVoidTy(context);
-    auto* uint8_type = llvm::Type::getInt8Ty(context);
-    auto* uint8_ptr_type = uint8_type->getPointerTo();
+    auto* ptr_type = llvm::PointerType::getUnqual(context);
     auto* uint64_type = llvm::Type::getInt64Ty(context);
     auto* uint32_type = llvm::Type::getInt32Ty(context);
 
     auto* _hip_event_ctor_type = getEventCtorType(context);
 
     auto* offset_getter_type = llvm::FunctionType::get(
-        uint8_ptr_type,
-        {uint8_ptr_type, uint64_type->getPointerTo(), uint64_type}, false);
+        ptr_type, {ptr_type, uint64_type->getPointerTo(), uint64_type}, false);
 
     auto* event_creator_type = llvm::FunctionType::get(
         void_type,
-        {uint8_ptr_type, uint32_type->getPointerTo(), uint64_type,
+        {ptr_type, uint32_type->getPointerTo(), uint64_type,
          _hip_event_ctor_type->getPointerTo(), uint64_type},
         false);
 

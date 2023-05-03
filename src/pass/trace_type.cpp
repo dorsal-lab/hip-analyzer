@@ -28,7 +28,7 @@ class ThreadTrace : public TraceType {
         llvm::IRBuilder<> builder_locals(&entry);
         setInsertPointPastAllocas(builder_locals, kernel);
 
-        auto* i32_ty = llvm::Type::getInt32Ty(kernel.getContext());
+        auto* i32_ty = getCounterType(*kernel.getParent());
         auto* trace_idx = builder_locals.CreateAlloca(
             i32_ty, 0, nullptr, llvm::Twine("_trace_idx"));
 
@@ -51,7 +51,7 @@ class ThreadTrace : public TraceType {
         if (counter->getType()->isPointerTy()) {
             // Load the value
             auto* loaded = builder.CreateLoad(
-                counter->getType()->getPointerElementType(),
+                getCounterType(mod),
                 counter); // We'll have to deal with the deprecation warning
                           // until AMD decides to enable opaque pointers in
                           // device compilation
@@ -167,14 +167,16 @@ class WaveTrace : public TraceType {
                                      "alloca-ted value (or is it in LDS?)");
         }
         // Increment the value, but with inline asm
-        auto* int32_ty = builder.getInt32Ty();
+        auto* int32_ty = getCounterType(mod);
+        auto* increment = getEventSize(mod);
 
-        auto* f_ty = llvm::FunctionType::get(int32_ty, {int32_ty}, false);
+        auto* f_ty = llvm::FunctionType::get(
+            int32_ty, {int32_ty, builder.getInt64Ty()}, false);
 
         auto* inc_sgpr = llvm::InlineAsm::get(f_ty, sgpr_inline_asm,
                                               sgpr_asm_constraints, true);
 
-        return builder.CreateCall(inc_sgpr, {counter});
+        return builder.CreateCall(inc_sgpr, {counter, increment});
     }
 
     llvm::Value* traceIdxAtBlock(llvm::BasicBlock& bb) override {
@@ -214,7 +216,7 @@ class WaveTrace : public TraceType {
 
     // Readfirstlane to extract a vgpr value to a sgpr
     static constexpr auto* readfirstlane_asm = "v_readfirstlane $0, $1";
-    static constexpr auto* readfirstlane_asm_constraints = "=s, v";
+    static constexpr auto* readfirstlane_asm_constraints = "=s,v";
 
     std::map<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*>> idx_map;
     llvm::Value* alloca = nullptr;
