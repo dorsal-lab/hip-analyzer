@@ -139,7 +139,6 @@ add_library(hip_instrumentation
 target_link_libraries(hip_instrumentation
     hip::host
     jsoncpp
-    roctracer64
     rocprofiler64
     dl
     pthread

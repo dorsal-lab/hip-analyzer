@@ -23,7 +23,6 @@
 #include <json/json.h>
 
 #include "rocprofiler/rocprofiler.h"
-#include "roctracer/roctracer.h"
 
 namespace hip {
 
@@ -373,18 +372,21 @@ Instrumenter::Instrumenter() {
 }
 
 uint64_t getRoctracerStamp() {
-    uint64_t rt_timestamp, ret;
+    uint64_t ret;
+    rocprofiler_timestamp_t rt_timestamp;
 
-    roctracer_status_t err = roctracer_get_timestamp(&rt_timestamp);
-    if (err != ROCTRACER_STATUS_SUCCESS) {
+    rocprofiler_status_t err = rocprofiler_get_timestamp(&rt_timestamp);
+    if (err != ROCPROFILER_STATUS_SUCCESS) {
+        const char* err_string;
+        rocprofiler_error_string(&err_string);
         throw std::runtime_error(
             std::string(
                 "hip::Instrumenter::toDevice() : Could not get timestamp") +
-            roctracer_error_string());
+            err_string);
     }
 
-    rocprofiler_get_time(ROCPROFILER_TIME_ID_CLOCK_REALTIME, rt_timestamp, &ret,
-                         NULL);
+    rocprofiler_get_time(ROCPROFILER_TIME_ID_CLOCK_REALTIME, rt_timestamp.value,
+                         &ret, NULL);
 
     return ret;
 }
