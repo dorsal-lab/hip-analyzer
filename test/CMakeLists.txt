@@ -135,7 +135,7 @@ add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/wavestate.o
     COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/wavestate.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/wavestate.o
     DEPENDS
-        ${CMAKE_SOURCE_DIR}/src/pass/gpu_pass_instr.cpp
+        ${CMAKE_SOURCE_DIR}/src/pass/gpu_pass_instr.hip
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/queue_info.hpp
