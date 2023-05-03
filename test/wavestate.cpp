@@ -8,7 +8,7 @@
 
 // It's bad, I know, but no LTO for the device otherwise and time is getting
 // tight
-#include "../src/pass/gpu_pass_instr.cpp"
+#include "../src/pass/gpu_pass_instr.hip"
 
 #include <iostream>
 
