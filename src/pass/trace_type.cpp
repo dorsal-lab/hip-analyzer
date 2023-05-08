@@ -121,18 +121,38 @@ class WaveTrace : public TraceType {
 
         auto* ptr_ty = builder.getPtrTy();
         auto* i64_ty = builder.getInt64Ty();
-        auto* f_ty = llvm::FunctionType::get(i64_ty, {ptr_ty}, false);
+        auto* i32_ty = builder.getInt32Ty();
+
+        auto* f_ty = llvm::FunctionType::get(i32_ty, {i32_ty}, false);
 
         auto* readfirstlane = llvm::InlineAsm::get(
             f_ty, readfirstlane_asm, readfirstlane_asm_constraints, true);
-        auto* vgpr =
+        auto* vgpr = builder.CreatePtrToInt(
             builder.CreateCall(getOffsetGetter(mod),
-                               {storage_ptr, offsets_ptr, getEventSize(mod)});
+                               {storage_ptr, offsets_ptr, getEventSize(mod)}),
+            i64_ty);
+
         llvm::dbgs() << "Readfirstlane : " << *readfirstlane << '\n';
         llvm::dbgs() << "vgpr : " << *vgpr << '\n';
 
-        return builder.CreateIntToPtr(builder.CreateCall(readfirstlane, {vgpr}),
-                                      ptr_ty);
+        // Because readfirstlane is only for 32 bit integers, we have to perform
+        // two readlanes then assemble the result after a zext
+
+        // TODO : Find a better way to do inline asm register indexing ??
+
+        auto* lsb_vgpr = builder.CreateTrunc(vgpr, i32_ty);
+        auto* msb_vgpr = builder.CreateTrunc(
+            builder.CreateLShr(vgpr, builder.getInt64(32)), i32_ty);
+
+        auto* lsb_sgpr = builder.CreateZExt(
+            builder.CreateCall(readfirstlane, {lsb_vgpr}), i64_ty);
+        auto* msb_sgpr = builder.CreateZExt(
+            builder.CreateCall(readfirstlane, {msb_vgpr}), i64_ty);
+
+        auto* sgpr = builder.CreateAdd(
+            lsb_sgpr, builder.CreateShl(msb_sgpr, builder.getInt64(32)));
+
+        return builder.CreateIntToPtr(sgpr, ptr_ty);
     }
 
     void finalizeTracingIndices(llvm::Function& kernel) override {
@@ -218,7 +238,7 @@ class WaveTrace : public TraceType {
     static constexpr auto* vgpr_asm_constraints = "=v,v";
 
     // Readfirstlane to extract a vgpr value to a sgpr
-    static constexpr auto* readfirstlane_asm = "v_readfirstlane $0, $1";
+    static constexpr auto* readfirstlane_asm = "v_readfirstlane_b32 $0, $1";
     static constexpr auto* readfirstlane_asm_constraints = "=s,v";
 
     std::map<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*>> idx_map;
