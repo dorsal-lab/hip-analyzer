@@ -118,16 +118,24 @@ class WaveTrace : public TraceType {
     llvm::Value* getThreadStorage(llvm::Module& mod, llvm::IRBuilder<>& builder,
                                   llvm::Value* storage_ptr,
                                   llvm::Value* offsets_ptr) override final {
-        auto* int32_ty = builder.getInt32Ty();
-        auto* f_ty = llvm::FunctionType::get(int32_ty, {int32_ty}, false);
 
-        auto* readfirstlane = llvm::InlineAsm::get(
-            f_ty, readfirstlane_asm, readfirstlane_asm_constraints, true);
+        auto* ptr_ty = builder.getPtrTy();
+        auto* f_ty = llvm::FunctionType::get(ptr_ty, {ptr_ty, ptr_ty}, false);
+
+        // auto* readfirstlane = llvm::InlineAsm::get(
+        //     f_ty, readfirstlane_asm, readfirstlane_asm_constraints, true);
         auto* vgpr =
             builder.CreateCall(getOffsetGetter(mod),
                                {storage_ptr, offsets_ptr, getEventSize(mod)});
+        // llvm::dbgs() << "Readfirstlane : " << *readfirstlane << '\n';
+        llvm::dbgs() << "vgpr : " << *vgpr << '\n';
+
+        return vgpr;
+        /*
         return builder.CreateCall(
-            readfirstlane, {vgpr}); // Hopefully will be stored in a SGPR!
+            readfirstlane, {llvm::UndefValue::get(ptr_ty),
+                            vgpr}); // Hopefully will be stored in a SGPR!
+        */
     }
 
     void finalizeTracingIndices(llvm::Function& kernel) override {
@@ -186,14 +194,12 @@ class WaveTrace : public TraceType {
         llvm::IRBuilder<> builder(dyn_cast<llvm::Instruction>(pre_inc));
 
         auto* int32_ty = builder.getInt32Ty();
-        auto* f_ty =
-            llvm::FunctionType::get(int32_ty, {int32_ty, int32_ty}, false);
+        auto* f_ty = llvm::FunctionType::get(int32_ty, {int32_ty}, false);
 
         auto* copy_to_vgpr = llvm::InlineAsm::get(f_ty, vgpr_inline_asm,
                                                   vgpr_asm_constraints, true);
 
-        auto* copy = builder.CreateCall(
-            copy_to_vgpr, {pre_inc, getEventSize(*bb.getModule())});
+        auto* copy = builder.CreateCall(copy_to_vgpr, {pre_inc});
 
         builder.CreateStore(copy, alloca);
 
@@ -212,11 +218,11 @@ class WaveTrace : public TraceType {
 
     // Inline asm to copy a sgpr (the counter) to a vgpr
     static constexpr auto* vgpr_inline_asm = "v_mov_b32_e32 $0, $1";
-    static constexpr auto* vgpr_asm_constraints = "=v,{s0}";
+    static constexpr auto* vgpr_asm_constraints = "=v,v";
 
     // Readfirstlane to extract a vgpr value to a sgpr
-    static constexpr auto* readfirstlane_asm = "v_readfirstlane $0, $1";
-    static constexpr auto* readfirstlane_asm_constraints = "=s,v";
+    static constexpr auto* readfirstlane_asm = "v_readfirstlane_b32 $0, $1";
+    static constexpr auto* readfirstlane_asm_constraints = "={s0},{s0},v";
 
     std::map<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*>> idx_map;
     llvm::Value* alloca = nullptr;
@@ -290,10 +296,10 @@ class WaveState : public WaveTrace {
     void createEvent(llvm::Module& mod, llvm::IRBuilder<>& builder,
                      llvm::Value* thread_storage, llvm::Value* counter,
                      uint64_t bb) override {
-        auto* int32_ty = builder.getInt32Ty();
+        auto* int64_ty = builder.getInt64Ty();
         auto* ptr_ty = builder.getPtrTy();
         auto* ctor_ty = llvm::FunctionType::get(builder.getVoidTy(),
-                                                {int32_ty, ptr_ty}, false);
+                                                {int64_ty, ptr_ty}, false);
 
         auto* ctor = llvm::InlineAsm::get(ctor_ty, wave_event_ctor_asm,
                                           wave_event_ctor_constraints, true);
@@ -304,15 +310,16 @@ class WaveState : public WaveTrace {
   private:
     static constexpr auto* wave_event_ctor_asm =
         // Prepare payload
-        "s_memrealtime s0\n"
-        "s_mov_b64 s2, exec\n"
-        "s_mov_b32 s5, hwreg(HW_REG_HW_ID)\n"
-        "s_mov_i32 s4, $0\n" // bb
+        "s_memrealtime s[8:9]\n"                  // timestamp
+        "s_mov_b64 s[10:11], exec\n"              // exec mask
+        "s_getreg_b32 s13, hwreg(HW_REG_HW_ID)\n" // hw_id
+        "s_mov_b32 s12, $0\n"                     // bb
 
         // Write to mem
-        "s_store_dwordx4 s0, $1, 0"
-        "s_store_dwordx2 s4, $1, 4";
-    static constexpr auto* wave_event_ctor_constraints = "i,r";
+        "s_store_dwordx4 s[8:11], $1, 0\n"
+        "s_store_dwordx2 s[12:13], $1, 4\n";
+    static constexpr auto* wave_event_ctor_constraints =
+        "i,r,~{s8},~{s9},~{s10},~{s11},~{s12},~{s13}";
 };
 
 } // namespace
