@@ -120,22 +120,19 @@ class WaveTrace : public TraceType {
                                   llvm::Value* offsets_ptr) override final {
 
         auto* ptr_ty = builder.getPtrTy();
-        auto* f_ty = llvm::FunctionType::get(ptr_ty, {ptr_ty, ptr_ty}, false);
+        auto* i64_ty = builder.getInt64Ty();
+        auto* f_ty = llvm::FunctionType::get(i64_ty, {ptr_ty}, false);
 
-        // auto* readfirstlane = llvm::InlineAsm::get(
-        //     f_ty, readfirstlane_asm, readfirstlane_asm_constraints, true);
+        auto* readfirstlane = llvm::InlineAsm::get(
+            f_ty, readfirstlane_asm, readfirstlane_asm_constraints, true);
         auto* vgpr =
             builder.CreateCall(getOffsetGetter(mod),
                                {storage_ptr, offsets_ptr, getEventSize(mod)});
-        // llvm::dbgs() << "Readfirstlane : " << *readfirstlane << '\n';
+        llvm::dbgs() << "Readfirstlane : " << *readfirstlane << '\n';
         llvm::dbgs() << "vgpr : " << *vgpr << '\n';
 
-        return vgpr;
-        /*
-        return builder.CreateCall(
-            readfirstlane, {llvm::UndefValue::get(ptr_ty),
-                            vgpr}); // Hopefully will be stored in a SGPR!
-        */
+        return builder.CreateIntToPtr(builder.CreateCall(readfirstlane, {vgpr}),
+                                      ptr_ty);
     }
 
     void finalizeTracingIndices(llvm::Function& kernel) override {
@@ -221,8 +218,8 @@ class WaveTrace : public TraceType {
     static constexpr auto* vgpr_asm_constraints = "=v,v";
 
     // Readfirstlane to extract a vgpr value to a sgpr
-    static constexpr auto* readfirstlane_asm = "v_readfirstlane_b32 $0, $1";
-    static constexpr auto* readfirstlane_asm_constraints = "={s0},{s0},v";
+    static constexpr auto* readfirstlane_asm = "v_readfirstlane $0, $1";
+    static constexpr auto* readfirstlane_asm_constraints = "=s,v";
 
     std::map<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*>> idx_map;
     llvm::Value* alloca = nullptr;
