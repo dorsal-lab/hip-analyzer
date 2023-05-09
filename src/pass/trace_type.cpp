@@ -98,7 +98,7 @@ class WaveTrace : public TraceType {
         auto* zero = builder_locals.getInt32(0);
         auto* i32_ty = llvm::Type::getInt32Ty(kernel.getContext());
 
-        alloca = builder_locals.CreateAlloca(i32_ty, 0, nullptr, "");
+        // alloca = builder_locals.CreateAlloca(i32_ty, 0, nullptr, "");
 
         for (auto& bb : kernel) {
             builder_locals.SetInsertPoint(&bb.front());
@@ -149,10 +149,11 @@ class WaveTrace : public TraceType {
         auto* msb_sgpr = builder.CreateZExt(
             builder.CreateCall(readfirstlane, {msb_vgpr}), i64_ty);
 
-        auto* sgpr = builder.CreateAdd(
+        auto* sgpr = builder.CreateOr(
             lsb_sgpr, builder.CreateShl(msb_sgpr, builder.getInt64(32)));
 
-        return builder.CreateIntToPtr(sgpr, ptr_ty);
+        thread_storage = builder.CreateIntToPtr(sgpr, ptr_ty);
+        return thread_storage;
     }
 
     void finalizeTracingIndices(llvm::Function& kernel) override {
@@ -196,53 +197,36 @@ class WaveTrace : public TraceType {
         auto* increment = getEventSize(mod);
 
         auto* f_ty = llvm::FunctionType::get(
-            int32_ty, {int32_ty, builder.getInt64Ty()}, false);
+            int32_ty, {int32_ty /*, builder.getInt64Ty()*/}, false);
 
         auto* inc_sgpr = llvm::InlineAsm::get(f_ty, sgpr_inline_asm,
                                               sgpr_asm_constraints, true);
 
-        return builder.CreateCall(inc_sgpr, {counter, increment});
+        return builder.CreateCall(inc_sgpr, {counter /*, increment*/});
     }
 
     llvm::Value* traceIdxAtBlock(llvm::BasicBlock& bb) override {
-
         const auto [pre_inc, post_inc] = idx_map.at(&bb);
-
-        llvm::IRBuilder<> builder(dyn_cast<llvm::Instruction>(pre_inc));
-
-        auto* int32_ty = builder.getInt32Ty();
-        auto* f_ty = llvm::FunctionType::get(int32_ty, {int32_ty}, false);
-
-        auto* copy_to_vgpr = llvm::InlineAsm::get(f_ty, vgpr_inline_asm,
-                                                  vgpr_asm_constraints, true);
-
-        auto* copy = builder.CreateCall(copy_to_vgpr, {pre_inc});
-
-        builder.CreateStore(copy, alloca);
-
-        llvm::dbgs() << bb;
-        return alloca;
+        return pre_inc;
     }
 
     virtual void createEvent(llvm::Module& mod, llvm::IRBuilder<>& builder,
                              llvm::Value* thread_storage, llvm::Value* counter,
                              uint64_t bb) override = 0;
 
+  protected:
+    llvm::Value* thread_storage = nullptr;
+
   private:
     // Inline asm to increase a (supposedly) sgpr
-    static constexpr auto* sgpr_inline_asm = "s_add_u32 $0, $0, $1";
-    static constexpr auto* sgpr_asm_constraints = "={s0},{s0},i";
-
-    // Inline asm to copy a sgpr (the counter) to a vgpr
-    static constexpr auto* vgpr_inline_asm = "v_mov_b32_e32 $0, $1";
-    static constexpr auto* vgpr_asm_constraints = "=v,v";
+    static constexpr auto* sgpr_inline_asm = "s_add_u32 $0, $0, 1";
+    static constexpr auto* sgpr_asm_constraints = "=s,s";
 
     // Readfirstlane to extract a vgpr value to a sgpr
     static constexpr auto* readfirstlane_asm = "v_readfirstlane_b32 $0, $1";
     static constexpr auto* readfirstlane_asm_constraints = "=s,v";
 
     std::map<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*>> idx_map;
-    llvm::Value* alloca = nullptr;
 };
 
 // ----- Event types ----- //
@@ -321,7 +305,11 @@ class WaveState : public WaveTrace {
         auto* ctor = llvm::InlineAsm::get(ctor_ty, wave_event_ctor_asm,
                                           wave_event_ctor_constraints, true);
 
-        builder.CreateCall(ctor, {getIndex(bb, mod.getContext()), counter});
+        llvm::dbgs() << "Base storage " << *thread_storage << '\n';
+        llvm::dbgs() << "Counter " << *counter << '\n';
+
+        builder.CreateCall(ctor,
+                           {getIndex(bb, mod.getContext()), thread_storage});
     }
 
   private:
@@ -336,7 +324,7 @@ class WaveState : public WaveTrace {
         "s_store_dwordx4 s[8:11], $1, 0\n"
         "s_store_dwordx2 s[12:13], $1, 4\n";
     static constexpr auto* wave_event_ctor_constraints =
-        "i,r,~{s8},~{s9},~{s10},~{s11},~{s12},~{s13}";
+        "i,s,~{s8},~{s9},~{s10},~{s11},~{s12},~{s13}";
 };
 
 } // namespace
