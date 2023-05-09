@@ -219,10 +219,13 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
     auto& mod = *stub.getParent();
     auto& context = mod.getContext();
 
+    llvm::dbgs() << "HostPass::replaceStubCall() : " << stub << '\n';
+
     auto fun_type = stub.getFunctionType();
     InstrumentationFunctions instr_handlers(mod);
     auto* call_to_launch = firstCallToFunction(stub, "hipLaunchKernel");
-    auto* i8_ptr = llvm::Type::getInt8PtrTy(context);
+    llvm::dbgs() << "FirstCallToFunction() : " << *call_to_launch << '\n';
+    auto* ptr_ty = llvm::PointerType::getUnqual(context);
 
     auto* new_stub = dyn_cast<llvm::Function>(
         mod.getOrInsertFunction(
@@ -239,23 +242,18 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
 
     auto* tracing_stub =
         trace ? &cloneWithPrefix(stub, TracingPass::instrumented_prefix,
-                                 {i8_ptr, i8_ptr})
+                                 {ptr_ty, ptr_ty})
               : nullptr;
 
     llvm::IRBuilder<> builder(bb);
-
-    auto unqual_ptr_type = llvm::Type::getInt8PtrTy(context);
 
     // Create instr object
 
     auto* instr = builder.CreateCall(
         instr_handlers.hipNewInstrumenter,
-        {builder.CreateBitCast(
-            builder.CreateGlobalStringPtr(
-                dyn_cast<llvm::ConstantExpr>(call_to_launch->getArgOperand(0))
-                    ->getOperand(0)
-                    ->getName()),
-            unqual_ptr_type)});
+        {builder.CreateBitCast(builder.CreateGlobalStringPtr(
+                                   call_to_launch->getArgOperand(0)->getName()),
+                               ptr_ty)});
 
     auto* recoverer =
         builder.CreateCall(instr_handlers.hipNewStateRecoverer, {});
@@ -268,7 +266,7 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
     for (llvm::Argument& arg : new_stub->args()) {
         // Save value if vector
         if (arg.getType()->isPointerTy() && !stub_arg_it->hasByValAttr()) {
-            auto* bitcast = builder.CreateBitCast(&arg, unqual_ptr_type);
+            auto* bitcast = builder.CreateBitCast(&arg, ptr_ty);
             args.push_back(&arg);
             tracing_args.push_back(builder.CreateBitCast(
                 builder.CreateCall(
@@ -293,7 +291,7 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
     auto* device_ptr =
         builder.CreateCall(instr_handlers.hipInstrumenterToDevice, {instr});
 
-    args.push_back(builder.CreateBitCast(device_ptr, i8_ptr));
+    args.push_back(builder.CreateBitCast(device_ptr, ptr_ty));
 
     builder.CreateCall(counters_stub->getFunctionType(), counters_stub, args);
 
@@ -321,8 +319,8 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
 
         // Launch tracing kernel
 
-        tracing_args.push_back(builder.CreateBitCast(events_buffer, i8_ptr));
-        tracing_args.push_back(builder.CreateBitCast(events_offsets, i8_ptr));
+        tracing_args.push_back(builder.CreateBitCast(events_buffer, ptr_ty));
+        tracing_args.push_back(builder.CreateBitCast(events_offsets, ptr_ty));
         builder.CreateCall(tracing_stub, tracing_args);
     }
 

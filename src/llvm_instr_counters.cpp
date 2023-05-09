@@ -57,8 +57,7 @@ unsigned int StoreCounter::count(const llvm::BasicBlock& bb,
         if (const auto* store_inst = llvm::dyn_cast<llvm::StoreInst>(&instr)) {
             // store_inst->print(llvm::errs());
 
-            const auto* type =
-                store_inst->getPointerOperandType()->getContainedType(0);
+            const auto* type = store_inst->getValueOperand()->getType();
 
             if (isTypeCounted(type, type_filter)) {
                 counted += type->getPrimitiveSizeInBits() / bits_per_byte;
@@ -76,8 +75,7 @@ unsigned int LoadCounter::count(const llvm::BasicBlock& bb,
         if (const auto* load_inst = llvm::dyn_cast<llvm::LoadInst>(&instr)) {
             // load_inst->print(llvm::errs());
 
-            const auto* type =
-                load_inst->getPointerOperandType()->getContainedType(0);
+            const auto* type = load_inst->getType();
 
             if (isTypeCounted(type, type_filter)) {
                 counted += type->getPrimitiveSizeInBits() / bits_per_byte;
