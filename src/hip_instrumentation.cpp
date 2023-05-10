@@ -357,13 +357,18 @@ KernelInfo KernelInfo::fromJson(const std::string& filename) {
 std::unordered_map<std::string, std::vector<hip::BasicBlock>>
     Instrumenter::known_blocks;
 
+bool Instrumenter::rocprofiler_initializer = false;
+
 Instrumenter::Instrumenter(KernelInfo& ki) : Instrumenter() {
     kernel_info.emplace(ki);
     host_counters.assign(ki.instr_size, 0u);
 }
 
 Instrumenter::Instrumenter() {
-
+    if (!rocprofiler_initializer) {
+        rocprofiler_initialize();
+        rocprofiler_initializer = true;
+    }
     // Get the timestamp for unique identification
     auto now = std::chrono::steady_clock::now();
     stamp = std::chrono::duration_cast<std::chrono::microseconds>(
