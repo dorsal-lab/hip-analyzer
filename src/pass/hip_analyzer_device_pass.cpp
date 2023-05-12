@@ -98,19 +98,18 @@ KernelInstrumentationPass::run(llvm::Module& mod,
         modified |= addParams(f, f_original);
 
         llvm::errs() << "Function " << f.getName() << '\n';
-        f.print(llvm::dbgs(), nullptr);
 
         auto blocks = fm.getResult<AnalysisPass>(f_original);
 
         modified |= instrumentFunction(f, f_original, blocks);
     }
 
-    // assertModuleIntegrity(mod);
-
     // If we instrumented a kernel, link the necessary utilities function
     if (modified) {
         linkModuleUtils(mod);
     }
+
+    // assertModuleIntegrity(mod);
 
     return modified ? llvm::PreservedAnalyses::none()
                     : llvm::PreservedAnalyses::all();
@@ -134,8 +133,6 @@ bool KernelInstrumentationPass::addParams(llvm::Function& f,
     // possibly buggy in some cases.
 
     llvm::ValueToValueMapTy vmap;
-
-    llvm::dbgs() << f << "\n#####\n" << original_function << '\n';
 
     for (auto it1 = original_function.arg_begin(), it2 = f.arg_begin();
          it1 != original_function.arg_end(); ++it1, ++it2) {
@@ -171,21 +168,20 @@ bool CfgInstrumentationPass::instrumentFunction(
 
     // Add counters
     auto* counter_type = getCounterType(context);
-    auto* array_type = llvm::ArrayType::get(counter_type, blocks.size());
+    auto* array_type =
+        llvm::ArrayType::get(getCounterType(context), blocks.size());
 
-    llvm::IRBuilder<> builder_locals(&f.getEntryBlock());
-    setInsertPointPastAllocas(builder_locals, f);
+    llvm::IRBuilder<> builder(&f.getEntryBlock());
+    setInsertPointPastAllocas(builder, f);
 
-    auto* counters = builder_locals.CreateAlloca(array_type, nullptr,
-                                                 llvm::Twine("_bb_counters"));
+    auto* counters =
+        builder.CreateAlloca(array_type, nullptr, llvm::Twine("_bb_counters"));
 
     // Initialize it!
 
-    builder_locals.CreateMemSet(
-        builder_locals.CreatePointerCast(
-            counters, llvm::Type::getInt8PtrTy(f.getContext())),
-        llvm::ConstantInt::get(counter_type, 0u), blocks.size(),
-        llvm::MaybeAlign(llvm::Align::Constant<1>()));
+    builder.CreateMemSet(counters, llvm::ConstantInt::get(counter_type, 0u),
+                         blocks.size(),
+                         llvm::MaybeAlign(llvm::Align::Constant<1>()));
 
     // Instrument each basic block
 
@@ -198,19 +194,22 @@ bool CfgInstrumentationPass::instrumentFunction(
             ++curr_bb;
         }
 
-        builder_locals.SetInsertPoint(&(*curr_bb),
-                                      getFirstNonPHIOrDbgOrAlloca(*curr_bb));
+        if (!curr_bb->isEntryBlock()) {
+            // First block is already at the right position
+            builder.SetInsertPoint(&(*curr_bb),
+                                   getFirstNonPHIOrDbgOrAlloca(*curr_bb));
+        }
 
-        auto* inbound_ptr = builder_locals.CreateInBoundsGEP(
+        auto* counter_ptr = builder.CreateInBoundsGEP(
             array_type, counters,
-            {getIndex(0u, context), getIndex(bb_instr.id, context)});
+            {builder.getInt32(0), builder.getInt32(bb_instr.id)});
 
-        auto* curr_ptr = builder_locals.CreateLoad(counter_type, inbound_ptr);
+        auto* curr_ptr = builder.CreateLoad(counter_type, counter_ptr);
 
-        auto* incremented = builder_locals.CreateAdd(
+        auto* incremented = builder.CreateAdd(
             curr_ptr, llvm::ConstantInt::get(counter_type, 1u));
 
-        builder_locals.CreateStore(incremented, inbound_ptr);
+        builder.CreateStore(incremented, counter_ptr);
     }
 
     // Call saving method
@@ -220,18 +219,17 @@ bool CfgInstrumentationPass::instrumentFunction(
 
         // Only call saving method if the terminator is a return
         if (isa<llvm::ReturnInst>(terminator)) {
-            builder_locals.SetInsertPoint(terminator);
+            builder.SetInsertPoint(terminator);
 
-            // Bitcast to ptr
-
-            auto* array_ptr =
-                builder_locals.CreatePointerBitCastOrAddrSpaceCast(
-                    counters, counter_type->getPointerTo());
-
+            llvm::dbgs() << *counters->getType() << '\n';
             // Add call
-            builder_locals.CreateCall(
-                instrumentation_handlers._hip_store_ctr,
-                {array_ptr, getIndex(blocks.size(), context), instr_ptr});
+            llvm::dbgs() << *builder.CreateCall(
+                                instrumentation_handlers._hip_store_ctr,
+                                {builder.CreateAddrSpaceCast(
+                                     counters,
+                                     llvm::PointerType::getUnqual(context)),
+                                 builder.getInt64(blocks.size()), instr_ptr})
+                         << '\n';
         }
     }
 
@@ -242,7 +240,7 @@ bool CfgInstrumentationPass::instrumentFunction(
 
 llvm::SmallVector<llvm::Type*>
 CfgInstrumentationPass::getExtraArguments(llvm::LLVMContext& context) const {
-    return {getCounterType(context)->getPointerTo()};
+    return {llvm::PointerType::getUnqual(context)};
 }
 
 void CfgInstrumentationPass::linkModuleUtils(llvm::Module& mod) {
@@ -303,20 +301,20 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
 
     // Add counters
 
-    llvm::IRBuilder<> builder_locals(&f.getEntryBlock());
-    setInsertPointPastAllocas(builder_locals, f);
+    llvm::IRBuilder<> builder(&f.getEntryBlock());
+    setInsertPointPastAllocas(builder, f);
 
     // Create the local counter and initialize it to 0.
     event->initTracingIndices(f);
 
     auto* storage_ptr =
-        builder_locals.CreateBitCast(f.getArg(f.arg_size() - 2), i8_ptr_ty);
+        builder.CreateBitCast(f.getArg(f.arg_size() - 2), i8_ptr_ty);
 
     auto* thread_storage =
-        event->getThreadStorage(mod, builder_locals, storage_ptr, offsets_ptr);
+        event->getThreadStorage(mod, builder, storage_ptr, offsets_ptr);
 
     /*
-    builder_locals.CreateCall(event->getEventCreator(mod),
+    builder.CreateCall(event->getEventCreator(mod),
                               {thread_storage, idx, event->getEventSize(mod),
                                event->getEventCtor(mod), getIndex(0, context)});
     */
@@ -336,13 +334,12 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
             ++curr_bb;
         }
 
-        builder_locals.SetInsertPoint(&(*curr_bb),
-                                      getFirstNonPHIOrDbgOrAlloca(*curr_bb));
+        builder.SetInsertPoint(&(*curr_bb),
+                               getFirstNonPHIOrDbgOrAlloca(*curr_bb));
 
         auto* counter = event->traceIdxAtBlock(*curr_bb);
 
-        event->createEvent(mod, builder_locals, thread_storage, counter,
-                           bb_instr.id);
+        event->createEvent(mod, builder, thread_storage, counter, bb_instr.id);
     }
 
     event->finalizeTracingIndices(f);

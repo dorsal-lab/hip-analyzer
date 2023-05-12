@@ -286,11 +286,11 @@ CfgFunctions::CfgFunctions(llvm::Module& mod) {
     auto& context = mod.getContext();
 
     auto* void_type = llvm::Type::getVoidTy(context);
-    auto* ptr_type = llvm::PointerType::getUnqual(context);
+    auto* ptr_ty = llvm::PointerType::getUnqual(context);
     auto* uint64_type = llvm::Type::getInt64Ty(context);
 
     auto* _hip_store_ctr_type = llvm::FunctionType::get(
-        void_type, {ptr_type, uint64_type, ptr_type}, false);
+        void_type, {ptr_ty, uint64_type, ptr_ty}, false);
 
     _hip_store_ctr = getFunction(mod, "_hip_store_ctr", _hip_store_ctr_type);
 }
