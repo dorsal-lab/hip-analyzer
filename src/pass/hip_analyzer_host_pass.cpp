@@ -130,6 +130,7 @@ HostPass::duplicateStubWithArgs(llvm::Function& f_original,
 
     for (auto it1 = f_original.arg_begin(), it2 = f.arg_begin();
          it1 != f_original.arg_end(); ++it1, ++it2) {
+        it2->setName(it1->getName());
         vmap[&*it1] = &*it2;
     }
     llvm::SmallVector<llvm::ReturnInst*, 8> returns;
@@ -142,9 +143,7 @@ HostPass::duplicateStubWithArgs(llvm::Function& f_original,
     auto i = f_original.arg_size();
 
     for (auto* type : new_args) {
-        if (type->isPointerTy()) {
-            f.getArg(i)->addAttr(llvm::Attribute::NoUndef);
-        }
+        f.getArg(i)->addAttr(llvm::Attribute::NoUndef);
         new_vals.push_back(f.getArg(i));
         ++i;
     }
@@ -291,7 +290,7 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
     auto* device_ptr =
         builder.CreateCall(instr_handlers.hipInstrumenterToDevice, {instr});
 
-    args.push_back(builder.CreateBitCast(device_ptr, ptr_ty));
+    args.push_back(device_ptr);
 
     builder.CreateCall(counters_stub->getFunctionType(), counters_stub, args);
 
@@ -319,8 +318,8 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
 
         // Launch tracing kernel
 
-        tracing_args.push_back(builder.CreateBitCast(events_buffer, ptr_ty));
-        tracing_args.push_back(builder.CreateBitCast(events_offsets, ptr_ty));
+        tracing_args.push_back(events_buffer);
+        tracing_args.push_back(events_offsets);
         builder.CreateCall(tracing_stub, tracing_args);
     }
 

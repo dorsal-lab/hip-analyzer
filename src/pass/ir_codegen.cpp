@@ -371,7 +371,7 @@ void pushAdditionalArguments(llvm::Function& f,
     auto push_call = firstInstructionOf<llvm::CallInst>(f);
     --push_call;
 
-    auto* i8_ptr = llvm::Type::getInt8PtrTy(f.getContext());
+    auto* ptr_ty = llvm::PointerType::getUnqual(f.getContext());
 
     // Allocate memory for additional args
     llvm::IRBuilder<> builder(&f.getEntryBlock());
@@ -393,15 +393,13 @@ void pushAdditionalArguments(llvm::Function& f,
     // Replace the void* array with additional size, modify types for each
     auto alloca_array = findInstruction(f, [](const auto* inst) -> bool {
         if (auto* alloca_inst = dyn_cast<llvm::AllocaInst>(inst)) {
-            return alloca_inst->getAllocatedType()->isArrayTy() ||
-                   hasUse(inst, [alloca_inst](const auto* v) -> bool {
-                       if (auto* call_inst = dyn_cast<llvm::CallInst>(v)) {
-                           return hasFunctionCall(*call_inst,
-                                                  "hipLaunchKernel") &&
-                                  call_inst->getArgOperand(5) == alloca_inst;
-                       }
-                       return false;
-                   });
+            return hasUse(inst, [alloca_inst](const auto* v) -> bool {
+                if (auto* call_inst = dyn_cast<llvm::CallInst>(v)) {
+                    return hasFunctionCall(*call_inst, "hipLaunchKernel") &&
+                           call_inst->getArgOperand(5) == alloca_inst;
+                }
+                return false;
+            });
         } else {
             return false;
         }
@@ -416,14 +414,12 @@ void pushAdditionalArguments(llvm::Function& f,
     builder.SetInsertPoint(alloca_array_inst);
     auto array_size = getArraySize(alloca_array_inst);
 
-    auto* new_array_type =
-        llvm::ArrayType::get(i8_ptr, array_size + kernel_args.size());
-    auto* new_alloca_array = builder.CreateAlloca(new_array_type);
+    auto* new_alloca_array = builder.CreateAlloca(
+        ptr_ty, builder.getInt64(array_size + kernel_args.size()),
+        "new_kernel_args");
     new_alloca_array->setAlignment(alloca_array_inst->getAlign());
 
     // Alloca + replaceInstWithInst
-
-    auto* const_zero = getIndex(0u, f.getContext());
 
     std::vector<llvm::Instruction*> to_remove;
 
@@ -436,26 +432,15 @@ void pushAdditionalArguments(llvm::Function& f,
             auto it = gep->idx_end() - 1;
             auto* value = dyn_cast<llvm::Value>(&(*it));
 
-            auto* new_gep = builder.CreateInBoundsGEP(
-                new_array_type, new_alloca_array, {const_zero, value});
+            auto* new_gep =
+                builder.CreateGEP(ptr_ty, new_alloca_array, {value});
 
             gep->replaceAllUsesWith(new_gep);
             to_remove.push_back(gep);
-        } else if (auto* bitcast = dyn_cast<llvm::BitCastInst>(use)) {
-            // Actually a bug (?) in the front-end, references the first element
-            // of the array. Replace by a GEP
-            builder.SetInsertPoint(bitcast);
-
-            auto* new_bitcast =
-                builder.CreateBitCast(new_alloca_array, bitcast->getDestTy());
-
-            bitcast->replaceAllUsesWith(new_bitcast);
-            to_remove.push_back(bitcast);
         }
     }
 
-    alloca_array_inst->replaceAllUsesWith(
-        builder.CreateBitCast(new_alloca_array, alloca_array_inst->getType()));
+    alloca_array_inst->replaceAllUsesWith(new_alloca_array);
 
     // Delete old uses
 
@@ -471,17 +456,15 @@ void pushAdditionalArguments(llvm::Function& f,
     builder.SetInsertPoint(new_alloca_array->getNextNode());
 
     for (auto new_arg : new_args) {
-        auto* gep = builder.CreateInBoundsGEP(
-            new_array_type, new_alloca_array,
-            {const_zero, getIndex(i, f.getContext())});
+        auto* gep =
+            builder.CreateGEP(ptr_ty, new_alloca_array, {builder.getInt32(i)});
 
-        // auto* bitcast = builder.CreateBitCast(gep, i8_ptr->getPointerTo());
-        auto* stack_bitcast = builder.CreateBitCast(new_arg, i8_ptr);
-
-        builder.CreateStore(stack_bitcast, gep);
+        builder.CreateStore(new_arg, gep);
 
         ++i;
     }
+
+    new_alloca_array->setName("kernel_args");
 }
 
 void assertModuleIntegrity(llvm::Module& mod) {
