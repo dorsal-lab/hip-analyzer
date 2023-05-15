@@ -46,6 +46,8 @@ struct QueueInfo {
                          EventType::name, extra_size};
     }
 
+    QueueInfo(QueueInfo&&) = default;
+
     /** \fn offsets
      * \brief Returns a vector of offsets in the
      */

@@ -38,7 +38,8 @@ struct hipStateRecoverer {
 struct hipQueueInfo {
     hip::QueueInfo boxed;
     void* offsets;
-    hipQueueInfo(hip::QueueInfo&& other) : boxed{other} {}
+    hipQueueInfo(hip::QueueInfo&& other)
+        : boxed{std::forward<hip::QueueInfo>(other)} {}
 };
 
 // ----- Instrumenter ----- //
