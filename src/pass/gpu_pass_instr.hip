@@ -50,11 +50,9 @@ __device__ void* _hip_get_trace_offset(void* storage, size_t* offsets,
 
 __device__ void* _hip_get_wave_trace_offset(void* storage, size_t* offsets,
                                             size_t event_size) {
-    size_t waves_per_block;
-    if (blockDim.x % warpSize == 0) {
-        waves_per_block = blockDim.x / warpSize;
-    } else {
-        waves_per_block = blockDim.x / warpSize + 1;
+    size_t waves_per_block = blockDim.x / warpSize;
+    if (blockDim.x % warpSize != 0) {
+        ++waves_per_block;
     }
 
     auto wave_in_block = threadIdx.x / warpSize;
