@@ -6,6 +6,7 @@
 
 #include "hip_analyzer_pass.h"
 
+#include <cstdint>
 #include <fstream>
 
 #include "llvm/IR/IRBuilder.h"
@@ -67,6 +68,14 @@ AnalysisPass::Result AnalysisPass::run(llvm::Function& fn,
 }
 
 // ----- hip::KernelInstrumentationPass ----- //
+
+const std::string KernelInstrumentationPass::utils_path = []() -> std::string {
+    if (auto* env = std::getenv("HIP_ANALYZER_INSTR")) {
+        return env;
+    } else {
+        return "gpu_pass_instr.ll";
+    }
+}();
 
 llvm::PreservedAnalyses
 KernelInstrumentationPass::run(llvm::Module& mod,
@@ -147,16 +156,49 @@ bool KernelInstrumentationPass::addParams(llvm::Function& f,
     return true;
 }
 
+void KernelInstrumentationPass::linkModuleUtils(llvm::Module& mod) {
+    llvm::Linker linker(mod);
+    auto& context = mod.getContext();
+    context.setDiscardValueNames(false);
+
+    // Load compiled module
+    llvm::SMDiagnostic diag;
+    auto utils_mod = llvm::parseIRFile(utils_path, diag, context);
+    if (!utils_mod) {
+        llvm::errs() << diag.getMessage() << '\n';
+        throw std::runtime_error("CfgInstrumentationPass::linkModuleUtils()"
+                                 " : Could not load utils module");
+    }
+
+    auto reopt = [](auto& f) {
+        f.removeFnAttr(llvm::Attribute::OptimizeNone);
+        f.removeFnAttr(llvm::Attribute::NoInline);
+        f.addFnAttr(llvm::Attribute::AlwaysInline);
+    };
+
+    // Mark all functions as always inline, at link time.
+    for (llvm::Function& f : utils_mod->functions()) {
+        reopt(f);
+    }
+
+    linker.linkInModule(std::move(utils_mod));
+
+    // Remove [[clang::optnone]] and add [[clang::always_inline]]
+    // attributes
+
+    CfgFunctions instrumentation_handlers(mod);
+
+    instrumentation_handlers._hip_store_ctr->removeFnAttr(
+        llvm::Attribute::OptimizeNone);
+    instrumentation_handlers._hip_store_ctr->removeFnAttr(
+        llvm::Attribute::NoInline);
+    instrumentation_handlers._hip_store_ctr->addFnAttr(
+        llvm::Attribute::AlwaysInline);
+}
+
 // ----- hip::CfgInstrumentationPass ----- //
 
 const std::string CfgInstrumentationPass::instrumented_prefix = "counters_";
-const std::string CfgInstrumentationPass::utils_path = []() -> std::string {
-    if (auto* env = std::getenv("HIP_ANALYZER_INSTR")) {
-        return env;
-    } else {
-        return "gpu_pass_instr.ll";
-    }
-}();
 
 bool CfgInstrumentationPass::instrumentFunction(
     llvm::Function& f, llvm::Function& original_function,
@@ -243,44 +285,44 @@ CfgInstrumentationPass::getExtraArguments(llvm::LLVMContext& context) const {
     return {llvm::PointerType::getUnqual(context)};
 }
 
-void CfgInstrumentationPass::linkModuleUtils(llvm::Module& mod) {
-    llvm::Linker linker(mod);
-    auto& context = mod.getContext();
-    context.setDiscardValueNames(false);
+// ----- hip::WaveCfgInstrumentationPass ----- //
 
-    // Load compiled module
-    llvm::SMDiagnostic diag;
-    auto utils_mod = llvm::parseIRFile(utils_path, diag, context);
-    if (!utils_mod) {
-        llvm::errs() << diag.getMessage() << '\n';
-        throw std::runtime_error("CfgInstrumentationPass::linkModuleUtils()"
-                                 " : Could not load utils module");
-    }
+const std::string WaveCfgInstrumentationPass::instrumented_prefix =
+    "wave_counters_";
 
-    auto reopt = [](auto& f) {
-        f.removeFnAttr(llvm::Attribute::OptimizeNone);
-        f.removeFnAttr(llvm::Attribute::NoInline);
-        f.addFnAttr(llvm::Attribute::AlwaysInline);
-    };
+bool WaveCfgInstrumentationPass::instrumentFunction(
+    llvm::Function& f, llvm::Function& original_function,
+    AnalysisPass::Result& blocks) {
 
-    // Mark all functions as always inline, at link time.
-    for (llvm::Function& f : utils_mod->functions()) {
-        reopt(f);
-    }
+    auto& context = f.getContext();
 
-    linker.linkInModule(std::move(utils_mod));
+    auto* instr_ptr = f.getArg(f.arg_size() - 1);
 
-    // Remove [[clang::optnone]] and add [[clang::always_inline]]
-    // attributes
+    llvm::IRBuilder<> builder(&f.getEntryBlock());
+    builder.SetInsertPointPastAllocas(&f);
 
-    CfgFunctions instrumentation_handlers(mod);
+    auto* vector_ty = getVectorCounterType(context, blocks.size());
+    auto* init_vector = llvm::ConstantVector::getSplat(
+        vector_ty->getElementCount(), builder.getInt32(0));
 
-    instrumentation_handlers._hip_store_ctr->removeFnAttr(
-        llvm::Attribute::OptimizeNone);
-    instrumentation_handlers._hip_store_ctr->removeFnAttr(
-        llvm::Attribute::NoInline);
-    instrumentation_handlers._hip_store_ctr->addFnAttr(
-        llvm::Attribute::AlwaysInline);
+    auto* counters = builder.CreateIntrinsic(
+        llvm::Intrinsic::ssa_copy, {vector_ty}, {init_vector}, nullptr,
+        llvm::Twine("_bb_counters_init"));
+
+    llvm::dbgs() << f;
+    return true;
+}
+
+llvm::SmallVector<llvm::Type*> WaveCfgInstrumentationPass::getExtraArguments(
+    llvm::LLVMContext& context) const {
+    return {llvm::PointerType::getUnqual(context)};
+}
+
+llvm::VectorType*
+WaveCfgInstrumentationPass::getVectorCounterType(llvm::LLVMContext& context,
+                                                 uint64_t bb_count) {
+    return llvm::VectorType::get(getScalarCounterType(context),
+                                 llvm::ElementCount::getFixed(bb_count));
 }
 
 // ----- hip::TracingPass ----- //

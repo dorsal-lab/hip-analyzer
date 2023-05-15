@@ -89,12 +89,16 @@ struct KernelInstrumentationPass
     /** \fn linkModuleUtils
      * \brief Link (at IR-level) all necessary utility functions
      */
-    virtual void linkModuleUtils(llvm::Module& mod) = 0;
+    virtual void linkModuleUtils(llvm::Module& mod);
+
+    static const std::string utils_path;
 };
 
+/** \struct CfgInstrumentationpass
+ * \brief Thread-level basic block counters insertion pass
+ */
 struct CfgInstrumentationPass : public KernelInstrumentationPass {
     static const std::string instrumented_prefix;
-    static const std::string utils_path;
 
     CfgInstrumentationPass() {}
 
@@ -105,8 +109,6 @@ struct CfgInstrumentationPass : public KernelInstrumentationPass {
     llvm::SmallVector<llvm::Type*>
     getExtraArguments(llvm::LLVMContext& context) const override;
 
-    void linkModuleUtils(llvm::Module& mod) override;
-
     const std::string& getInstrumentedKernelPrefix() const override {
         return instrumented_prefix;
     }
@@ -114,6 +116,33 @@ struct CfgInstrumentationPass : public KernelInstrumentationPass {
     static llvm::Type* getCounterType(llvm::LLVMContext& context) {
         return llvm::Type::getInt8Ty(context);
     }
+};
+
+/** \struct CfgInstrumentationpass
+ * \brief Wavefront-level basic block counters insertion pass
+ */
+struct WaveCfgInstrumentationPass : public KernelInstrumentationPass {
+    static const std::string instrumented_prefix;
+
+    WaveCfgInstrumentationPass() {}
+
+    bool instrumentFunction(llvm::Function& f,
+                            llvm::Function& original_function,
+                            AnalysisPass::Result& block_report) override;
+
+    llvm::SmallVector<llvm::Type*>
+    getExtraArguments(llvm::LLVMContext& context) const override;
+
+    const std::string& getInstrumentedKernelPrefix() const override {
+        return instrumented_prefix;
+    }
+
+    static llvm::Type* getScalarCounterType(llvm::LLVMContext& context) {
+        return llvm::Type::getInt32Ty(context);
+    }
+
+    static llvm::VectorType* getVectorCounterType(llvm::LLVMContext& context,
+                                                  uint64_t bb_count);
 };
 
 /** \class TraceType
