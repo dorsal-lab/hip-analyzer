@@ -143,6 +143,14 @@ struct WaveCfgInstrumentationPass : public KernelInstrumentationPass {
 
     static llvm::VectorType* getVectorCounterType(llvm::LLVMContext& context,
                                                   uint64_t bb_count);
+
+    /** \fn getCounterAndIncrement
+     * \brief Increment the `bb` value in the vector of counters, and returns
+     * the value
+     */
+    llvm::Value* getCounterAndIncrement(llvm::Module& mod,
+                                        llvm::IRBuilder<>& builder,
+                                        llvm::Value* vec, unsigned bb);
 };
 
 /** \class TraceType

@@ -10,6 +10,7 @@
 #include <fstream>
 
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InlineAsm.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Linker/Linker.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
@@ -294,6 +295,13 @@ bool WaveCfgInstrumentationPass::instrumentFunction(
     llvm::Function& f, llvm::Function& original_function,
     AnalysisPass::Result& blocks) {
 
+    // LLVM uses SSA, which means the vector has to be passed by value to each
+    // basic block as a PHI node to maintain a global state throughout the
+    // function. We construct this spaghetti of PHI nodes in two times, by first
+    // creating bogey values (ssa_copy from 0) then through a second pass to add
+    // the actual incremented value.
+    std::map<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*>> idx_map;
+
     auto& context = f.getContext();
 
     auto* instr_ptr = f.getArg(f.arg_size() - 1);
@@ -301,16 +309,48 @@ bool WaveCfgInstrumentationPass::instrumentFunction(
     llvm::IRBuilder<> builder(&f.getEntryBlock());
     builder.SetInsertPointPastAllocas(&f);
 
+    auto* zero = builder.getInt32(0);
     auto* vector_ty = getVectorCounterType(context, blocks.size());
-    auto* init_vector = llvm::ConstantVector::getSplat(
-        vector_ty->getElementCount(), builder.getInt32(0));
+    auto* init_vector =
+        llvm::ConstantVector::getSplat(vector_ty->getElementCount(), zero);
 
-    auto* counters = builder.CreateIntrinsic(
-        llvm::Intrinsic::ssa_copy, {vector_ty}, {init_vector}, nullptr,
-        llvm::Twine("_bb_counters_init"));
+    // First pass : create fake (zero) values and increment them
+    unsigned int bb_id = 0u;
+    for (auto& bb : f) {
+        builder.SetInsertPoint(&bb.front());
+
+        auto* dummy_idx = builder.CreateIntrinsic(llvm::Intrinsic::ssa_copy,
+                                                  {vector_ty}, init_vector);
+        auto* incremented =
+            getCounterAndIncrement(*f.getParent(), builder, dummy_idx, bb_id);
+
+        ++bb_id;
+    }
+
+    // Second pass : replace all uses with PHI nodes from predecessors
+    // TODO
 
     llvm::dbgs() << f;
     return true;
+}
+
+llvm::Value* WaveCfgInstrumentationPass::getCounterAndIncrement(
+    llvm::Module& mod, llvm::IRBuilder<>& builder, llvm::Value* vec,
+    unsigned bb) {
+    static constexpr auto* inline_asm = "TODO";
+    static constexpr auto* inline_asm_constraints = "TODO";
+
+    auto* int32_ty = getScalarCounterType(mod.getContext());
+    auto* f_ty = llvm::FunctionType::get(int32_ty, {int32_ty}, false);
+    auto* inc_sgpr =
+        llvm::InlineAsm::get(f_ty, inline_asm, inline_asm_constraints, true);
+
+    // Extract counter from vector
+    auto* extracted = builder.CreateExtractValue(vec, {bb});
+    // Increment as a SGPR (hopefully!)
+    auto* incremented = builder.CreateCall(inc_sgpr, {extracted});
+    // Return the vector with inserted value
+    return builder.CreateInsertValue(vec, incremented, {bb});
 }
 
 llvm::SmallVector<llvm::Type*> WaveCfgInstrumentationPass::getExtraArguments(
