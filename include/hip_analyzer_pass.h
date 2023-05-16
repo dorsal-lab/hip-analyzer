@@ -151,6 +151,9 @@ struct WaveCfgInstrumentationPass : public KernelInstrumentationPass {
     llvm::Value* getCounterAndIncrement(llvm::Module& mod,
                                         llvm::IRBuilder<>& builder,
                                         llvm::Value* vec, unsigned bb);
+
+    void storeCounter(llvm::IRBuilder<>& builder, llvm::Value* vec,
+                      llvm::Value* ptr, unsigned bb);
 };
 
 /** \class TraceType
