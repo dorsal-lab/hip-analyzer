@@ -13,6 +13,10 @@ static llvm::cl::opt<std::string>
     kernel_name("kernel-name", llvm::cl::desc("Specify kernel name"),
                 llvm::cl::value_desc("kernel"));
 
+static llvm::cl::opt<bool>
+    wave_counters("wave-counters", llvm::cl::desc("Use wavefront counters"),
+                  llvm::cl::init(true));
+
 static llvm::cl::opt<std::string>
     trace_type("trace_type", llvm::cl::desc("hip-analyzer trace type"),
                llvm::cl::init("trace-wavestate"));
@@ -38,13 +42,21 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
                     } else if (name == "hip-analyzer-trace") {
                         mpm.addPass(hip::TracingPass(trace_type.getValue()));
                         return true;
+                    } else if (name == "hip-analyzer-wave-counters") {
+                        mpm.addPass(hip::WaveCfgInstrumentationPass());
+                        return true;
                     }
                     return false;
                 });
 
             pb.registerPipelineStartEPCallback(
                 [](llvm::ModulePassManager& pm, llvm::OptimizationLevel Level) {
-                    pm.addPass(hip::CfgInstrumentationPass());
+                    if (wave_counters) {
+                        pm.addPass(hip::WaveCfgInstrumentationPass());
+                    } else {
+                        pm.addPass(hip::CfgInstrumentationPass());
+                    }
+
                     if (do_trace) {
                         pm.addPass(hip::TracingPass(trace_type.getValue()));
                     }
