@@ -19,8 +19,14 @@ bool isDeviceStub(llvm::Function& f) {
     auto name = f.getName().str();
 
     return contains(name, device_stub_prefix) &&
-           !contains(name, cloned_suffix +
-                               CfgInstrumentationPass::instrumented_prefix) &&
+           !contains(
+               name,
+               cloned_suffix +
+                   ThreadCountersInstrumentationPass::instrumented_prefix) &&
+           !contains(
+               name,
+               cloned_suffix +
+                   WaveCountersInstrumentationPass::instrumented_prefix) &&
            !contains(name, cloned_suffix + TracingPass::instrumented_prefix) &&
            !contains(name, dummy_kernel_name);
 }
@@ -29,9 +35,14 @@ bool isKernelCallSite(llvm::Function& f) {
     // True if calls hipLaunchKernel and is not a stub (so an inlined
     // stub)
     return hasFunctionCall(f, "hipLaunchKernel") && !isDeviceStub(f) &&
-           !contains(f.getName().str(),
-                     cloned_suffix +
-                         CfgInstrumentationPass::instrumented_prefix) &&
+           !contains(
+               f.getName().str(),
+               cloned_suffix +
+                   ThreadCountersInstrumentationPass::instrumented_prefix) &&
+           !contains(
+               f.getName().str(),
+               cloned_suffix +
+                   WaveCountersInstrumentationPass::instrumented_prefix) &&
            !contains(f.getName().str(),
                      cloned_suffix + TracingPass::instrumented_prefix);
 }
@@ -98,9 +109,8 @@ llvm::Function*
 HostPass::addCountersDeviceStub(llvm::Function& f_original) const {
     auto& context = f_original.getContext();
 
-    return duplicateStubWithArgs(
-        f_original, CfgInstrumentationPass::instrumented_prefix,
-        {CfgInstrumentationPass::getCounterType(context)->getPointerTo()});
+    return duplicateStubWithArgs(f_original, counters_type,
+                                 {llvm::PointerType::getUnqual(context)});
 }
 
 llvm::Function*
@@ -227,17 +237,13 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
     auto* ptr_ty = llvm::PointerType::getUnqual(context);
 
     auto* new_stub = dyn_cast<llvm::Function>(
-        mod.getOrInsertFunction(
-               getClonedName(stub, CfgInstrumentationPass::instrumented_prefix +
-                                       "tmp_"),
-               fun_type)
+        mod.getOrInsertFunction(getClonedName(stub, counters_type + "tmp_"),
+                                fun_type)
             .getCallee());
 
     auto* bb = llvm::BasicBlock::Create(context, "", new_stub);
 
-    auto* counters_stub = &cloneWithPrefix(
-        stub, CfgInstrumentationPass::instrumented_prefix,
-        {CfgInstrumentationPass::getCounterType(context)->getPointerTo()});
+    auto* counters_stub = &cloneWithPrefix(stub, counters_type, {ptr_ty});
 
     auto* tracing_stub =
         trace ? &cloneWithPrefix(stub, TracingPass::instrumented_prefix,

@@ -200,9 +200,10 @@ void KernelInstrumentationPass::linkModuleUtils(llvm::Module& mod) {
 
 // ----- hip::CfgInstrumentationPass ----- //
 
-const std::string CfgInstrumentationPass::instrumented_prefix = "counters_";
+const std::string ThreadCountersInstrumentationPass::instrumented_prefix =
+    "counters_";
 
-bool CfgInstrumentationPass::instrumentFunction(
+bool ThreadCountersInstrumentationPass::instrumentFunction(
     llvm::Function& f, llvm::Function& original_function,
     AnalysisPass::Result& blocks) {
 
@@ -283,16 +284,17 @@ bool CfgInstrumentationPass::instrumentFunction(
 }
 
 llvm::SmallVector<llvm::Type*>
-CfgInstrumentationPass::getExtraArguments(llvm::LLVMContext& context) const {
+ThreadCountersInstrumentationPass::getExtraArguments(
+    llvm::LLVMContext& context) const {
     return {llvm::PointerType::getUnqual(context)};
 }
 
 // ----- hip::WaveCfgInstrumentationPass ----- //
 
-const std::string WaveCfgInstrumentationPass::instrumented_prefix =
+const std::string WaveCountersInstrumentationPass::instrumented_prefix =
     "wave_counters_";
 
-bool WaveCfgInstrumentationPass::instrumentFunction(
+bool WaveCountersInstrumentationPass::instrumentFunction(
     llvm::Function& f, llvm::Function& original_function,
     AnalysisPass::Result& blocks) {
 
@@ -365,7 +367,7 @@ bool WaveCfgInstrumentationPass::instrumentFunction(
     return true;
 }
 
-llvm::Value* WaveCfgInstrumentationPass::getCounterAndIncrement(
+llvm::Value* WaveCountersInstrumentationPass::getCounterAndIncrement(
     llvm::Module& mod, llvm::IRBuilder<>& builder, llvm::Value* vec,
     unsigned bb) {
     static constexpr auto* inline_asm = "s_add_u32 $0, $0, 1";
@@ -384,9 +386,10 @@ llvm::Value* WaveCfgInstrumentationPass::getCounterAndIncrement(
     return builder.CreateInsertElement(vec, incremented, bb);
 }
 
-void WaveCfgInstrumentationPass::storeCounter(llvm::IRBuilder<>& builder,
-                                              llvm::Value* vec,
-                                              llvm::Value* ptr, unsigned bb) {
+void WaveCountersInstrumentationPass::storeCounter(llvm::IRBuilder<>& builder,
+                                                   llvm::Value* vec,
+                                                   llvm::Value* ptr,
+                                                   unsigned bb) {
     // We have to set an offset for each store, so construct a string each time!
     // (Hopefully we'll get std::format aaaanytime now)
     constexpr unsigned dword_size = 4u; // 4 bytes for a 32 bit integer
@@ -417,14 +420,14 @@ void WaveCfgInstrumentationPass::storeCounter(llvm::IRBuilder<>& builder,
     builder.CreateCall(store_sgpr, {sgpr, ptr});
 }
 
-llvm::SmallVector<llvm::Type*> WaveCfgInstrumentationPass::getExtraArguments(
+llvm::SmallVector<llvm::Type*>
+WaveCountersInstrumentationPass::getExtraArguments(
     llvm::LLVMContext& context) const {
     return {llvm::PointerType::getUnqual(context)};
 }
 
-llvm::VectorType*
-WaveCfgInstrumentationPass::getVectorCounterType(llvm::LLVMContext& context,
-                                                 uint64_t bb_count) {
+llvm::VectorType* WaveCountersInstrumentationPass::getVectorCounterType(
+    llvm::LLVMContext& context, uint64_t bb_count) {
     return llvm::VectorType::get(getScalarCounterType(context),
                                  llvm::ElementCount::getFixed(bb_count));
 }

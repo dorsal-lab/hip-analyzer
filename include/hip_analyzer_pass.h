@@ -94,13 +94,15 @@ struct KernelInstrumentationPass
     static const std::string utils_path;
 };
 
+struct CountersInstrumentationPass : public KernelInstrumentationPass {};
+
 /** \struct CfgInstrumentationpass
  * \brief Thread-level basic block counters insertion pass
  */
-struct CfgInstrumentationPass : public KernelInstrumentationPass {
+struct ThreadCountersInstrumentationPass : public CountersInstrumentationPass {
     static const std::string instrumented_prefix;
 
-    CfgInstrumentationPass() {}
+    ThreadCountersInstrumentationPass() {}
 
     bool instrumentFunction(llvm::Function& f,
                             llvm::Function& original_function,
@@ -121,10 +123,10 @@ struct CfgInstrumentationPass : public KernelInstrumentationPass {
 /** \struct CfgInstrumentationpass
  * \brief Wavefront-level basic block counters insertion pass
  */
-struct WaveCfgInstrumentationPass : public KernelInstrumentationPass {
+struct WaveCountersInstrumentationPass : public CountersInstrumentationPass {
     static const std::string instrumented_prefix;
 
-    WaveCfgInstrumentationPass() {}
+    WaveCountersInstrumentationPass() {}
 
     bool instrumentFunction(llvm::Function& f,
                             llvm::Function& original_function,
@@ -313,8 +315,11 @@ struct TracingPass : public KernelInstrumentationPass {
  *
  */
 struct HostPass : public llvm::PassInfoMixin<HostPass> {
-    HostPass(bool tracing, const std::string& trace_ty = "trace-wavestate")
-        : trace(tracing) {
+    HostPass(bool tracing = false,
+             const std::string& counters_prefix =
+                 ThreadCountersInstrumentationPass::instrumented_prefix,
+             const std::string& trace_ty = "trace-wavestate")
+        : trace(tracing), counters_type(counters_prefix) {
         if (tracing) {
             trace_type = TraceType::create(trace_ty);
         }
@@ -383,6 +388,7 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
   private:
     bool trace;
     std::unique_ptr<TraceType> trace_type;
+    const std::string& counters_type;
 };
 
 } // namespace hip

@@ -37,13 +37,13 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
                         mpm.addPass(hip::HostPass(true));
                         return true;
                     } else if (name == "hip-analyzer-counters") {
-                        mpm.addPass(hip::CfgInstrumentationPass());
+                        mpm.addPass(hip::ThreadCountersInstrumentationPass());
+                        return true;
+                    } else if (name == "hip-analyzer-wave-counters") {
+                        mpm.addPass(hip::WaveCountersInstrumentationPass());
                         return true;
                     } else if (name == "hip-analyzer-trace") {
                         mpm.addPass(hip::TracingPass(trace_type.getValue()));
-                        return true;
-                    } else if (name == "hip-analyzer-wave-counters") {
-                        mpm.addPass(hip::WaveCfgInstrumentationPass());
                         return true;
                     }
                     return false;
@@ -52,15 +52,21 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
             pb.registerPipelineStartEPCallback(
                 [](llvm::ModulePassManager& pm, llvm::OptimizationLevel Level) {
                     if (wave_counters) {
-                        pm.addPass(hip::WaveCfgInstrumentationPass());
+                        pm.addPass(hip::WaveCountersInstrumentationPass());
                     } else {
-                        pm.addPass(hip::CfgInstrumentationPass());
+                        pm.addPass(hip::ThreadCountersInstrumentationPass());
                     }
 
                     if (do_trace) {
                         pm.addPass(hip::TracingPass(trace_type.getValue()));
                     }
-                    pm.addPass(hip::HostPass(do_trace, trace_type.getValue()));
+                    const auto& cfg_prefix =
+                        wave_counters ? hip::WaveCountersInstrumentationPass::
+                                            instrumented_prefix
+                                      : hip::ThreadCountersInstrumentationPass::
+                                            instrumented_prefix;
+                    pm.addPass(hip::HostPass(do_trace, cfg_prefix,
+                                             trace_type.getValue()));
                 });
             pb.registerAnalysisRegistrationCallback(
                 [](llvm::FunctionAnalysisManager& fam) {
