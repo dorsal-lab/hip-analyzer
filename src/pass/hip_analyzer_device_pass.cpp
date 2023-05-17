@@ -318,7 +318,7 @@ bool WaveCfgInstrumentationPass::instrumentFunction(
     // First pass : create fake (zero) values and increment them
     unsigned int bb_id = 0u;
     for (auto& bb : f) {
-        builder.SetInsertPoint(&bb.front());
+        builder.SetInsertPoint(bb.getFirstNonPHI());
 
         auto* dummy_idx = builder.CreateIntrinsic(llvm::Intrinsic::ssa_copy,
                                                   {vector_ty}, init_vector);
