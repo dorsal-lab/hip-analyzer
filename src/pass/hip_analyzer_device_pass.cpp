@@ -390,21 +390,31 @@ void WaveCfgInstrumentationPass::storeCounter(llvm::IRBuilder<>& builder,
     // We have to set an offset for each store, so construct a string each time!
     // (Hopefully we'll get std::format aaaanytime now)
     constexpr unsigned dword_size = 4u; // 4 bytes for a 32 bit integer
-    static constexpr auto* inline_asm_constraints = "=s,s";
+    static constexpr auto* inline_asm_constraints = "s,s";
 
     std::stringstream ss;
-    ss << "s_store_dword $0, $1, " << dword_size * bb << '\n';
+    ss << "s_store_dword $0, $1, " << dword_size * bb;
 
     auto* i32_ty = builder.getInt32Ty();
     auto* ptr_ty = builder.getPtrTy();
-    auto* f_ty = llvm::FunctionType::get(i32_ty, {i32_ty, ptr_ty}, false);
+
+    // readfirstlane inline asm
+    auto* readlane_ty = llvm::FunctionType::get(i32_ty, {i32_ty}, false);
+    auto* readline_asm = llvm::InlineAsm::get(
+        readlane_ty, "v_readfirstlane_b32 $0, $1", "=s,v", true);
+
+    // store inline asm
+    auto* f_ty =
+        llvm::FunctionType::get(builder.getVoidTy(), {i32_ty, ptr_ty}, false);
     auto* store_sgpr =
         llvm::InlineAsm::get(f_ty, ss.str(), inline_asm_constraints, true);
 
     // Extract value from vector
     auto* extracted = builder.CreateExtractElement(vec, bb);
+    // Store in SGPR
+    auto* sgpr = builder.CreateCall(readline_asm, {extracted});
     // Create call to inline asm to store the value
-    builder.CreateCall(store_sgpr, {extracted, ptr});
+    builder.CreateCall(store_sgpr, {sgpr, ptr});
 }
 
 llvm::SmallVector<llvm::Type*> WaveCfgInstrumentationPass::getExtraArguments(
