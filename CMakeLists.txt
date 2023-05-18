@@ -129,6 +129,7 @@ target_link_libraries(
 # add_definitions(-DHIP_INSTRUMENTATION_VERBOSE)
 add_library(hip_instrumentation
     src/hip_instrumentation.cpp
+    src/hip_trace_manager.cpp
     src/basic_block.cpp
     src/gpu_info.cpp
     src/state_recoverer.cpp
