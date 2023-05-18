@@ -126,6 +126,7 @@ target_link_libraries(
     jsoncpp
 )
 
+# add_definitions(-DHIP_INSTRUMENTATION_VERBOSE)
 add_library(hip_instrumentation
     src/hip_instrumentation.cpp
     src/basic_block.cpp

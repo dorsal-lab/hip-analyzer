@@ -10,6 +10,7 @@
 #include "hip/hip_runtime.h"
 
 #include <dlfcn.h>
+#include <new>
 
 namespace hip {
 
@@ -17,6 +18,10 @@ StateRecoverer::~StateRecoverer() {
     // Need to free all allocated values, unfortunately we have to manage the
     // memory ourselves
     for (auto& [tagged_ptr, gpu_ptr] : saved_values) {
+#ifdef HIP_INSTRUMENTATION_VERBOSE
+        std::cout << "StateRecoverer::~StateRecoverer() : freeing "
+                  << (void*)gpu_ptr << '\n';
+#endif
         hip::check(hipFree(gpu_ptr));
     }
 }
@@ -79,6 +84,7 @@ HipMemoryManager::HipMemoryManager() {
 
 hipError_t HipMemoryManager::hipMallocWrapper(void** ptr, size_t size,
                                               size_t el_size) {
+    std::scoped_lock lock(mutex);
     hipError_t err = hipMallocHandler(ptr, size);
     if (err == hipSuccess) {
         TaggedPointer tagged_ptr{static_cast<uint8_t*>(*ptr), size, el_size};
@@ -89,6 +95,7 @@ hipError_t HipMemoryManager::hipMallocWrapper(void** ptr, size_t size,
 }
 
 hipError_t HipMemoryManager::hipFreeWrapper(void* ptr) {
+    std::scoped_lock lock(mutex);
     hipError_t err = hipFreeHandler(ptr);
     if (err == hipSuccess) {
         if (alloc_map.erase(ptr) == 0) {
@@ -99,6 +106,7 @@ hipError_t HipMemoryManager::hipFreeWrapper(void* ptr) {
 }
 
 HipMemoryManager::~HipMemoryManager() {
+    std::scoped_lock lock(mutex);
     if (auto* env = std::getenv("HIP_MEM_VERBOSE")) {
         for (auto& [ptr, tagged_ptr] : alloc_map) {
             std::cout
@@ -112,10 +120,20 @@ HipMemoryManager::~HipMemoryManager() {
 
 extern "C" {
 hipError_t hipMalloc(void** ptr, size_t size) {
-    return hip::HipMemoryManager::getInstance().hipMalloc(ptr, size);
+    auto err = hip::HipMemoryManager::getInstance().hipMalloc(ptr, size);
+#ifdef HIP_INSTRUMENTATION_VERBOSE
+    std::cout << "hipMalloc : " << *ptr << " (" << size << ")\n";
+#endif
+    if (err != hipSuccess) {
+        throw std::bad_alloc();
+    }
+    return err;
 }
 
 hipError_t hipFree(void* ptr) {
+#ifdef HIP_INSTRUMENTATION_VERBOSE
+    std::cout << "hipFree : " << ptr << '\n';
+#endif
     return hip::HipMemoryManager::getInstance().hipFree(ptr);
 }
 }

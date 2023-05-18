@@ -169,12 +169,10 @@ class HipMemoryManager {
 
 template <typename T>
 hipError_t HipMemoryManager::hipMalloc(T** ptr, size_t size) {
-    std::scoped_lock lock(mutex);
     return hipMallocWrapper(reinterpret_cast<void**>(ptr), size, sizeof(size));
 }
 
 template <typename T> hipError_t HipMemoryManager::hipFree(T* ptr) {
-    std::scoped_lock lock(mutex);
     return hipFreeWrapper(static_cast<void*>(ptr));
 }
 

@@ -212,8 +212,14 @@ HipTraceManager::~HipTraceManager() {
 void HipTraceManager::registerCounters(Instrumenter& instr,
                                        Counters&& counters) {
     std::lock_guard lock{mutex};
-    queue.push({CountersQueuePayload{std::move(counters), instr.kernelInfo(),
-                                     instr.getStamp(), instr.getInterval()}});
+
+#ifdef HIP_INSTRUMENTATION_VERBOSE
+    std::cout << "HipTraceManager::registerCounters() : Pushing counters "
+              << counters.size() << '\n';
+#endif
+    queue.push({CountersQueuePayload{std::forward<Counters>(counters),
+                                     instr.kernelInfo(), instr.getStamp(),
+                                     instr.getInterval()}});
 
     cond.notify_one();
 }
@@ -221,6 +227,11 @@ void HipTraceManager::registerCounters(Instrumenter& instr,
 void HipTraceManager::registerQueue(QueueInfo& queue_info, void* queue_data) {
     std::lock_guard lock{mutex};
 
+#ifdef HIP_INSTRUMENTATION_VERBOSE
+    std::cout << "HipTraceManager::registerQueue() : Pushing queue "
+              << queue_info.offsets().size() << ", " << queue_info.queueLength()
+              << " ; events " << queue_data << '\n';
+#endif
     queue.push({EventsQueuePayload{queue_data, std::move(queue_info)}});
 
     cond.notify_one();
@@ -284,7 +295,15 @@ void HipTraceManager::runThread() {
                 } else if constexpr (std::is_same_v<T, EventsQueuePayload>) {
                     auto& [events, queue_info] = val;
 
+#ifdef HIP_INSTRUMENTATION_VERBOSE
+                    std::cout << "HipTraceManager Collector : got "
+                              << queue_info.offsets().size() << ", "
+                              << queue_info.queueLength() << '\n';
+#endif
                     queue_info.fromDevice(events);
+#ifdef HIP_INSTRUMENTATION_VERBOSE
+                    std::cout << "Thread : ";
+#endif
                     hip::check(hipFree(events));
                     /*
                                         std::move(offsets),
