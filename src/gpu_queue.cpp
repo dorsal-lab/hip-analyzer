@@ -10,11 +10,17 @@
 
 namespace hip {
 
-QueueInfo::QueueInfo(Instrumenter& instr, size_t elem_size, bool is_thread,
-                     const std::string& type_desc, const std::string& type_name,
-                     size_t extra_size)
+QueueInfo::QueueInfo(ThreadCounterInstrumenter& instr, size_t elem_size,
+                     bool is_thread, const std::string& type_desc,
+                     const std::string& type_name, size_t extra_size)
     : is_thread(is_thread), elem_size(elem_size), instr(instr),
       type_desc(type_desc), type_name(type_name), extra_size(extra_size) {
+
+    if (instr.getVec().empty()) {
+        throw std::runtime_error("hip::QueueInfo::computeSize() : Empty "
+                                 "counters, have they been moved out ?");
+    }
+
     computeSize();
 }
 
@@ -22,12 +28,7 @@ constexpr auto warpSize = 64u;
 
 void QueueInfo::computeSize() {
     auto& kernel = instr.kernelInfo();
-    auto& counters = instr.data();
-
-    if (counters.empty()) {
-        throw std::runtime_error("hip::QueueInfo::computeSize() : Empty "
-                                 "counters, have they been moved out ?");
-    }
+    auto& counters = instr.getVec();
 
     auto thread_stride = kernel.basic_blocks;
     auto blocks_stride = kernel.total_threads_per_blocks;

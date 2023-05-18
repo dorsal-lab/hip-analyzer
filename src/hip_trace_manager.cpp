@@ -124,7 +124,7 @@ HipTraceManager::~HipTraceManager() {
     fs_thread->join();
 }
 
-void HipTraceManager::registerCounters(Instrumenter& instr,
+void HipTraceManager::registerCounters(ThreadCounterInstrumenter& instr,
                                        Counters&& counters) {
     std::lock_guard lock{mutex};
 

@@ -8,7 +8,7 @@
 
 #include "hip/hip_runtime.h"
 
-using counter_t = hip::Instrumenter::counter_t;
+using counter_t = hip::ThreadCounterInstrumenter::counter_t;
 
 __global__ void fill_values(counter_t* counters, size_t size, counter_t value) {
     for (auto i = 0u; i < size; ++i) {
@@ -21,13 +21,14 @@ int main() {
     constexpr auto threads = 128u;
 
     hip::KernelInfo ki("", 1, blocks, threads);
-    hip::Instrumenter instr(ki);
+    hip::ThreadCounterInstrumenter instr(ki);
 
     // Generate fake counters with a single kernel running on the gpu
 
     auto gpu_counters = instr.toDevice();
 
-    fill_values<<<1, 1>>>(gpu_counters, ki.instr_size, 8u);
+    fill_values<<<1, 1>>>(reinterpret_cast<counter_t*>(gpu_counters),
+                          ki.instr_size, 8u);
     hip::check(hipDeviceSynchronize());
 
     instr.fromDevice(gpu_counters);

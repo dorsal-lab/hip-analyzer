@@ -12,7 +12,8 @@
 #include "hip_instrumentation/hip_utils.hpp"
 #include "hip_instrumentation/reduction_kernels.hpp"
 
-unsigned int hip::Instrumenter::reduceFlops(const counter_t* device_ptr,
+unsigned int
+hip::ThreadCounterInstrumenter::reduceFlops(const counter_t* device_ptr,
                                             hipStream_t stream) const {
 
     if (blocks->empty()) {

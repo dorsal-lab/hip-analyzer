@@ -76,16 +76,16 @@ KernelInfo KernelInfo::fromJson(const std::string& filename) {
 }
 
 std::unordered_map<std::string, std::vector<hip::BasicBlock>>
-    Instrumenter::known_blocks;
+    CounterInstrumenter::known_blocks;
 
-bool Instrumenter::rocprofiler_initializer = false;
+bool CounterInstrumenter::rocprofiler_initializer = false;
 
-Instrumenter::Instrumenter(KernelInfo& ki) : Instrumenter() {
+CounterInstrumenter::CounterInstrumenter(KernelInfo& ki)
+    : CounterInstrumenter() {
     kernel_info.emplace(ki);
-    host_counters.assign(ki.instr_size, 0u);
 }
 
-Instrumenter::Instrumenter() {
+CounterInstrumenter::CounterInstrumenter() {
     if (!rocprofiler_initializer) {
         rocprofiler_initialize();
         rocprofiler_initializer = true;
@@ -117,7 +117,7 @@ uint64_t getRoctracerStamp() {
     return ret;
 }
 
-Instrumenter::counter_t* Instrumenter::toDevice() {
+void* ThreadCounterInstrumenter::toDevice() {
     counter_t* data_device;
     auto size = kernel_info->instr_size * sizeof(counter_t);
 
@@ -136,7 +136,7 @@ Instrumenter::counter_t* Instrumenter::toDevice() {
     return data_device;
 }
 
-void Instrumenter::fromDevice(void* device_ptr) {
+void ThreadCounterInstrumenter::fromDevice(void* device_ptr) {
     // Likewise, the fromDevice method is executed right after the end of
     // the kernel launch
 
@@ -147,7 +147,7 @@ void Instrumenter::fromDevice(void* device_ptr) {
                          hipMemcpyDeviceToHost));
 }
 
-std::string Instrumenter::autoFilenamePrefix() const {
+std::string CounterInstrumenter::autoFilenamePrefix() const {
     std::stringstream ss;
     ss << kernel_info->name << '_' << stamp;
 
@@ -156,7 +156,7 @@ std::string Instrumenter::autoFilenamePrefix() const {
 
 constexpr auto csv_header = "block,thread,bblock,count";
 
-void Instrumenter::dumpCsv(const std::string& filename_in) {
+void ThreadCounterInstrumenter::dumpCsv(const std::string& filename_in) {
     std::string filename;
 
     if (filename_in.empty()) {
@@ -186,7 +186,7 @@ void Instrumenter::dumpCsv(const std::string& filename_in) {
     out.close();
 }
 
-void Instrumenter::dumpBin(const std::string& filename_in) {
+void ThreadCounterInstrumenter::dumpBin(const std::string& filename_in) {
     std::string filename;
 
     if (filename_in.empty()) {
@@ -211,7 +211,7 @@ void Instrumenter::dumpBin(const std::string& filename_in) {
     db.close();
 }
 
-size_t Instrumenter::loadCsv(const std::string& filename) {
+size_t ThreadCounterInstrumenter::loadCsv(const std::string& filename) {
     // Load from file
     std::ifstream in(filename);
     if (!in.is_open()) {
@@ -265,7 +265,7 @@ size_t Instrumenter::loadCsv(const std::string& filename) {
     return line_no;
 }
 
-bool Instrumenter::parseHeader(const std::string& header) {
+bool ThreadCounterInstrumenter::parseHeader(const std::string& header) {
     std::stringstream ss;
     ss << header;
 
@@ -306,7 +306,7 @@ bool Instrumenter::parseHeader(const std::string& header) {
     return true;
 }
 
-size_t Instrumenter::loadBin(const std::string& filename) {
+size_t ThreadCounterInstrumenter::loadBin(const std::string& filename) {
     // Load from file
 
     std::ifstream in(filename, std::ios::binary);
@@ -333,7 +333,7 @@ size_t Instrumenter::loadBin(const std::string& filename) {
     return in.gcount();
 }
 
-std::string Instrumenter::getDatabaseName() const {
+std::string CounterInstrumenter::getDatabaseName() const {
     namespace fs = std::filesystem;
 
     if (auto* env = std::getenv(HIP_ANALYZER_ENV)) {
@@ -348,7 +348,7 @@ std::string Instrumenter::getDatabaseName() const {
     }
 }
 
-const std::vector<hip::BasicBlock>& Instrumenter::loadDatabase() {
+const std::vector<hip::BasicBlock>& CounterInstrumenter::loadDatabase() {
     if (!kernel_info.has_value()) {
         throw std::runtime_error("hip::Instrumenter::loadDatabase() : Unknown "
                                  "kernel name, cannot load database");
@@ -358,7 +358,7 @@ const std::vector<hip::BasicBlock>& Instrumenter::loadDatabase() {
 }
 
 const std::vector<hip::BasicBlock>&
-Instrumenter::loadDatabase(const std::string& kernel_name) {
+CounterInstrumenter::loadDatabase(const std::string& kernel_name) {
     // First, attempt to get the data from the stored database to avoid parsing
     // json (slow)
     auto it = known_blocks.find(kernel_name);
@@ -371,8 +371,8 @@ Instrumenter::loadDatabase(const std::string& kernel_name) {
 }
 
 const std::vector<hip::BasicBlock>&
-Instrumenter::loadDatabase(const std::string& filename_in,
-                           const std::string& kernel_name) {
+CounterInstrumenter::loadDatabase(const std::string& filename_in,
+                                  const std::string& kernel_name) {
     auto loaded_blocks = BasicBlock::fromJsonArray(filename_in, kernel_name);
     auto entry = known_blocks.emplace(kernel_name, std::move(loaded_blocks));
 
@@ -381,7 +381,7 @@ Instrumenter::loadDatabase(const std::string& filename_in,
     return *blocks;
 }
 
-void Instrumenter::record() {
+void ThreadCounterInstrumenter::record() {
     auto& trace_manager = HipTraceManager::getInstance();
 
     trace_manager.registerCounters(*this, std::move(host_counters));

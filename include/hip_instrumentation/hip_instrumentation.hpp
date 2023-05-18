@@ -53,27 +53,26 @@ struct KernelInfo {
     static KernelInfo fromJson(const std::string& filename);
 };
 
-/** \class Instrumenter
+/** \class CounterInstrumenter
  * \brief Instrumentation instance, holding host-side counters. It can either be
  * used for instrumentation or post-mortem analysis ( see \ref loadCsv and \ref
  * loadBin)
  */
-class Instrumenter {
+class CounterInstrumenter {
   public:
-    /** \brief Counter underlying type
-     */
-    using counter_t = uint8_t;
     static constexpr auto HIP_ANALYZER_ENV = "HIP_ANALYZER_DATABASE";
     static constexpr auto HIP_ANALYZER_DEFAULT_FILE = "hip_analyzer.json";
 
     /** \brief ctor. Used when the kernel configuration is already known, and
      * the basic block count is stored as a constant
      */
-    Instrumenter(KernelInfo& kernel_info);
+    CounterInstrumenter(KernelInfo& kernel_info);
 
     /** \brief ctor. Default-initializes the kernel info.
      */
-    Instrumenter();
+    CounterInstrumenter();
+
+    virtual ~CounterInstrumenter() {}
 
     // ----- Device data collection ----- //
 
@@ -105,59 +104,37 @@ class Instrumenter {
      * \brief Allocates data on both the host and the device, returns the
      * device pointer.
      */
-    counter_t* toDevice();
+    virtual void* toDevice() = 0;
 
     /** \fn fromDevice
      * \brief Fetches data back from the device
      */
-    void fromDevice(void* device_ptr);
+    virtual void fromDevice(void* device_ptr) = 0;
 
     // ----- Save & load data ----- //
 
     /** \fn data
-     * \brief Const ref to the host counters
+     * \brief Const ptr to the host counters
      */
-    const std::vector<counter_t>& data() const { return host_counters; }
+    virtual const void* data() const = 0;
 
     /** \fn dumpCsv
      * \brief Dump the data in a csv format. If no filename is given, it is
      * generated automatically from the kernel name and the timestamp
      */
-    void dumpCsv(const std::string& filename = "");
+    virtual void dumpCsv(const std::string& filename = "") = 0;
 
     /** \fn dumpBin
      * \brief Dump the data in a binary format (packed). A KernelInfo json dump
      * is then required to analyze the data
      */
-    void dumpBin(const std::string& filename = "");
-
-    /** \fn loadCsv
-     * \brief Load data from a csv-formated file.
-     */
-    size_t loadCsv(const std::string& filename);
-
-    /** \fn loadBin
-     * \brief Load data from a packed binary format (see \ref dumpBin).
-     */
-    size_t loadBin(const std::string& filename);
+    virtual void dumpBin(const std::string& filename = "") = 0;
 
     /** \fn record
      * \brief Delegates the counters to the trace manager, which will handle how
      * it will be saved in the filesystem
      */
-    void record();
-
-    // ----- Post-instrumentation reduce ----- //
-
-    /** \fn reduceFlops
-     * \brief Compute the number of floating point operations in the
-     * instrumented kernel execution
-     *
-     * \param device_ptr Pointer to the (device) instrumentation data
-     * \param stream Synchronization stream. If nullptr, synchronizes the device
-     */
-    unsigned int reduceFlops(const counter_t* device_ptr,
-                             hipStream_t stream = nullptr) const;
+    virtual void record() = 0;
 
     /** \fn kernelInfo
      * \brief Returns a ref to the kernel information
@@ -167,13 +144,7 @@ class Instrumenter {
     /** \fn setKernelInfo
      * \brief Sets the kernel info at runtime
      */
-    const KernelInfo& setKernelInfo(KernelInfo& ki) {
-        kernel_info.emplace(ki);
-        host_counters.reserve(ki.instr_size);
-        host_counters.assign(ki.instr_size, 0u);
-
-        return *kernel_info;
-    }
+    virtual const KernelInfo& setKernelInfo(KernelInfo& ki) = 0;
 
     /** \fn getStamp
      * \brief Returns the Instrumenter timestamp (construction)
@@ -187,15 +158,24 @@ class Instrumenter {
         return std::make_pair(stamp_begin, stamp_end);
     }
 
-  private:
-    /** \fn parseHeader
-     * \brief Validate header from binary trace
-     */
-    bool parseHeader(const std::string& header);
+    size_t shared_mem;
+    hipStream_t stream;
 
+    // Static factory methods
+
+    /** \fn loadCsv
+     * \brief Load data from a csv-formated file.
+     */
+    std::unique_ptr<CounterInstrumenter> fromCsv(const std::string& filename);
+
+    /** \fn loadBin
+     * \brief Load data from a packed binary format (see \ref dumpBin).
+     */
+    std::unique_ptr<CounterInstrumenter> fromBin(const std::string& filename);
+
+  protected:
     std::string autoFilenamePrefix() const;
 
-    std::vector<counter_t> host_counters;
     std::optional<KernelInfo> kernel_info;
 
     std::vector<hip::BasicBlock>* blocks;
@@ -213,6 +193,83 @@ class Instrumenter {
         known_blocks;
 
     static bool rocprofiler_initializer;
+};
+
+/** \class ThreadCounterInstrumenter
+ * \brief Corresponds to a per-thread instrumented kernel.
+ */
+class ThreadCounterInstrumenter : public CounterInstrumenter {
+  public:
+    ThreadCounterInstrumenter(KernelInfo& ki) : CounterInstrumenter(ki) {
+        host_counters.assign(ki.instr_size, 0u);
+    }
+
+    ThreadCounterInstrumenter() : CounterInstrumenter() {}
+
+    /** \brief Counter underlying type
+     */
+    using counter_t = uint8_t;
+
+    void* toDevice() override;
+
+    void fromDevice(void* device_ptr) override;
+
+    const void* data() const override { return host_counters.data(); }
+
+    void dumpCsv(const std::string& filename = "") override;
+
+    void dumpBin(const std::string& filename = "") override;
+
+    void record() override;
+
+    /** \fn setKernelInfo
+     * \brief Sets the kernel info at runtime
+     */
+    const KernelInfo& setKernelInfo(KernelInfo& ki) override {
+        kernel_info.emplace(ki);
+        host_counters.reserve(ki.instr_size);
+        host_counters.assign(ki.instr_size, 0u);
+
+        return *kernel_info;
+    }
+
+    const std::vector<counter_t>& getVec() const { return host_counters; }
+
+    size_t loadCsv(const std::string& filename);
+    size_t loadBin(const std::string& filename);
+
+    // ----- Post-instrumentation reduce ----- //
+
+    /** \fn reduceFlops
+     * \brief Compute the number of floating point operations in the
+     * instrumented kernel execution
+     *
+     * \param device_ptr Pointer to the (device) instrumentation data
+     * \param stream Synchronization stream. If nullptr, synchronizes the device
+     */
+    unsigned int reduceFlops(const counter_t* device_ptr,
+                             hipStream_t stream = nullptr) const;
+
+    /** \fn parseHeader
+     * \brief Validate header from binary trace
+     */
+    bool parseHeader(const std::string& header);
+
+  private:
+    std::vector<counter_t> host_counters;
+};
+
+/** \class WaveCounterInstrumenter
+ * \brief Corresponds to a per-wavefront instrumented kernel.
+ */
+class WaveCounterInstrumenter : public CounterInstrumenter {
+  public:
+    /** \brief Counter underlying type
+     */
+    using counter_t = uint32_t;
+
+  private:
+    std::vector<counter_t> host_counters;
 };
 
 } // namespace hip

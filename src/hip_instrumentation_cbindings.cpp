@@ -22,19 +22,6 @@ auto last_t = std::chrono::steady_clock::now();
 
 extern "C" {
 
-struct hipInstrumenter {
-    hip::Instrumenter boxed;
-    size_t shared_mem;
-    hipStream_t stream;
-
-    hipInstrumenter(hip::KernelInfo& ki) : boxed(ki) {}
-    hipInstrumenter() = default;
-};
-
-struct hipStateRecoverer {
-    hip::StateRecoverer boxed;
-};
-
 struct hipQueueInfo {
     hip::QueueInfo boxed;
     void* offsets;
@@ -44,7 +31,7 @@ struct hipQueueInfo {
 
 // ----- Instrumenter ----- //
 
-hipInstrumenter* hipNewInstrumenter(const char* kernel_name) {
+hip::CounterInstrumenter* hipNewInstrumenter(const char* kernel_name) {
     if (!timer.is_open()) {
 
         std::string prefix = "";
@@ -72,13 +59,13 @@ hipInstrumenter* hipNewInstrumenter(const char* kernel_name) {
             "hipNewInstrumenter() : Could not pop call configuration");
     }
 
-    auto* instr = new hipInstrumenter{};
+    auto* instr = new hip::ThreadCounterInstrumenter{};
 
-    unsigned int bblocks = instr->boxed.loadDatabase(kernel_name).size();
+    unsigned int bblocks = instr->loadDatabase(kernel_name).size();
 
     hip::KernelInfo ki{kernel_name, bblocks, blocks, threads};
 
-    instr->boxed.setKernelInfo(ki);
+    instr->setKernelInfo(ki);
 
     // Save stream for eventual re-push
     instr->shared_mem = shared_mem;
@@ -95,8 +82,8 @@ hipInstrumenter* hipNewInstrumenter(const char* kernel_name) {
     return instr;
 }
 
-counter_t* hipInstrumenterToDevice(hipInstrumenter* instr) {
-    auto* c = instr->boxed.toDevice();
+void* hipInstrumenterToDevice(hip::CounterInstrumenter* instr) {
+    auto* c = instr->toDevice();
 
     auto t = std::chrono::steady_clock::now();
     timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
@@ -107,7 +94,8 @@ counter_t* hipInstrumenterToDevice(hipInstrumenter* instr) {
     return c;
 }
 
-void hipInstrumenterFromDevice(hipInstrumenter* instr, void* device_ptr) {
+void hipInstrumenterFromDevice(hip::CounterInstrumenter* instr,
+                               void* device_ptr) {
     if (hipDeviceSynchronize() != hipSuccess) {
         return;
     }
@@ -120,7 +108,7 @@ void hipInstrumenterFromDevice(hipInstrumenter* instr, void* device_ptr) {
 
     last_t = std::chrono::steady_clock::now();
 
-    instr->boxed.fromDevice(device_ptr);
+    instr->fromDevice(device_ptr);
     hip::check(hipFree(device_ptr));
 
     t = std::chrono::steady_clock::now();
@@ -129,9 +117,9 @@ void hipInstrumenterFromDevice(hipInstrumenter* instr, void* device_ptr) {
           << ',';
 }
 
-void hipInstrumenterRecord(hipInstrumenter* instr) { instr->boxed.record(); }
+void hipInstrumenterRecord(hip::CounterInstrumenter* instr) { instr->record(); }
 
-void freeHipInstrumenter(hipInstrumenter* instr) {
+void freeHipInstrumenter(hip::CounterInstrumenter* instr) {
     delete instr;
     timer << '\n';
     timer.flush();
@@ -139,8 +127,8 @@ void freeHipInstrumenter(hipInstrumenter* instr) {
 
 // ----- State recoverer ----- //
 
-hipStateRecoverer* hipNewStateRecoverer() {
-    auto* s = new hipStateRecoverer;
+hip::StateRecoverer* hipNewStateRecoverer() {
+    auto* s = new hip::StateRecoverer;
 
     auto t = std::chrono::steady_clock::now();
     timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
@@ -152,17 +140,17 @@ hipStateRecoverer* hipNewStateRecoverer() {
     return s;
 }
 
-void* hipStateRecovererRegisterPointer(hipStateRecoverer* recoverer,
+void* hipStateRecovererRegisterPointer(hip::StateRecoverer* recoverer,
                                        void* potential_ptr) {
-    return recoverer->boxed.registerCallArgs(potential_ptr);
+    return recoverer->registerCallArgs(potential_ptr);
 }
 
-void hipStateRecovererRollback(hipStateRecoverer* recoverer,
-                               hipInstrumenter* instr) {
+void hipStateRecovererRollback(hip::StateRecoverer* recoverer,
+                               hip::CounterInstrumenter* instr) {
     // recoverer->boxed.rollback();
 
     // Revert call configuration
-    auto& ki = instr->boxed.kernelInfo();
+    auto& ki = instr->kernelInfo();
     if (__hipPushCallConfiguration(ki.blocks, ki.threads_per_blocks,
                                    instr->shared_mem,
                                    instr->stream) != hipSuccess) {
@@ -171,13 +159,16 @@ void hipStateRecovererRollback(hipStateRecoverer* recoverer,
     }
 }
 
-void freeHipStateRecoverer(hipStateRecoverer* recoverer) { delete recoverer; }
+void freeHipStateRecoverer(hip::StateRecoverer* recoverer) { delete recoverer; }
 
 // ----- Event queue ----- //
 
-hipQueueInfo* newHipQueueInfo(hipInstrumenter* instr, EventType event_type,
-                              QueueType queue_type) {
+hipQueueInfo* newHipQueueInfo(hip::CounterInstrumenter* instr,
+                              EventType event_type, QueueType queue_type) {
     last_t = std::chrono::steady_clock::now();
+
+    auto& thread_inst = reinterpret_cast<hip::ThreadCounterInstrumenter&>(
+        *instr); // DANGEROUS, TODO CHANGE
 
     constexpr auto extra_size = 20u; // Extra padding just in case
     switch (queue_type) {
@@ -185,10 +176,10 @@ hipQueueInfo* newHipQueueInfo(hipInstrumenter* instr, EventType event_type,
         switch (event_type) {
         case EventType::Event:
             return new hipQueueInfo{
-                hip::QueueInfo::thread<hip::Event>(instr->boxed, extra_size)};
+                hip::QueueInfo::thread<hip::Event>(thread_inst, extra_size)};
         case EventType::TaggedEvent:
             return new hipQueueInfo{hip::QueueInfo::thread<hip::TaggedEvent>(
-                instr->boxed, extra_size)};
+                thread_inst, extra_size)};
 
         default:
             throw std::runtime_error(
@@ -198,15 +189,15 @@ hipQueueInfo* newHipQueueInfo(hipInstrumenter* instr, EventType event_type,
         switch (event_type) {
         case EventType::Event:
             return new hipQueueInfo{
-                hip::QueueInfo::wave<hip::Event>(instr->boxed, extra_size)};
+                hip::QueueInfo::wave<hip::Event>(thread_inst, extra_size)};
 
         case EventType::TaggedEvent:
             return new hipQueueInfo{hip::QueueInfo::wave<hip::TaggedEvent>(
-                instr->boxed, extra_size)};
+                thread_inst, extra_size)};
 
         case EventType::WaveState:
             return new hipQueueInfo{
-                hip::QueueInfo::wave<hip::WaveState>(instr->boxed, extra_size)};
+                hip::QueueInfo::wave<hip::WaveState>(thread_inst, extra_size)};
         }
     }
 }

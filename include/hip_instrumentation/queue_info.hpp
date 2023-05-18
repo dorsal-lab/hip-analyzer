@@ -20,7 +20,8 @@ struct QueueInfo {
      * \brief Creates a ThreadQueue buffer
      */
     template <class EventType>
-    static QueueInfo thread(Instrumenter& instr, size_t extra_size = 0u) {
+    static QueueInfo thread(ThreadCounterInstrumenter& instr,
+                            size_t extra_size = 0u) {
         static_assert(std::is_trivially_copyable_v<EventType>);
         static_assert(
             std::is_same_v<decltype(EventType::description), std::string>);
@@ -35,7 +36,8 @@ struct QueueInfo {
      * \brief creates a WaveQueue buffer
      */
     template <class EventType>
-    static QueueInfo wave(Instrumenter& instr, size_t extra_size = 0u) {
+    static QueueInfo wave(ThreadCounterInstrumenter& instr,
+                          size_t extra_size = 0u) {
         static_assert(std::is_trivially_copyable_v<EventType>);
         static_assert(
             std::is_same_v<decltype(EventType::description), std::string>);
@@ -128,13 +130,13 @@ struct QueueInfo {
     void record(void* ptr);
 
   private:
-    QueueInfo(Instrumenter& instr, size_t elem_size, bool is_thread,
-              const std::string& type_desc, const std::string& type_name,
-              size_t extra_size);
+    QueueInfo(ThreadCounterInstrumenter& instr, size_t elem_size,
+              bool is_thread, const std::string& type_desc,
+              const std::string& type_name, size_t extra_size);
 
     void computeSize();
 
-    Instrumenter& instr;
+    ThreadCounterInstrumenter& instr;
     bool is_thread;
     size_t elem_size;
     size_t extra_size;

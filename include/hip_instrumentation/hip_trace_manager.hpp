@@ -21,7 +21,7 @@ namespace hip {
  */
 class HipTraceManager {
   public:
-    using Counters = std::vector<Instrumenter::counter_t>;
+    using Counters = std::vector<ThreadCounterInstrumenter::counter_t>;
 
     // <Counters data> - <kernel launch info> - <stamp> - <pair of roctracer
     // stamp>
@@ -49,7 +49,8 @@ class HipTraceManager {
         return *instance;
     }
 
-    void registerCounters(Instrumenter& instr, Counters&& counters);
+    void registerCounters(ThreadCounterInstrumenter& instr,
+                          Counters&& counters);
 
     void registerQueue(QueueInfo& queue, void* queue_data);
 
