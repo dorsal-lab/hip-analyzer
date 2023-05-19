@@ -226,6 +226,8 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
 
     auto void_from_ptr_type =
         llvm::FunctionType::get(void_type, {unqual_ptr_type}, false);
+    auto void_from_ptr_tuple_ty = llvm::FunctionType::get(
+        void_type, {unqual_ptr_type, unqual_ptr_type}, false);
     auto recoverer_ctor_type =
         llvm::FunctionType::get(unqual_ptr_type, {}, false);
     auto ptr_from_ptr_type =
@@ -262,9 +264,7 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
                                 {unqual_ptr_type, unqual_ptr_type}, false));
 
     hipStateRecovererRollback =
-        getFunction(mod, "hipStateRecovererRollback",
-                    llvm::FunctionType::get(
-                        void_type, {unqual_ptr_type, unqual_ptr_type}, false));
+        getFunction(mod, "hipStateRecovererRollback", void_from_ptr_tuple_ty);
 
     newHipQueueInfo =
         getFunction(mod, "newHipQueueInfo",
@@ -279,7 +279,9 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
         getFunction(mod, "hipQueueInfoAllocOffsets", ptr_from_ptr_type);
 
     hipQueueInfoRecord =
-        getFunction(mod, "hipQueueInfoRecord", from_device_type);
+        getFunction(mod, "hipQueueInfoRecord", void_from_ptr_tuple_ty);
+
+    freeHipQueueInfo = getFunction(mod, "freeHipQueueInfo", void_from_ptr_type);
 }
 
 CfgFunctions::CfgFunctions(llvm::Module& mod) {

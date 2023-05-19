@@ -67,8 +67,9 @@ struct InstrumentationFunctions {
         *hipStateRecovererRollback, *freeHipStateRecoverer;
 
     // hipQueueInfo
-    llvm::Function *newHipQueueInfo, *hipQueueInfoAllocBuffer,
-        *hipQueueInfoAllocOffsets, *hipQueueInfoRecord;
+    llvm::Function *newHipQueueInfo, *freeHipQueueInfo,
+        *hipQueueInfoAllocBuffer, *hipQueueInfoAllocOffsets,
+        *hipQueueInfoRecord;
 
     /** ctor
      * \brief Forward-declare instrumentation functions in the module, and

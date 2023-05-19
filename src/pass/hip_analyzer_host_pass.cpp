@@ -334,12 +334,16 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
     if (trace) {
         // Store counters (runtime)
         builder.CreateCall(instr_handlers.hipQueueInfoRecord,
-                           {queue_info, events_buffer});
+                           {queue_info, events_buffer, events_offsets});
     }
 
     // Free allocated instrumentation
     builder.CreateCall(instr_handlers.freeHipInstrumenter, {instr});
     builder.CreateCall(instr_handlers.freeHipStateRecoverer, {recoverer});
+
+    if (trace) {
+        builder.CreateCall(instr_handlers.freeHipQueueInfo, {queue_info});
+    }
 
     builder.CreateRetVoid();
 

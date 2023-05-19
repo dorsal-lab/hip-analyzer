@@ -9,6 +9,7 @@
 namespace hip {
 class CounterInstrumenter;
 class StateRecoverer;
+struct QueueInfo;
 } // namespace hip
 
 extern "C" {
@@ -72,11 +73,14 @@ enum class QueueType : uint32_t {
     Wave = 1,
 };
 
-hipQueueInfo* newHipQueueInfo(hip::CounterInstrumenter*, EventType, QueueType);
+hip::QueueInfo* newHipQueueInfo(hip::CounterInstrumenter*, EventType,
+                                QueueType);
 
-void* hipQueueInfoAllocBuffer(hipQueueInfo*);
+void freeHipQueueInfo(hip::QueueInfo*);
 
-void* hipQueueInfoAllocOffsets(hipQueueInfo*);
+void* hipQueueInfoAllocBuffer(hip::QueueInfo*);
 
-void hipQueueInfoRecord(hipQueueInfo*, void*);
+void* hipQueueInfoAllocOffsets(hip::QueueInfo*);
+
+void hipQueueInfoRecord(hip::QueueInfo*, void*, void*);
 }

@@ -22,13 +22,6 @@ auto last_t = std::chrono::steady_clock::now();
 
 extern "C" {
 
-struct hipQueueInfo {
-    hip::QueueInfo boxed;
-    void* offsets;
-    hipQueueInfo(hip::QueueInfo&& other)
-        : boxed{std::forward<hip::QueueInfo>(other)} {}
-};
-
 // ----- Instrumenter ----- //
 
 hip::CounterInstrumenter* hipNewInstrumenter(const char* kernel_name) {
@@ -163,8 +156,8 @@ void freeHipStateRecoverer(hip::StateRecoverer* recoverer) { delete recoverer; }
 
 // ----- Event queue ----- //
 
-hipQueueInfo* newHipQueueInfo(hip::CounterInstrumenter* instr,
-                              EventType event_type, QueueType queue_type) {
+hip::QueueInfo* newHipQueueInfo(hip::CounterInstrumenter* instr,
+                                EventType event_type, QueueType queue_type) {
     last_t = std::chrono::steady_clock::now();
 
     auto& thread_inst = reinterpret_cast<hip::ThreadCounterInstrumenter&>(
@@ -175,10 +168,10 @@ hipQueueInfo* newHipQueueInfo(hip::CounterInstrumenter* instr,
     case QueueType::Thread:
         switch (event_type) {
         case EventType::Event:
-            return new hipQueueInfo{
+            return new hip::QueueInfo{
                 hip::QueueInfo::thread<hip::Event>(thread_inst, extra_size)};
         case EventType::TaggedEvent:
-            return new hipQueueInfo{hip::QueueInfo::thread<hip::TaggedEvent>(
+            return new hip::QueueInfo{hip::QueueInfo::thread<hip::TaggedEvent>(
                 thread_inst, extra_size)};
 
         default:
@@ -188,27 +181,26 @@ hipQueueInfo* newHipQueueInfo(hip::CounterInstrumenter* instr,
     case QueueType::Wave:
         switch (event_type) {
         case EventType::Event:
-            return new hipQueueInfo{
+            return new hip::QueueInfo{
                 hip::QueueInfo::wave<hip::Event>(thread_inst, extra_size)};
 
         case EventType::TaggedEvent:
-            return new hipQueueInfo{hip::QueueInfo::wave<hip::TaggedEvent>(
+            return new hip::QueueInfo{hip::QueueInfo::wave<hip::TaggedEvent>(
                 thread_inst, extra_size)};
 
         case EventType::WaveState:
-            return new hipQueueInfo{
+            return new hip::QueueInfo{
                 hip::QueueInfo::wave<hip::WaveState>(thread_inst, extra_size)};
         }
     }
 }
 
-void* hipQueueInfoAllocBuffer(hipQueueInfo* queue_info) {
-    return queue_info->boxed.allocBuffer();
+void* hipQueueInfoAllocBuffer(hip::QueueInfo* queue_info) {
+    return queue_info->allocBuffer();
 }
 
-void* hipQueueInfoAllocOffsets(hipQueueInfo* queue_info) {
-    void* o = queue_info->boxed.allocOffsets();
-    queue_info->offsets = o;
+void* hipQueueInfoAllocOffsets(hip::QueueInfo* queue_info) {
+    void* o = queue_info->allocOffsets();
 
     auto t = std::chrono::steady_clock::now();
     timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
@@ -220,7 +212,8 @@ void* hipQueueInfoAllocOffsets(hipQueueInfo* queue_info) {
     return o;
 }
 
-void hipQueueInfoRecord(hipQueueInfo* queue_info, void* ptr) {
+void hipQueueInfoRecord(hip::QueueInfo* queue_info, void* events,
+                        void* offsets) {
     if (hipDeviceSynchronize() != hipSuccess) {
         return;
     }
@@ -233,13 +226,15 @@ void hipQueueInfoRecord(hipQueueInfo* queue_info, void* ptr) {
 
     last_t = std::chrono::steady_clock::now();
 
-    queue_info->boxed.record(ptr);
-    hip::check(hipFree(queue_info->offsets));
+    queue_info->record(events);
+    hip::check(hipFree(offsets));
 
     t = std::chrono::steady_clock::now();
     timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
                  .count();
 }
+
+void freeHipQueueInfo(hip::QueueInfo* q) { delete q; }
 
 // ----- Experimental - Kernel timer ----- //
 
