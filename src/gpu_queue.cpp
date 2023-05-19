@@ -5,6 +5,7 @@
  */
 
 #include "hip_instrumentation/gpu_queue.hpp"
+#include "hip_instrumentation/hip_trace_manager.hpp"
 
 #include <numeric>
 
@@ -109,6 +110,12 @@ void QueueInfo::fromDevice(void* ptr) {
 }
 
 size_t QueueInfo::queueLength() const { return offsets_vec.back(); }
+
+void QueueInfo::record(void* gpu_events) {
+    auto& trace_manager = HipTraceManager::getInstance();
+
+    trace_manager.registerQueue(*this, gpu_events);
+}
 
 // Standard events
 

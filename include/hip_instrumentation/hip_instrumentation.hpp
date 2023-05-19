@@ -50,7 +50,14 @@ struct KernelInfo {
      */
     std::string json();
 
+    /** \fn waveFrontCount
+     * \brief Computes the number of wavefronts in the kernel
+     */
+    uint32_t wavefrontCount() const;
+
     static KernelInfo fromJson(const std::string& filename);
+
+    static constexpr uint32_t wavefrontSize = 64u;
 };
 
 /** \class CounterInstrumenter
@@ -176,6 +183,12 @@ class CounterInstrumenter {
   protected:
     std::string autoFilenamePrefix() const;
 
+    /** \fn toDevice
+     * \brief Generic "toDevice" method. Allocates the buffer on the device and
+     * initializes it to 0
+     */
+    void* toDevice(size_t size);
+
     std::optional<KernelInfo> kernel_info;
 
     std::vector<hip::BasicBlock>* blocks;
@@ -268,8 +281,49 @@ class WaveCounterInstrumenter : public CounterInstrumenter {
      */
     using counter_t = uint32_t;
 
+    WaveCounterInstrumenter(KernelInfo& ki) : CounterInstrumenter(ki) {
+        instr_size = kernel_info->wavefrontCount() * kernel_info->basic_blocks;
+        reserve();
+    }
+
+    WaveCounterInstrumenter() : CounterInstrumenter() {}
+
+    void* toDevice() override;
+
+    void fromDevice(void* device_ptr) override;
+
+    const void* data() const override { return host_counters.data(); }
+
+    void dumpCsv(const std::string& filename = "") override;
+
+    void dumpBin(const std::string& filename = "") override;
+
+    void record() override;
+
+    /** \fn setKernelInfo
+     * \brief Sets the kernel info at runtime
+     */
+    const KernelInfo& setKernelInfo(KernelInfo& ki) override {
+        kernel_info.emplace(ki);
+        instr_size = kernel_info->wavefrontCount() * kernel_info->basic_blocks;
+        reserve();
+
+        return *kernel_info;
+    }
+
+    const std::vector<counter_t>& getVec() const { return host_counters; }
+
+    size_t loadCsv(const std::string& filename);
+    size_t loadBin(const std::string& filename);
+
   private:
+    void reserve() {
+        host_counters.reserve(instr_size);
+        host_counters.assign(instr_size, 0u);
+    }
+
     std::vector<counter_t> host_counters;
+    size_t instr_size;
 };
 
 } // namespace hip

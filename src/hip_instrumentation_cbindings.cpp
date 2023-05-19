@@ -24,7 +24,8 @@ extern "C" {
 
 // ----- Instrumenter ----- //
 
-hip::CounterInstrumenter* hipNewInstrumenter(const char* kernel_name) {
+hip::CounterInstrumenter* hipNewInstrumenter(const char* kernel_name,
+                                             CounterType type) {
     if (!timer.is_open()) {
 
         std::string prefix = "";
@@ -52,7 +53,15 @@ hip::CounterInstrumenter* hipNewInstrumenter(const char* kernel_name) {
             "hipNewInstrumenter() : Could not pop call configuration");
     }
 
-    auto* instr = new hip::ThreadCounterInstrumenter{};
+    hip::CounterInstrumenter* instr;
+    switch (type) {
+    case CounterType::Thread:
+        instr = new hip::ThreadCounterInstrumenter;
+        break;
+    case CounterType::Wave:
+        instr = new hip::WaveCounterInstrumenter;
+        break;
+    }
 
     unsigned int bblocks = instr->loadDatabase(kernel_name).size();
 

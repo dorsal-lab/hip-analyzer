@@ -14,14 +14,15 @@ struct QueueInfo;
 
 extern "C" {
 
-struct hipQueueInfo;
-
 // ----- Instrumentation ----- //
+
+enum class CounterType : uint32_t { Thread = 0u, Wave = 1u };
 
 /** \fn hipNewInstrumenter
  * \brief Create a new instrumenter from the (mangled) kernel name
  */
-hip::CounterInstrumenter* hipNewInstrumenter(const char* kernel_name);
+hip::CounterInstrumenter* hipNewInstrumenter(const char* kernel_name,
+                                             CounterType type);
 
 /** \fn hipInstrumenterToDevice
  * \brief Create the instrumentation counters
@@ -44,8 +45,8 @@ void freeHipInstrumenter(hip::CounterInstrumenter*);
 hip::StateRecoverer* hipNewStateRecoverer();
 
 /** \fn hipMemoryManagerRegisterPointer
- * \brief Equivalent of hip::HipMemoryManager::registerCallArgs(T...), register
- * pointers as used in the shadow memory
+ * \brief Equivalent of hip::HipMemoryManager::registerCallArgs(T...),
+ * register pointers as used in the shadow memory
  */
 void* hipStateRecovererRegisterPointer(hip::StateRecoverer*,
                                        void* potential_ptr);

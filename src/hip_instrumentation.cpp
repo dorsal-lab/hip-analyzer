@@ -75,6 +75,15 @@ KernelInfo KernelInfo::fromJson(const std::string& filename) {
     return {kernel_name, bblocks, blocks, threads};
 }
 
+uint32_t KernelInfo::wavefrontCount() const {
+    uint32_t wavefronts_per_blocks = total_threads_per_blocks / wavefrontSize;
+    if (total_threads_per_blocks % wavefrontSize > 0) {
+        ++wavefronts_per_blocks;
+    }
+
+    return wavefronts_per_blocks * total_blocks;
+}
+
 std::unordered_map<std::string, std::vector<hip::BasicBlock>>
     CounterInstrumenter::known_blocks;
 
@@ -117,15 +126,10 @@ uint64_t getRoctracerStamp() {
     return ret;
 }
 
-void* ThreadCounterInstrumenter::toDevice() {
-    counter_t* data_device;
-    auto size = kernel_info->instr_size * sizeof(counter_t);
+void* CounterInstrumenter::toDevice(size_t size) {
+    void* data_device;
 
     hip::check(hipMalloc(&data_device, size));
-
-    hip::check(hipMemcpy(data_device, host_counters.data(), size,
-                         hipMemcpyHostToDevice));
-
     hip::check(hipMemset(data_device, 0u, size));
 
     // We get the timestamp at this point because the toDevice method is
@@ -134,6 +138,11 @@ void* ThreadCounterInstrumenter::toDevice() {
     stamp_begin = getRoctracerStamp();
 
     return data_device;
+}
+
+void* ThreadCounterInstrumenter::toDevice() {
+    auto size = kernel_info->instr_size * sizeof(counter_t);
+    return CounterInstrumenter::toDevice(size);
 }
 
 void ThreadCounterInstrumenter::fromDevice(void* device_ptr) {
@@ -387,10 +396,30 @@ void ThreadCounterInstrumenter::record() {
     trace_manager.registerCounters(*this, std::move(host_counters));
 }
 
-void QueueInfo::record(void* gpu_events) {
-    auto& trace_manager = HipTraceManager::getInstance();
-
-    trace_manager.registerQueue(*this, gpu_events);
+// ----- hip::WaveCounterInstrumenter ----- //
+void* WaveCounterInstrumenter::toDevice() {
+    auto size = host_counters.size() * sizeof(counter_t);
+    return CounterInstrumenter::toDevice(size);
 }
+
+void WaveCounterInstrumenter::fromDevice(void* device_ptr) {
+    // Likewise, the fromDevice method is executed right after the end of
+    // the kernel launch
+
+    stamp_end = getRoctracerStamp();
+
+    hip::check(hipMemcpy(host_counters.data(), device_ptr,
+                         instr_size * sizeof(counter_t),
+                         hipMemcpyDeviceToHost));
+}
+
+void WaveCounterInstrumenter::dumpCsv(const std::string& filename) {}
+
+void WaveCounterInstrumenter::dumpBin(const std::string& filename) {}
+
+void WaveCounterInstrumenter::record() {}
+
+size_t WaveCounterInstrumenter::loadCsv(const std::string& filename) {}
+size_t WaveCounterInstrumenter::loadBin(const std::string& filename) {}
 
 } // namespace hip
