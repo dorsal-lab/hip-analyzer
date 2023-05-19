@@ -222,16 +222,13 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
 
     auto* void_type = llvm::Type::getVoidTy(context);
     auto* uint32_type = llvm::Type::getInt32Ty(context);
-    auto* unqual_ptr_type = llvm::PointerType::getUnqual(context);
+    auto* ptr_type = llvm::PointerType::getUnqual(context);
 
     auto void_from_ptr_type =
-        llvm::FunctionType::get(void_type, {unqual_ptr_type}, false);
-    auto void_from_ptr_tuple_ty = llvm::FunctionType::get(
-        void_type, {unqual_ptr_type, unqual_ptr_type}, false);
-    auto recoverer_ctor_type =
-        llvm::FunctionType::get(unqual_ptr_type, {}, false);
+        llvm::FunctionType::get(void_type, {ptr_type}, false);
+    auto recoverer_ctor_type = llvm::FunctionType::get(ptr_type, {}, false);
     auto ptr_from_ptr_type =
-        llvm::FunctionType::get(unqual_ptr_type, {unqual_ptr_type}, false);
+        llvm::FunctionType::get(ptr_type, {ptr_type}, false);
 
     // This is tedious, but now way around it
 
@@ -250,8 +247,8 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
     hipInstrumenterToDevice =
         getFunction(mod, "hipInstrumenterToDevice", ptr_from_ptr_type);
 
-    auto from_device_type = llvm::FunctionType::get(
-        void_type, {unqual_ptr_type, unqual_ptr_type}, false);
+    auto from_device_type =
+        llvm::FunctionType::get(void_type, {ptr_type, ptr_type}, false);
     hipInstrumenterFromDevice =
         getFunction(mod, "hipInstrumenterFromDevice", from_device_type);
 
@@ -260,17 +257,16 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
 
     hipStateRecovererRegisterPointer = getFunction(
         mod, "hipStateRecovererRegisterPointer",
-        llvm::FunctionType::get(unqual_ptr_type,
-                                {unqual_ptr_type, unqual_ptr_type}, false));
+        llvm::FunctionType::get(ptr_type, {ptr_type, ptr_type}, false));
 
-    hipStateRecovererRollback =
-        getFunction(mod, "hipStateRecovererRollback", void_from_ptr_tuple_ty);
+    hipStateRecovererRollback = getFunction(
+        mod, "hipStateRecovererRollback",
+        llvm::FunctionType::get(void_type, {ptr_type, ptr_type}, false));
 
     newHipQueueInfo =
         getFunction(mod, "newHipQueueInfo",
                     llvm::FunctionType::get(
-                        unqual_ptr_type,
-                        {unqual_ptr_type, uint32_type, uint32_type}, false));
+                        ptr_type, {ptr_type, uint32_type, uint32_type}, false));
 
     hipQueueInfoAllocBuffer =
         getFunction(mod, "hipQueueInfoAllocBuffer", ptr_from_ptr_type);
@@ -279,7 +275,9 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
         getFunction(mod, "hipQueueInfoAllocOffsets", ptr_from_ptr_type);
 
     hipQueueInfoRecord =
-        getFunction(mod, "hipQueueInfoRecord", void_from_ptr_tuple_ty);
+        getFunction(mod, "hipQueueInfoRecord",
+                    llvm::FunctionType::get(
+                        void_type, {ptr_type, ptr_type, ptr_type}, false));
 
     freeHipQueueInfo = getFunction(mod, "freeHipQueueInfo", void_from_ptr_type);
 }
