@@ -14,11 +14,12 @@
 
 namespace hip {
 
+template <>
 std::ostream& dumpTraceBin(std::ostream& out,
-                           HipTraceManager::Counters& counters,
+                           HipTraceManager::ThreadCounters& counters,
                            KernelInfo& kernel_info, uint64_t stamp,
                            std::pair<uint64_t, uint64_t> interval) {
-    using counter_t = HipTraceManager::Counters::value_type;
+    using counter_t = HipTraceManager::ThreadCounters::value_type;
 
     // Write header
 
@@ -54,6 +55,15 @@ std::ostream& dumpTraceBin(std::ostream& out,
     out.write(reinterpret_cast<const char*>(counters.data()),
               counters.size() * sizeof(counter_t));
 
+    return out;
+}
+
+template <>
+std::ostream& dumpTraceBin(std::ostream& out,
+                           HipTraceManager::WaveCounters& counters,
+                           KernelInfo& kernel_info, uint64_t stamp,
+                           std::pair<uint64_t, uint64_t> interval) {
+    // TODO
     return out;
 }
 
@@ -124,17 +134,17 @@ HipTraceManager::~HipTraceManager() {
     fs_thread->join();
 }
 
-void HipTraceManager::registerCounters(ThreadCounterInstrumenter& instr,
-                                       Counters&& counters) {
+void HipTraceManager::registerThreadCounters(ThreadCounterInstrumenter& instr,
+                                             ThreadCounters&& counters) {
     std::lock_guard lock{mutex};
 
 #ifdef HIP_INSTRUMENTATION_VERBOSE
     std::cout << "HipTraceManager::registerCounters() : Pushing counters "
               << counters.size() << '\n';
 #endif
-    queue.push({CountersQueuePayload{std::forward<Counters>(counters),
-                                     instr.kernelInfo(), instr.getStamp(),
-                                     instr.getInterval()}});
+    queue.push({CountersQueuePayload<ThreadCounters>{
+        std::forward<ThreadCounters>(counters), instr.kernelInfo(),
+        instr.getStamp(), instr.getInterval()}});
 
     cond.notify_one();
 }
@@ -155,6 +165,47 @@ void HipTraceManager::registerQueue(QueueInfo& queue_info, void* queue_data) {
 /** \brief Small header to validate the trace type
  */
 constexpr auto hiptrace_managed_name = "hiptrace_managed";
+
+template <>
+void HipTraceManager::handlePayload(
+    CountersQueuePayload<ThreadCounters>&& payload, std::ofstream& out) {
+    auto& [counters, kernel_info, stamp, rocm_stamp] = payload;
+
+    dumpTraceBin(out, counters, kernel_info, stamp, rocm_stamp);
+}
+
+template <>
+void HipTraceManager::handlePayload(
+    CountersQueuePayload<WaveCounters>&& payload, std::ofstream& out) {
+    auto& [counters, kernel_info, stamp, rocm_stamp] = payload;
+
+    dumpTraceBin(out, counters, kernel_info, stamp, rocm_stamp);
+}
+
+template <>
+void HipTraceManager::handlePayload(EventsQueuePayload&& payload,
+                                    std::ofstream& out) {
+    auto& [events, queue_info] = payload;
+
+#ifdef HIP_INSTRUMENTATION_VERBOSE
+    std::cout << "HipTraceManager Collector : got "
+              << queue_info.offsets().size() << ", " << queue_info.queueLength()
+              << '\n';
+#endif
+    queue_info.fromDevice(events);
+#ifdef HIP_INSTRUMENTATION_VERBOSE
+    std::cout << "Thread : ";
+#endif
+    hip::check(hipFree(events));
+    /*
+                        std::move(offsets),
+                                       queue_info.elemSize(),
+       queue_info.getDesc(), queue_info.getName()}}
+    */
+    dumpEventsBin(out, queue_info.events(), queue_info.offsets(),
+                  queue_info.elemSize(), queue_info.getDesc(),
+                  queue_info.getName());
+}
 
 template <class> inline constexpr bool always_false_v = false;
 
@@ -201,37 +252,7 @@ void HipTraceManager::runThread() {
 
         // Some template magic for you
         std::visit(
-            [&](auto&& val) {
-                using T = std::decay_t<decltype(val)>;
-                if constexpr (std::is_same_v<T, CountersQueuePayload>) {
-                    auto& [counters, kernel_info, stamp, rocm_stamp] = val;
-
-                    dumpTraceBin(out, counters, kernel_info, stamp, rocm_stamp);
-                } else if constexpr (std::is_same_v<T, EventsQueuePayload>) {
-                    auto& [events, queue_info] = val;
-
-#ifdef HIP_INSTRUMENTATION_VERBOSE
-                    std::cout << "HipTraceManager Collector : got "
-                              << queue_info.offsets().size() << ", "
-                              << queue_info.queueLength() << '\n';
-#endif
-                    queue_info.fromDevice(events);
-#ifdef HIP_INSTRUMENTATION_VERBOSE
-                    std::cout << "Thread : ";
-#endif
-                    hip::check(hipFree(events));
-                    /*
-                                        std::move(offsets),
-                                                       queue_info.elemSize(),
-                       queue_info.getDesc(), queue_info.getName()}}
-                    */
-                    dumpEventsBin(out, queue_info.events(),
-                                  queue_info.offsets(), queue_info.elemSize(),
-                                  queue_info.getDesc(), queue_info.getName());
-                } else {
-                    static_assert(always_false_v<T>, "Non-exhaustive visitor");
-                }
-            },
+            [this, &out](auto& arg) { handlePayload(std::move(arg), out); },
             *payload);
     }
 }

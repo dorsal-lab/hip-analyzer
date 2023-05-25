@@ -393,7 +393,7 @@ CounterInstrumenter::loadDatabase(const std::string& filename_in,
 void ThreadCounterInstrumenter::record() {
     auto& trace_manager = HipTraceManager::getInstance();
 
-    trace_manager.registerCounters(*this, std::move(host_counters));
+    trace_manager.registerThreadCounters(*this, std::move(host_counters));
 }
 
 // ----- hip::WaveCounterInstrumenter ----- //
