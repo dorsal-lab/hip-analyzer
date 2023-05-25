@@ -149,6 +149,21 @@ void HipTraceManager::registerThreadCounters(ThreadCounterInstrumenter& instr,
     cond.notify_one();
 }
 
+void HipTraceManager::registerWaveCounters(WaveCounterInstrumenter& instr,
+                                           WaveCounters&& counters) {
+    std::lock_guard lock{mutex};
+
+#ifdef HIP_INSTRUMENTATION_VERBOSE
+    std::cout << "HipTraceManager::registerCounters() : Pushing counters "
+              << counters.size() << '\n';
+#endif
+    queue.push({CountersQueuePayload<WaveCounters>{
+        std::forward<WaveCounters>(counters), instr.kernelInfo(),
+        instr.getStamp(), instr.getInterval()}});
+
+    cond.notify_one();
+}
+
 void HipTraceManager::registerQueue(QueueInfo& queue_info, void* queue_data) {
     std::lock_guard lock{mutex};
 

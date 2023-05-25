@@ -10,8 +10,6 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include <memory>
-#include <stdexcept>
 
 #include "ir_codegen.h"
 

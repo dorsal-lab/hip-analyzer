@@ -417,7 +417,11 @@ void WaveCounterInstrumenter::dumpCsv(const std::string& filename) {}
 
 void WaveCounterInstrumenter::dumpBin(const std::string& filename) {}
 
-void WaveCounterInstrumenter::record() {}
+void WaveCounterInstrumenter::record() {
+    auto& trace_manager = HipTraceManager::getInstance();
+
+    trace_manager.registerWaveCounters(*this, std::move(host_counters));
+}
 
 size_t WaveCounterInstrumenter::loadCsv(const std::string& filename) {}
 size_t WaveCounterInstrumenter::loadBin(const std::string& filename) {}

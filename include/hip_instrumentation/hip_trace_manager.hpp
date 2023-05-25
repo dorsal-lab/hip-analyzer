@@ -58,7 +58,7 @@ class HipTraceManager {
                                 ThreadCounters&& counters);
 
     void registerWaveCounters(WaveCounterInstrumenter& instr,
-                              WaveCounterInstrumenter&& counters);
+                              WaveCounters&& counters);
 
     void registerQueue(QueueInfo& queue, void* queue_data);
 
