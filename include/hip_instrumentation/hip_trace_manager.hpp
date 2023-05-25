@@ -79,9 +79,14 @@ class HipTraceManager {
     std::queue<Payload> queue;
 };
 
-/** \brief Small header to validate the trace type
+/** \brief Small header to validate the trace type - thread counters
  */
 constexpr std::string_view hiptrace_counters_name = "hiptrace_counters";
+
+/** \brief Small header to validate the trace type - wave counters
+ */
+constexpr std::string_view hiptrace_wave_counters_name =
+    "hiptrace_wave_counters";
 
 /** \brief Hiptrace event trace type
  */

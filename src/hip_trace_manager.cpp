@@ -14,13 +14,11 @@
 
 namespace hip {
 
-template <>
-std::ostream& dumpTraceBin(std::ostream& out,
-                           HipTraceManager::ThreadCounters& counters,
-                           KernelInfo& kernel_info, uint64_t stamp,
-                           std::pair<uint64_t, uint64_t> interval) {
-    using counter_t = HipTraceManager::ThreadCounters::value_type;
-
+std::ostream& dumpBinCounters(std::ostream& out, const void* counters,
+                              size_t num_counters, size_t counter_size,
+                              KernelInfo& kernel_info, uint64_t stamp,
+                              std::pair<uint64_t, uint64_t> interval,
+                              std::string_view header) {
     // Write header
 
     // Like "hiptrace_counters,<kernel name>,<num
@@ -30,10 +28,9 @@ std::ostream& dumpTraceBin(std::ostream& out,
     std::cout << "Counters @ " << out.tellp() << '\n';
 #endif
 
-    out << hiptrace_counters_name << ',' << kernel_info.name << ','
-        << kernel_info.instr_size << ',' << stamp << ',' << interval.first
-        << ',' << interval.second << ','
-        << static_cast<unsigned int>(sizeof(counter_t)) << ',';
+    out << header << ',' << kernel_info.name << ',' << kernel_info.instr_size
+        << ',' << stamp << ',' << interval.first << ',' << interval.second
+        << ',' << static_cast<unsigned int>(counter_size) << ',';
 
     // Kernel call configuration
 
@@ -52,10 +49,21 @@ std::ostream& dumpTraceBin(std::ostream& out,
     std::cout << "\tData @ " << out.tellp() << '\n';
 #endif
 
-    out.write(reinterpret_cast<const char*>(counters.data()),
-              counters.size() * sizeof(counter_t));
+    out.write(reinterpret_cast<const char*>(counters),
+              num_counters * counter_size);
 
     return out;
+}
+
+template <>
+std::ostream& dumpTraceBin(std::ostream& out,
+                           HipTraceManager::ThreadCounters& counters,
+                           KernelInfo& kernel_info, uint64_t stamp,
+                           std::pair<uint64_t, uint64_t> interval) {
+    using counter_t = HipTraceManager::ThreadCounters::value_type;
+    return dumpBinCounters(out, counters.data(), counters.size(),
+                           sizeof(counter_t), kernel_info, stamp, interval,
+                           hiptrace_counters_name);
 }
 
 template <>
@@ -63,8 +71,10 @@ std::ostream& dumpTraceBin(std::ostream& out,
                            HipTraceManager::WaveCounters& counters,
                            KernelInfo& kernel_info, uint64_t stamp,
                            std::pair<uint64_t, uint64_t> interval) {
-    // TODO
-    return out;
+    using counter_t = HipTraceManager::WaveCounters::value_type;
+    return dumpBinCounters(out, counters.data(), counters.size(),
+                           sizeof(counter_t), kernel_info, stamp, interval,
+                           hiptrace_wave_counters_name);
 }
 
 std::ostream& dumpEventsBin(std::ostream& out,
