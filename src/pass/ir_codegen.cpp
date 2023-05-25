@@ -238,8 +238,9 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
     freeHipStateRecoverer =
         getFunction(mod, "freeHipStateRecoverer", void_from_ptr_type);
 
-    hipNewInstrumenter =
-        getFunction(mod, "hipNewInstrumenter", ptr_from_ptr_type);
+    hipNewInstrumenter = getFunction(
+        mod, "hipNewInstrumenter",
+        llvm::FunctionType::get(ptr_type, {ptr_type, uint32_type}, false));
 
     hipNewStateRecoverer =
         getFunction(mod, "hipNewStateRecoverer", recoverer_ctor_type);
