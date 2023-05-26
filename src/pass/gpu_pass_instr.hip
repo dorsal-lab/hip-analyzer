@@ -50,7 +50,7 @@ __device__ void _hip_store_ctr(const uint8_t counters[], size_t _bb_count,
 /** \fn _hip_wave_ctr_get_offset
  * \brief Returns the counter base ptr for the wave
  */
-__device__ void* _hip_wave_ctr_get_offset(uint8_t* base, uint32_t bb_count) {
+__device__ void* _hip_wave_ctr_get_offset(uint32_t* base, uint32_t bb_count) {
     return &base[_hip_wave_id_1d() * bb_count];
 }
 
