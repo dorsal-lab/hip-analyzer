@@ -70,8 +70,12 @@ class CounterInstrumenter {
     static constexpr auto HIP_ANALYZER_ENV = "HIP_ANALYZER_DATABASE";
     static constexpr auto HIP_ANALYZER_DEFAULT_FILE = "hip_analyzer.json";
 
-    /** \brief ctor. Used when the kernel configuration is already known, and
-     * the basic block count is stored as a constant
+    enum class Type { Default, Thread, Wave };
+
+    virtual Type getType() const { return Type::Default; }
+
+    /** \brief ctor. Used when the kernel configuration is already known,
+     * and the basic block count is stored as a constant
      */
     CounterInstrumenter(KernelInfo& kernel_info);
 
@@ -213,6 +217,8 @@ class CounterInstrumenter {
  */
 class ThreadCounterInstrumenter : public CounterInstrumenter {
   public:
+    Type getType() const override { return Type::Thread; }
+
     ThreadCounterInstrumenter(KernelInfo& ki) : CounterInstrumenter(ki) {
         host_counters.assign(ki.instr_size, 0u);
     }
@@ -277,6 +283,8 @@ class ThreadCounterInstrumenter : public CounterInstrumenter {
  */
 class WaveCounterInstrumenter : public CounterInstrumenter {
   public:
+    Type getType() const override { return Type::Wave; }
+
     /** \brief Counter underlying type
      */
     using counter_t = uint32_t;

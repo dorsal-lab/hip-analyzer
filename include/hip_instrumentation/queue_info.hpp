@@ -8,6 +8,8 @@
 
 #include "hip_instrumentation.hpp"
 
+#include <variant>
+
 namespace hip {
 
 /** \struct QueueInfo
@@ -46,6 +48,20 @@ struct QueueInfo {
         return QueueInfo{instr,           sizeof(EventType),
                          false,           EventType::description,
                          EventType::name, extra_size};
+    }
+
+    /** \fn wave
+     * \brief Create a WaveQueue buffer, requiring a WaveCounterInstrumenter
+     */
+    template <class EventType>
+    static QueueInfo wave(WaveCounterInstrumenter& instr) {
+        static_assert(std::is_trivially_copyable_v<EventType>);
+        static_assert(
+            std::is_same_v<decltype(EventType::description), std::string>);
+        static_assert(std::is_same_v<decltype(EventType::name), std::string>);
+
+        return QueueInfo{instr, sizeof(EventType), EventType::description,
+                         EventType::name};
     }
 
     QueueInfo(QueueInfo&&) = default;
@@ -134,9 +150,16 @@ struct QueueInfo {
               bool is_thread, const std::string& type_desc,
               const std::string& type_name, size_t extra_size);
 
-    void computeSize();
+    QueueInfo(WaveCounterInstrumenter& instr, size_t elem_size,
+              const std::string& type_desc, const std::string& type_name);
 
-    ThreadCounterInstrumenter& instr;
+    void computeSizeThreadFromThread();
+
+    void computeSizeWaveFromThread();
+
+    void computeSizeWaveFromWave();
+
+    std::variant<ThreadCounterInstrumenter*, WaveCounterInstrumenter*> instr;
     bool is_thread;
     size_t elem_size;
     size_t extra_size;

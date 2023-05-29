@@ -64,14 +64,14 @@ add_custom_command(
 )
 
 add_custom_command(
-    OUTPUT ${CMAKE_BINARY_DIR}/gpu_queue.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/gpu_queue.cpp -std=c++20 -o ${CMAKE_BINARY_DIR}/gpu_queue.o
+    OUTPUT ${CMAKE_BINARY_DIR}/queue_info.o
+    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/queue_info.cpp -std=c++20 -o ${CMAKE_BINARY_DIR}/queue_info.o
     DEPENDS 
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
-        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/queue_info.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/reduction_kernels.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
-        ${CMAKE_SOURCE_DIR}/src/gpu_queue.cpp
+        ${CMAKE_SOURCE_DIR}/src/queue_info.cpp
     VERBATIM
 )
 
@@ -135,7 +135,7 @@ add_library(hip_instrumentation
     src/state_recoverer.cpp
     src/hip_instrumentation_cbindings.cpp
     ${CMAKE_BINARY_DIR}/gpu_hip_instrumentation.o
-    ${CMAKE_BINARY_DIR}/gpu_queue.o
+    ${CMAKE_BINARY_DIR}/queue_info.o
 )
 
 target_link_libraries(hip_instrumentation
