@@ -15,6 +15,7 @@
 
 #include <chrono>
 #include <fstream>
+#include <stdexcept>
 
 std::ofstream timer;
 
@@ -165,12 +166,9 @@ void freeHipStateRecoverer(hip::StateRecoverer* recoverer) { delete recoverer; }
 
 // ----- Event queue ----- //
 
-hip::QueueInfo* newHipQueueInfo(hip::CounterInstrumenter* instr,
-                                EventType event_type, QueueType queue_type) {
-    last_t = std::chrono::steady_clock::now();
-
-    auto& thread_inst = reinterpret_cast<hip::ThreadCounterInstrumenter&>(
-        *instr); // DANGEROUS, TODO CHANGE
+hip::QueueInfo*
+newHipThreadQueueInfo(hip::ThreadCounterInstrumenter* thread_inst,
+                      EventType event_type, QueueType queue_type) {
 
     constexpr auto extra_size = 20u; // Extra padding just in case
     switch (queue_type) {
@@ -178,10 +176,10 @@ hip::QueueInfo* newHipQueueInfo(hip::CounterInstrumenter* instr,
         switch (event_type) {
         case EventType::Event:
             return new hip::QueueInfo{
-                hip::QueueInfo::thread<hip::Event>(thread_inst, extra_size)};
+                hip::QueueInfo::thread<hip::Event>(*thread_inst, extra_size)};
         case EventType::TaggedEvent:
             return new hip::QueueInfo{hip::QueueInfo::thread<hip::TaggedEvent>(
-                thread_inst, extra_size)};
+                *thread_inst, extra_size)};
 
         default:
             throw std::runtime_error(
@@ -191,16 +189,57 @@ hip::QueueInfo* newHipQueueInfo(hip::CounterInstrumenter* instr,
         switch (event_type) {
         case EventType::Event:
             return new hip::QueueInfo{
-                hip::QueueInfo::wave<hip::Event>(thread_inst, extra_size)};
+                hip::QueueInfo::wave<hip::Event>(*thread_inst, extra_size)};
 
         case EventType::TaggedEvent:
             return new hip::QueueInfo{hip::QueueInfo::wave<hip::TaggedEvent>(
-                thread_inst, extra_size)};
+                *thread_inst, extra_size)};
 
         case EventType::WaveState:
             return new hip::QueueInfo{
-                hip::QueueInfo::wave<hip::WaveState>(thread_inst, extra_size)};
+                hip::QueueInfo::wave<hip::WaveState>(*thread_inst, extra_size)};
         }
+    }
+}
+
+hip::QueueInfo* newHipWaveQueueInfo(hip::WaveCounterInstrumenter* wave_inst,
+                                    EventType event_type,
+                                    QueueType queue_type) {
+    if (queue_type != QueueType::Wave) {
+        throw std::logic_error(
+            "newHipWaveQueueInfo() : Unsupported queue type");
+    }
+
+    switch (event_type) {
+    case EventType::Event:
+        return new hip::QueueInfo{hip::QueueInfo::wave<hip::Event>(*wave_inst)};
+
+    case EventType::TaggedEvent:
+        return new hip::QueueInfo{
+            hip::QueueInfo::wave<hip::TaggedEvent>(*wave_inst)};
+
+    case EventType::WaveState:
+        return new hip::QueueInfo{
+            hip::QueueInfo::wave<hip::WaveState>(*wave_inst)};
+    }
+}
+
+hip::QueueInfo* newHipQueueInfo(hip::CounterInstrumenter* instr,
+                                EventType event_type, QueueType queue_type) {
+    last_t = std::chrono::steady_clock::now();
+
+    switch (instr->getType()) {
+    case hip::CounterInstrumenter::Type::Thread:
+        return newHipThreadQueueInfo(
+            reinterpret_cast<hip::ThreadCounterInstrumenter*>(instr),
+            event_type, queue_type);
+    case hip::CounterInstrumenter::Type::Wave:
+        return newHipWaveQueueInfo(
+            reinterpret_cast<hip::WaveCounterInstrumenter*>(instr), event_type,
+            queue_type);
+    case hip::CounterInstrumenter::Type::Default:
+        throw std::logic_error("newHipQueueInfo() : unimplemented Queue info "
+                               "from CounterInstrumenter!");
     }
 }
 
