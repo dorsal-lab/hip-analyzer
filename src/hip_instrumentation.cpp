@@ -347,7 +347,7 @@ std::string CounterInstrumenter::getDatabaseName() const {
 
     if (auto* env = std::getenv(HIP_ANALYZER_ENV)) {
         return env;
-    } else if (fs::exists(kernel_info->name + ".json")) {
+    } else if (kernel_info && fs::exists(kernel_info->name + ".json")) {
         return kernel_info->name + ".json";
     } else if (fs::exists(HIP_ANALYZER_DEFAULT_FILE)) {
         return HIP_ANALYZER_DEFAULT_FILE;
