@@ -135,7 +135,7 @@ LTTNG_UST_TRACEPOINT_EVENT(hip_instrumentation, state_recoverer_cleanup,
 
 LTTNG_UST_TRACEPOINT_EVENT_CLASS(
     hip_instrumentation, trace_record,
-    LTTNG_UST_TP_ARGS(void*, instr, void*, data, uint64_t, instr_stamp),
+    LTTNG_UST_TP_ARGS(const void*, instr, void*, data, uint64_t, instr_stamp),
     LTTNG_UST_TP_FIELDS(
         lttng_ust_field_integer_hex(uintptr_t, instr,
                                     reinterpret_cast<uintptr_t>(instr))
@@ -146,18 +146,18 @@ LTTNG_UST_TRACEPOINT_EVENT_CLASS(
 LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, trace_record,
                                     hip_instrumentation,
                                     register_thread_counters,
-                                    LTTNG_UST_TP_ARGS(void*, instr, const void*,
-                                                      data))
+                                    LTTNG_UST_TP_ARGS(const void*, instr,
+                                                      const void*, data))
 
 LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, trace_record,
                                     hip_instrumentation, register_wave_counters,
-                                    LTTNG_UST_TP_ARGS(void*, instr, const void*,
-                                                      data, uint64_t, stamp))
+                                    LTTNG_UST_TP_ARGS(const void*, instr,
+                                                      const void*, data,
+                                                      uint64_t, stamp))
 
-LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, trace_record,
-                                    hip_instrumentation, register_queue,
-                                    LTTNG_UST_TP_ARGS(void*, instr, const void*,
-                                                      data, uint64_t, stamp))
+LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(
+    hip_instrumentation, trace_record, hip_instrumentation, register_queue,
+    LTTNG_UST_TP_ARGS(const void*, instr, const void*, data, uint64_t, stamp))
 
 // Collector thread
 

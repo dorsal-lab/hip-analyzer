@@ -159,10 +159,9 @@ void HipTraceManager::registerThreadCounters(ThreadCounterInstrumenter& instr,
                                              ThreadCounters&& counters) {
     std::lock_guard lock{mutex};
 
-#ifdef HIP_INSTRUMENTATION_VERBOSE
-    std::cout << "HipTraceManager::registerCounters() : Pushing counters "
-              << counters.size() << '\n';
-#endif
+    lttng_ust_tracepoint(hip_instrumentation, register_wave_counters, &instr,
+                         counters.data(), instr.getStamp());
+
     queue.push({CountersQueuePayload<ThreadCounters>{
         std::forward<ThreadCounters>(counters), instr.kernelInfo(),
         instr.getStamp(), instr.getInterval()}});
@@ -174,10 +173,9 @@ void HipTraceManager::registerWaveCounters(WaveCounterInstrumenter& instr,
                                            WaveCounters&& counters) {
     std::lock_guard lock{mutex};
 
-#ifdef HIP_INSTRUMENTATION_VERBOSE
-    std::cout << "HipTraceManager::registerCounters() : Pushing counters "
-              << counters.size() << '\n';
-#endif
+    lttng_ust_tracepoint(hip_instrumentation, register_wave_counters, &instr,
+                         counters.data(), instr.getStamp());
+
     queue.push({CountersQueuePayload<WaveCounters>{
         std::forward<WaveCounters>(counters), instr.kernelInfo(),
         instr.getStamp(), instr.getInterval()}});
@@ -188,11 +186,10 @@ void HipTraceManager::registerWaveCounters(WaveCounterInstrumenter& instr,
 void HipTraceManager::registerQueue(QueueInfo& queue_info, void* queue_data) {
     std::lock_guard lock{mutex};
 
-#ifdef HIP_INSTRUMENTATION_VERBOSE
-    std::cout << "HipTraceManager::registerQueue() : Pushing queue "
-              << queue_info.offsets().size() << ", " << queue_info.queueLength()
-              << " ; events " << queue_data << '\n';
-#endif
+    lttng_ust_tracepoint(hip_instrumentation, register_queue,
+                         queue_info.getInstrumenter(), queue_data,
+                         queue_info.getInstrumenter()->getStamp());
+
     queue.push({EventsQueuePayload{queue_data, std::move(queue_info)}});
 
     cond.notify_one();
@@ -223,20 +220,13 @@ void HipTraceManager::handlePayload(EventsQueuePayload&& payload,
                                     std::ofstream& out) {
     auto& [events, queue_info] = payload;
 
-#ifdef HIP_INSTRUMENTATION_VERBOSE
-    std::cout << "HipTraceManager Collector : got "
-              << queue_info.offsets().size() << ", " << queue_info.queueLength()
-              << '\n';
-#endif
     const auto* data = queue_info.events().data();
     auto stamp = queue_info.getInstrumenter()->getStamp();
 
     lttng_ust_tracepoint(hip_instrumentation, collector_dump_wave, &out, data,
                          stamp);
     queue_info.fromDevice(events);
-#ifdef HIP_INSTRUMENTATION_VERBOSE
-    std::cout << "Thread : ";
-#endif
+
     hip::check(hipFree(events));
     /*
                         std::move(offsets),

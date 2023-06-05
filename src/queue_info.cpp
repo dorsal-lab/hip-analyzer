@@ -10,6 +10,8 @@
 #include <numeric>
 #include <stdexcept>
 
+#include "hip_analyzer_tracepoints.h"
+
 namespace hip {
 
 QueueInfo::QueueInfo(ThreadCounterInstrumenter& instr, size_t elem_size,
@@ -38,12 +40,18 @@ QueueInfo::QueueInfo(WaveCounterInstrumenter& instr, size_t elem_size,
         throw std::runtime_error("hip::QueueInfo::QueueInfo() : Empty "
                                  "counters, have they been moved out ?");
     }
+
+    computeSizeWaveFromWave();
 }
 
 constexpr auto warpSize = 64u;
 
 void QueueInfo::computeSizeThreadFromThread() {
     auto& t_instr = *std::get<ThreadCounterInstrumenter*>(instr);
+
+    lttng_ust_tracepoint(hip_instrumentation, queue_compute_begin, this,
+                         &t_instr);
+
     auto& kernel = t_instr.kernelInfo();
     auto& counters = t_instr.getVec();
 
@@ -73,12 +81,18 @@ void QueueInfo::computeSizeThreadFromThread() {
         }
     }
 
+    lttng_ust_tracepoint(hip_instrumentation, queue_compute_end, this);
+
     // The last element is the total size of the events, won't be used by the
     // last thread of the last block
 }
 
 void QueueInfo::computeSizeWaveFromThread() {
     auto& t_instr = *std::get<ThreadCounterInstrumenter*>(instr);
+
+    lttng_ust_tracepoint(hip_instrumentation, queue_compute_begin, this,
+                         &t_instr);
+
     auto& kernel = t_instr.kernelInfo();
     auto& counters = t_instr.getVec();
 
@@ -133,6 +147,10 @@ void QueueInfo::computeSizeWaveFromThread() {
 
 void QueueInfo::computeSizeWaveFromWave() {
     auto& w_instr = *std::get<WaveCounterInstrumenter*>(instr);
+
+    lttng_ust_tracepoint(hip_instrumentation, queue_compute_begin, this,
+                         &w_instr);
+
     auto& kernel = w_instr.kernelInfo();
     auto& counters = w_instr.getVec();
 
@@ -157,6 +175,8 @@ void QueueInfo::computeSizeWaveFromWave() {
         // Add to the offset vector
         offsets_vec.push_back(nb_events);
     }
+
+    lttng_ust_tracepoint(hip_instrumentation, queue_compute_end, this);
 }
 
 void QueueInfo::fromDevice(void* ptr) {
