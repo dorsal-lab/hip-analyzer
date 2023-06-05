@@ -5,6 +5,8 @@ project(hip-analyzer LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 list(APPEND CMAKE_CXX_FLAGS "-Wall -O3 -fPIE -fno-rtti")
 
+option(ENABLE_TRACEPOINTS "Enable LTTng-UST Tracepoints" OFF)
+
 # ---- Paths setup ----- #
 
 string(REPLACE ":" ";" CMAKE_PREFIX_PATH "$ENV{CMAKE_PREFIX_PATH}")
@@ -47,6 +49,11 @@ include_directories(
 # jsoncpp
 
 include_directories(/usr/include/jsoncpp) # quick hack but I'm tired of fighting CMake
+
+if(ENABLE_TRACEPOINTS)
+    find_package(LTTngUST REQUIRED)
+    add_definitions(-DENABLE_TRACEPOINTS)
+endif()
 
 # ----- Targets definitions ----- #
 
@@ -145,6 +152,10 @@ target_link_libraries(hip_instrumentation
     dl
     pthread
 )
+
+if(ENABLE_TRACEPOINTS)
+    target_link_libraries(hip_instrumentation LTTng::UST)
+endif()
 
 
 # ----- Testing ----- #

@@ -17,6 +17,13 @@
 #include <fstream>
 #include <stdexcept>
 
+#ifdef ENABLE_TRACEPOINTS
+#define LTTNG_UST_TRACEPOINT_DEFINE
+#include "hip_analyzer_tracepoints.h"
+#else
+#define lttng_ust_tracepoint(...)
+#endif
+
 std::ofstream timer;
 
 auto last_t = std::chrono::steady_clock::now();
