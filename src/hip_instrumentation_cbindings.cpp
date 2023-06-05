@@ -17,7 +17,6 @@
 #include <fstream>
 #include <stdexcept>
 
-#define LTTNG_UST_TRACEPOINT_DEFINE
 #include "hip_analyzer_tracepoints.h"
 
 std::ofstream timer;

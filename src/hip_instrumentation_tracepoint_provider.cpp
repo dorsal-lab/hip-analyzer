@@ -7,7 +7,7 @@
 #ifdef ENABLE_TRACEPOINTS
 
 #define LTTNG_UST_TRACEPOINT_CREATE_PROBES
-#define LTTNG_UST_TRACEPOINT_DEINE
+#define LTTNG_UST_TRACEPOINT_DEFINE
 
 #include "hip_analyzer_tracepoints.h"
 

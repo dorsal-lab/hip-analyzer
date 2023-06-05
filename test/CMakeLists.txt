@@ -2,10 +2,6 @@
 
 project(hip-analyzer-tests LANGUAGES C CXX)
 
-if(ENABLE_TRACEPOINTS)
-    #add_definitions(-DLTTNG_UST_TRACEPOINT_DEFINE)
-endif()
-
 # ----- block_db ----- #
 
 add_executable(

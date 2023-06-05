@@ -12,7 +12,6 @@
 #include <iostream>
 #include <sstream>
 
-#define LTTNG_UST_TRACEPOINT_DEFINE
 #include "hip_analyzer_tracepoints.h"
 
 namespace hip {
