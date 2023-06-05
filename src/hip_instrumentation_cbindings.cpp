@@ -17,12 +17,8 @@
 #include <fstream>
 #include <stdexcept>
 
-#ifdef ENABLE_TRACEPOINTS
 #define LTTNG_UST_TRACEPOINT_DEFINE
 #include "hip_analyzer_tracepoints.h"
-#else
-#define lttng_ust_tracepoint(...)
-#endif
 
 std::ofstream timer;
 
@@ -71,6 +67,8 @@ hip::CounterInstrumenter* hipNewInstrumenter(const char* kernel_name,
         break;
     }
 
+    lttng_ust_tracepoint(hip_instrumentation, new_instrumenter, instr);
+
     unsigned int bblocks = instr->loadDatabase(kernel_name).size();
 
     hip::KernelInfo ki{kernel_name, bblocks, blocks, threads};
@@ -93,7 +91,9 @@ hip::CounterInstrumenter* hipNewInstrumenter(const char* kernel_name,
 }
 
 void* hipInstrumenterToDevice(hip::CounterInstrumenter* instr) {
+    lttng_ust_tracepoint(hip_instrumentation, instr_to_device_begin, instr);
     auto* c = instr->toDevice();
+    lttng_ust_tracepoint(hip_instrumentation, instr_to_device_end, instr, c);
 
     auto t = std::chrono::steady_clock::now();
     timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
@@ -106,9 +106,11 @@ void* hipInstrumenterToDevice(hip::CounterInstrumenter* instr) {
 
 void hipInstrumenterFromDevice(hip::CounterInstrumenter* instr,
                                void* device_ptr) {
+    lttng_ust_tracepoint(hip_instrumentation, instr_sync_begin, instr);
     if (hipDeviceSynchronize() != hipSuccess) {
         return;
     }
+    lttng_ust_tracepoint(hip_instrumentation, instr_sync_end, instr);
 
     // Counters kernel timing
     auto t = std::chrono::steady_clock::now();
@@ -118,8 +120,14 @@ void hipInstrumenterFromDevice(hip::CounterInstrumenter* instr,
 
     last_t = std::chrono::steady_clock::now();
 
+    lttng_ust_tracepoint(hip_instrumentation, instr_from_device_begin, instr,
+                         device_ptr);
+
     instr->fromDevice(device_ptr);
     hip::check(hipFree(device_ptr));
+
+    lttng_ust_tracepoint(hip_instrumentation, instr_from_device_end, instr,
+                         device_ptr);
 
     t = std::chrono::steady_clock::now();
     timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
@@ -127,12 +135,17 @@ void hipInstrumenterFromDevice(hip::CounterInstrumenter* instr,
           << ',';
 }
 
-void hipInstrumenterRecord(hip::CounterInstrumenter* instr) { instr->record(); }
+void hipInstrumenterRecord(hip::CounterInstrumenter* instr) {
+    lttng_ust_tracepoint(hip_instrumentation, instr_record_begin, instr);
+    instr->record();
+    lttng_ust_tracepoint(hip_instrumentation, instr_record_end, instr);
+}
 
 void freeHipInstrumenter(hip::CounterInstrumenter* instr) {
     delete instr;
     timer << '\n';
     timer.flush();
+    lttng_ust_tracepoint(hip_instrumentation, delete_instrumenter, instr);
 }
 
 // ----- State recoverer ----- //
@@ -152,7 +165,10 @@ hip::StateRecoverer* hipNewStateRecoverer() {
 
 void* hipStateRecovererRegisterPointer(hip::StateRecoverer* recoverer,
                                        void* potential_ptr) {
-    return recoverer->registerCallArgs(potential_ptr);
+    auto copy_ptr = recoverer->registerCallArgs(potential_ptr);
+    lttng_ust_tracepoint(hip_instrumentation, state_recoverer_register,
+                         recoverer, potential_ptr, copy_ptr);
+    return copy_ptr;
 }
 
 void hipStateRecovererRollback(hip::StateRecoverer* recoverer,
@@ -169,7 +185,11 @@ void hipStateRecovererRollback(hip::StateRecoverer* recoverer,
     }
 }
 
-void freeHipStateRecoverer(hip::StateRecoverer* recoverer) { delete recoverer; }
+void freeHipStateRecoverer(hip::StateRecoverer* recoverer) {
+    lttng_ust_tracepoint(hip_instrumentation, state_recoverer_cleanup,
+                         recoverer);
+    delete recoverer;
+}
 
 // ----- Event queue ----- //
 
@@ -269,9 +289,11 @@ void* hipQueueInfoAllocOffsets(hip::QueueInfo* queue_info) {
 
 void hipQueueInfoRecord(hip::QueueInfo* queue_info, void* events,
                         void* offsets) {
+    lttng_ust_tracepoint(hip_instrumentation, instr_sync_begin, queue_info);
     if (hipDeviceSynchronize() != hipSuccess) {
         return;
     }
+    lttng_ust_tracepoint(hip_instrumentation, instr_sync_end, queue_info);
 
     // Tracing kernel timing
     auto t = std::chrono::steady_clock::now();
@@ -281,8 +303,10 @@ void hipQueueInfoRecord(hip::QueueInfo* queue_info, void* events,
 
     last_t = std::chrono::steady_clock::now();
 
+    lttng_ust_tracepoint(hip_instrumentation, queue_record_begin, queue_info);
     queue_info->record(events);
     hip::check(hipFree(offsets));
+    lttng_ust_tracepoint(hip_instrumentation, queue_record_end, queue_info);
 
     t = std::chrono::steady_clock::now();
     timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)

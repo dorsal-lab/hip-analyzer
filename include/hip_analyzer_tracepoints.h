@@ -2,8 +2,10 @@
  * \brief LTTng-ust tracepoints for hip analyzer runtime
  */
 
+#ifdef ENABLE_TRACEPOINTS
+
 #undef LTTNG_UST_TRACEPOINT_PROVIDER
-#define LTTNG_UST_TRACEPOINT_PROVIDER hip_analyzer
+#define LTTNG_UST_TRACEPOINT_PROVIDER hip_instrumentation
 
 #undef LTTNG_UST_TRACEPOINT_INCLUDE
 #define LTTNG_UST_TRACEPOINT_INCLUDE "hip_analyzer_tracepoints.h"
@@ -17,29 +19,33 @@
 // ----- Memory operations ----- //
 
 LTTNG_UST_TRACEPOINT_EVENT_CLASS(
-    hip_instrumentation, memory, LTTNG_UST_TP_ARGS(void*, device_ptr),
-    LTTNG_UST_TP_FIELDS(lttng_ust_field_integer_hex(size_t, device_ptr,
-                                                    device_ptr)))
+    hip_instrumentation, memory, LTTNG_UST_TP_ARGS(const void*, device_ptr),
+    LTTNG_UST_TP_FIELDS(lttng_ust_field_integer_hex(
+        uintptr_t, device_ptr, reinterpret_cast<uintptr_t>(device_ptr))))
 
 LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, memory,
                                     hip_instrumentation, hipMalloc,
-                                    LTTNG_UST_TP_ARGS(void*, device_ptr))
+                                    LTTNG_UST_TP_ARGS(const void*, device_ptr))
 
 LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, memory,
                                     hip_instrumentation, hipFree,
-                                    LTTNG_UST_TP_ARGS(void*, device_ptr))
+                                    LTTNG_UST_TP_ARGS(const void*, device_ptr))
 
 // ----- HIP Instrumentation handlers ----- //
 
 LTTNG_UST_TRACEPOINT_EVENT_CLASS(
     hip_instrumentation, instr_activity, LTTNG_UST_TP_ARGS(void*, instr),
-    LTTNG_UST_TP_FIELDS(lttng_ust_field_integer_hex(size_t, inst, instr)))
+    LTTNG_UST_TP_FIELDS(lttng_ust_field_integer_hex(
+        uintptr_t, inst, reinterpret_cast<uintptr_t>(instr))))
 
 LTTNG_UST_TRACEPOINT_EVENT_CLASS(
     hip_instrumentation, instr_activity_ptr,
-    LTTNG_UST_TP_ARGS(void*, instr, void* ptr),
-    LTTNG_UST_TP_FIELDS(lttng_ust_field_integer_hex(size_t, instr, instr),
-                        lttng_ust_field_integer_hex(size_t, instr, instr)))
+    LTTNG_UST_TP_ARGS(void*, instr, const void*, ptr),
+    LTTNG_UST_TP_FIELDS(
+        lttng_ust_field_integer_hex(uintptr_t, instr,
+                                    reinterpret_cast<uintptr_t>(instr))
+            lttng_ust_field_integer_hex(uintptr_t, ptr,
+                                        reinterpret_cast<uintptr_t>(ptr))))
 
 LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity,
                                     hip_instrumentation, new_instrumenter,
@@ -56,42 +62,72 @@ LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity,
 LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity_ptr,
                                     hip_instrumentation, instr_to_device_end,
                                     LTTNG_UST_TP_ARGS(void*, instrumenter,
-                                                      void*, ptr))
+                                                      const void*, ptr))
 
 LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity,
+                                    hip_instrumentation, instr_sync_begin,
+                                    LTTNG_UST_TP_ARGS(void*, instrumenter))
+
+LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity,
+                                    hip_instrumentation, instr_sync_end,
+                                    LTTNG_UST_TP_ARGS(void*, instrumenter))
+
+LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity,
+                                    hip_instrumentation, instr_record_begin,
+                                    LTTNG_UST_TP_ARGS(void*, instrumenter))
+
+LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity,
+                                    hip_instrumentation, instr_record_end,
+                                    LTTNG_UST_TP_ARGS(void*, instrumenter))
+
+LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity_ptr,
                                     hip_instrumentation,
                                     instr_from_device_begin,
-                                    LTTNG_UST_TP_ARGS(void*, instrumenter))
+                                    LTTNG_UST_TP_ARGS(void*, instrumenter,
+                                                      const void*, ptr))
 
 LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity_ptr,
                                     hip_instrumentation, instr_from_device_end,
                                     LTTNG_UST_TP_ARGS(void*, instrumenter,
-                                                      void*, ptr))
+                                                      const void*, ptr))
 
-LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity,
+// Queue info
+
+LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity_ptr,
                                     hip_instrumentation, queue_compute_begin,
-                                    LTTNG_UST_TP_ARGS(void*, queue_info))
+                                    LTTNG_UST_TP_ARGS(void*, queue_info, void*,
+                                                      instr))
 
 LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity,
                                     hip_instrumentation, queue_compute_end,
                                     LTTNG_UST_TP_ARGS(void*, queue_info))
 
 LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity,
-                                    hip_instrumentation, queue_record,
+                                    hip_instrumentation, queue_record_begin,
                                     LTTNG_UST_TP_ARGS(void*, queue_info))
+
+LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity,
+                                    hip_instrumentation, queue_record_end,
+                                    LTTNG_UST_TP_ARGS(void*, queue_info))
+
+// State recoverer
 
 LTTNG_UST_TRACEPOINT_EVENT(
     hip_instrumentation, state_recoverer_register,
-    LTTNG_UST_TP_ARGS(void*, state_recoverer, void*, device_ptr, void*,
-                      copy_ptr),
-    LTTNG_UST_TP_FIELDS(
-        lttng_ust_field_integer_hex(size_t, state_recoverer, state_recoverer),
-        lttng_ust_field_integer_hex(size_t, device_ptr, device_ptr)))
+    LTTNG_UST_TP_ARGS(void*, state_recoverer, const void*, device_ptr,
+                      const void*, copy_ptr),
+    LTTNG_UST_TP_FIELDS(lttng_ust_field_integer_hex(
+        uintptr_t, state_recoverer,
+        reinterpret_cast<uintptr_t>(state_recoverer))
+                            lttng_ust_field_integer_hex(
+                                uintptr_t, device_ptr,
+                                reinterpret_cast<uintptr_t>(device_ptr))))
 
 LTTNG_UST_TRACEPOINT_EVENT(hip_instrumentation, state_recoverer_cleanup,
                            LTTNG_UST_TP_ARGS(void*, state_recoverer),
                            LTTNG_UST_TP_FIELDS(lttng_ust_field_integer_hex(
-                               size_t, state_recoverer, state_recoverer)))
+                               uintptr_t, state_recoverer,
+                               reinterpret_cast<uintptr_t>(state_recoverer))))
 
 // ----- Trace management ----- //
 
@@ -100,47 +136,71 @@ LTTNG_UST_TRACEPOINT_EVENT(hip_instrumentation, state_recoverer_cleanup,
 LTTNG_UST_TRACEPOINT_EVENT_CLASS(
     hip_instrumentation, trace_record,
     LTTNG_UST_TP_ARGS(void*, instr, void*, data, uint64_t, instr_stamp),
-    LTTNG_UST_TP_FIELDS(lttng_ust_field_integer_hex(size_t, instr, instr),
-                        lttng_ust_field_integer_hex(size_t, data, data),
-                        lttng_ust_field_integer(uint64_t, instr_stamp,
-                                                instr_stamp)))
+    LTTNG_UST_TP_FIELDS(
+        lttng_ust_field_integer_hex(uintptr_t, instr,
+                                    reinterpret_cast<uintptr_t>(instr))
+            lttng_ust_field_integer_hex(uintptr_t, data,
+                                        reinterpret_cast<uintptr_t>(data))
+                lttng_ust_field_integer(uint64_t, instr_stamp, instr_stamp)))
 
-LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(
-    hip_instrumentation, trace_record, hip_instrumentation,
-    register_thread_counters, LTTNG_UST_TP_ARGS(void*, instr, void*, data))
+LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, trace_record,
+                                    hip_instrumentation,
+                                    register_thread_counters,
+                                    LTTNG_UST_TP_ARGS(void*, instr, const void*,
+                                                      data))
 
 LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, trace_record,
                                     hip_instrumentation, register_wave_counters,
-                                    LTTNG_UST_TP_ARGS(void*, instr, void*, data,
-                                                      uint64_t, stamp))
+                                    LTTNG_UST_TP_ARGS(void*, instr, const void*,
+                                                      data, uint64_t, stamp))
 
 LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, trace_record,
                                     hip_instrumentation, register_queue,
-                                    LTTNG_UST_TP_ARGS(void*, instr, void*, data,
-                                                      uint64_t, stamp))
+                                    LTTNG_UST_TP_ARGS(void*, instr, const void*,
+                                                      data, uint64_t, stamp))
 
 // Collector thread
 
 LTTNG_UST_TRACEPOINT_EVENT_CLASS(
     hip_instrumentation, collector_dump,
-    LTTNG_UST_TP_ARGS(void*, ostream, void*, data, uint64_t, instr_stamp),
-    LTTNG_UST_TP_FIELDS(lttng_ust_field_integer_hex(size_t, ostream, ostream),
-                        lttng_ust_field_integer_hex(size_t, data, data),
-                        lttng_ust_field_integer(uint64_t, instr_stamp,
-                                                instr_stamp)))
+    LTTNG_UST_TP_ARGS(void*, ostream, const void*, data, uint64_t, instr_stamp),
+    LTTNG_UST_TP_FIELDS(
+        lttng_ust_field_integer_hex(uintptr_t, ostream,
+                                    reinterpret_cast<uintptr_t>(ostream))
+            lttng_ust_field_integer_hex(uintptr_t, data,
+                                        reinterpret_cast<uintptr_t>(data))
+                lttng_ust_field_integer(uint64_t, instr_stamp, instr_stamp)))
 
-LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(
-    hip_instrumentation, collector, hip_instrumentation, collector_dump_thread,
-    LTTNG_UST_TP_ARGS(void*, ostream, void*, data, uint64_t, instr_stamp))
+LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, collector_dump,
+                                    hip_instrumentation, collector_dump_thread,
+                                    LTTNG_UST_TP_ARGS(void*, ostream,
+                                                      const void*, data,
+                                                      uint64_t, instr_stamp))
 
-LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(
-    hip_instrumentation, collector, hip_instrumentation, collector_dump_wave,
-    LTTNG_UST_TP_ARGS(void*, ostream, void*, data, uint64_t, instr_stamp))
+LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, collector_dump,
+                                    hip_instrumentation, collector_dump_wave,
+                                    LTTNG_UST_TP_ARGS(void*, ostream,
+                                                      const void*, data,
+                                                      uint64_t, instr_stamp))
 
-LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(
-    hip_instrumentation, collector, hip_instrumentation, collector_dump_queue,
-    LTTNG_UST_TP_ARGS(void*, ostream, void*, data, uint64_t, instr_stamp))
+LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, collector_dump,
+                                    hip_instrumentation, collector_dump_queue,
+                                    LTTNG_UST_TP_ARGS(void*, ostream,
+                                                      const void*, data,
+                                                      uint64_t, instr_stamp))
+
+LTTNG_UST_TRACEPOINT_EVENT(
+    hip_instrumentation, collector_dump_end,
+    LTTNG_UST_TP_ARGS(const void*, data, uint64_t, instr_stamp),
+    LTTNG_UST_TP_FIELDS(
+        lttng_ust_field_integer_hex(uintptr_t, data,
+                                    reinterpret_cast<uintptr_t>(data))
+            lttng_ust_field_integer(uint64_t, instr_stamp, instr_stamp)))
 
 #endif /*_HIP_INSTRUMENTATION_TP_H */
 
 #include <lttng/tracepoint-event.h>
+
+#else
+#define lttng_ust_tracepoint(...)
+#endif

@@ -2,6 +2,10 @@
 
 project(hip-analyzer-tests LANGUAGES C CXX)
 
+if(ENABLE_TRACEPOINTS)
+    #add_definitions(-DLTTNG_UST_TRACEPOINT_DEFINE)
+endif()
+
 # ----- block_db ----- #
 
 add_executable(
@@ -64,6 +68,7 @@ add_custom_command(
     COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/gpu_enqueue.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/gpu_enqueue.o
     DEPENDS 
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation_cbindings.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
         ${CMAKE_SOURCE_DIR}/test/gpu_enqueue.cpp
@@ -81,6 +86,7 @@ add_custom_command(
     COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/queue_info.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/queue_info.o
     DEPENDS 
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation_cbindings.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/queue_info.hpp
@@ -100,6 +106,7 @@ add_custom_command(
     COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/gpu_queue_thread.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_thread.o
     DEPENDS 
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation_cbindings.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/queue_info.hpp
@@ -118,6 +125,7 @@ add_custom_command(
     COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/gpu_queue_wave.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_wave.o
     DEPENDS 
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation_cbindings.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/queue_info.hpp
@@ -139,6 +147,7 @@ add_custom_command(
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/queue_info.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation_cbindings.hpp
         ${CMAKE_SOURCE_DIR}/test/wavestate.cpp
     VERBATIM
 )

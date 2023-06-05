@@ -141,6 +141,7 @@ add_library(hip_instrumentation
     src/gpu_info.cpp
     src/state_recoverer.cpp
     src/hip_instrumentation_cbindings.cpp
+    src/hip_instrumentation_tracepoint_provider.cpp
     ${CMAKE_BINARY_DIR}/gpu_hip_instrumentation.o
     ${CMAKE_BINARY_DIR}/queue_info.o
 )

@@ -145,6 +145,12 @@ struct QueueInfo {
      */
     void record(void* ptr);
 
+    const CounterInstrumenter* getInstrumenter() const {
+        return std::visit(
+            [](const auto& i) { return static_cast<CounterInstrumenter*>(i); },
+            instr);
+    }
+
   private:
     QueueInfo(ThreadCounterInstrumenter& instr, size_t elem_size,
               bool is_thread, const std::string& type_desc,
