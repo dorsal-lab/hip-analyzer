@@ -47,9 +47,12 @@ LTTNG_UST_TRACEPOINT_EVENT_CLASS(
             lttng_ust_field_integer_hex(uintptr_t, ptr,
                                         reinterpret_cast<uintptr_t>(ptr))))
 
-LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity,
-                                    hip_instrumentation, new_instrumenter,
-                                    LTTNG_UST_TP_ARGS(const void*, instr))
+LTTNG_UST_TRACEPOINT_EVENT(
+    hip_instrumentation, new_instrumenter,
+    LTTNG_UST_TP_ARGS(const void*, instr, const char*, kernel),
+    LTTNG_UST_TP_FIELDS(lttng_ust_field_integer_hex(
+        uintptr_t, instr, reinterpret_cast<uintptr_t>(instr))
+                            lttng_ust_field_string(kernel, kernel)))
 
 LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity,
                                     hip_instrumentation, delete_instrumenter,

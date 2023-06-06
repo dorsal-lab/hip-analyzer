@@ -66,7 +66,8 @@ hip::CounterInstrumenter* hipNewInstrumenter(const char* kernel_name,
         break;
     }
 
-    lttng_ust_tracepoint(hip_instrumentation, new_instrumenter, instr);
+    lttng_ust_tracepoint(hip_instrumentation, new_instrumenter, instr,
+                         kernel_name);
 
     unsigned int bblocks = instr->loadDatabase(kernel_name).size();
 
