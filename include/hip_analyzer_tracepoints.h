@@ -204,6 +204,16 @@ LTTNG_UST_TRACEPOINT_EVENT(
                                     reinterpret_cast<uintptr_t>(data))
             lttng_ust_field_integer(uint64_t, instr_stamp, instr_stamp)))
 
+// ----- Kernel timing pass ----- //
+
+LTTNG_UST_TRACEPOINT_EVENT(hip_instrumentation, kernel_timer_begin,
+                           LTTNG_UST_TP_ARGS(const char*, kernel),
+                           LTTNG_UST_TP_FIELDS(lttng_ust_field_string(kernel,
+                                                                      kernel)))
+
+LTTNG_UST_TRACEPOINT_EVENT(hip_instrumentation, kernel_timer_end,
+                           LTTNG_UST_TP_ARGS(), LTTNG_UST_TP_FIELDS())
+
 #endif /*_HIP_INSTRUMENTATION_TP_H */
 
 #include <lttng/tracepoint-event.h>

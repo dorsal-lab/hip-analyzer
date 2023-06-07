@@ -249,23 +249,8 @@ void freeHipQueueInfo(hip::QueueInfo* q) { delete q; }
 
 // ----- Experimental - Kernel timer ----- //
 
-std::ofstream kernel_timer_output;
-
-auto kernel_timer = std::chrono::steady_clock::now();
-
 void begin_kernel_timer(const char* kernel) {
-    if (!kernel_timer_output.is_open()) {
-        std::string prefix = "original";
-        if (auto* benchmark = std::getenv("RODINIA_BENCHMARK")) {
-            prefix += benchmark;
-            prefix += '_';
-        }
-
-        kernel_timer_output.open(prefix + "timing.csv", std::ofstream::trunc);
-        kernel_timer_output << "kernel,original\n";
-    }
-    kernel_timer_output << kernel << ',';
-    kernel_timer = std::chrono::steady_clock::now();
+    lttng_ust_tracepoint(hip_instrumentation, kernel_timer_begin, kernel);
 }
 
 void end_kernel_timer() {
@@ -273,11 +258,6 @@ void end_kernel_timer() {
         return;
     }
 
-    auto t1 = std::chrono::steady_clock::now();
-    kernel_timer_output << std::chrono::duration_cast<std::chrono::nanoseconds>(
-                               t1 - kernel_timer)
-                               .count()
-                        << '\n';
-    kernel_timer_output.flush();
+    lttng_ust_tracepoint(hip_instrumentation, kernel_timer_end);
 }
 }
