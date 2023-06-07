@@ -281,6 +281,8 @@ class WaveState : public WaveTrace {
         llvm::dbgs() << "Base storage " << *thread_storage << '\n';
         llvm::dbgs() << "Counter " << *counter << '\n';
 
+        thread_storage = builder.CreateIntToPtr(thread_storage, ptr_ty);
+
         builder.CreateCall(ctor,
                            {getIndex(bb, mod.getContext()), thread_storage});
     }
