@@ -112,7 +112,7 @@ void freeHipInstrumenter(hip::CounterInstrumenter* instr) {
 
 hip::StateRecoverer* hipNewStateRecoverer() {
     auto* s = new hip::StateRecoverer;
-
+    lttng_ust_tracepoint(hip_instrumentation, new_state_recoverer, s);
     return s;
 }
 
