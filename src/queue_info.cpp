@@ -143,6 +143,8 @@ void QueueInfo::computeSizeWaveFromThread() {
 
         commit_wave();
     }
+
+    lttng_ust_tracepoint(hip_instrumentation, queue_compute_end, this);
 }
 
 void QueueInfo::computeSizeWaveFromWave() {
