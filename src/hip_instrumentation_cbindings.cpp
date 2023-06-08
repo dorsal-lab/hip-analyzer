@@ -15,52 +15,16 @@
 
 #include <chrono>
 #include <fstream>
+#include <stdexcept>
 
-std::ofstream timer;
-
-auto last_t = std::chrono::steady_clock::now();
+#include "hip_analyzer_tracepoints.h"
 
 extern "C" {
 
-struct hipInstrumenter {
-    hip::Instrumenter boxed;
-    size_t shared_mem;
-    hipStream_t stream;
-
-    hipInstrumenter(hip::KernelInfo& ki) : boxed(ki) {}
-    hipInstrumenter() = default;
-};
-
-struct hipStateRecoverer {
-    hip::StateRecoverer boxed;
-};
-
-struct hipQueueInfo {
-    hip::QueueInfo boxed;
-    void* offsets;
-    hipQueueInfo(hip::QueueInfo&& other)
-        : boxed{std::forward<hip::QueueInfo>(other)} {}
-};
-
 // ----- Instrumenter ----- //
 
-hipInstrumenter* hipNewInstrumenter(const char* kernel_name) {
-    if (!timer.is_open()) {
-
-        std::string prefix = "";
-        if (auto* benchmark = std::getenv("RODINIA_BENCHMARK")) {
-            prefix = benchmark;
-            prefix += '_';
-        }
-
-        timer.open(prefix + "timing.csv", std::ofstream::trunc);
-        timer << "kernel,counters_prep,save_alloc,counters,counters_record,"
-                 "queue_"
-                 "prep,tracing,tracing_record\n";
-    }
-    timer << kernel_name << ',';
-    last_t = std::chrono::steady_clock::now();
-
+hip::CounterInstrumenter* hipNewInstrumenter(const char* kernel_name,
+                                             CounterType type) {
     dim3 blocks, threads;
     size_t shared_mem;
     hipStream_t stream;
@@ -72,13 +36,24 @@ hipInstrumenter* hipNewInstrumenter(const char* kernel_name) {
             "hipNewInstrumenter() : Could not pop call configuration");
     }
 
-    auto* instr = new hipInstrumenter{};
+    hip::CounterInstrumenter* instr;
+    switch (type) {
+    case CounterType::Thread:
+        instr = new hip::ThreadCounterInstrumenter;
+        break;
+    case CounterType::Wave:
+        instr = new hip::WaveCounterInstrumenter;
+        break;
+    }
 
-    unsigned int bblocks = instr->boxed.loadDatabase(kernel_name).size();
+    lttng_ust_tracepoint(hip_instrumentation, new_instrumenter, instr,
+                         kernel_name);
+
+    unsigned int bblocks = instr->loadDatabase(kernel_name).size();
 
     hip::KernelInfo ki{kernel_name, bblocks, blocks, threads};
 
-    instr->boxed.setKernelInfo(ki);
+    instr->setKernelInfo(ki);
 
     // Save stream for eventual re-push
     instr->shared_mem = shared_mem;
@@ -95,74 +70,66 @@ hipInstrumenter* hipNewInstrumenter(const char* kernel_name) {
     return instr;
 }
 
-counter_t* hipInstrumenterToDevice(hipInstrumenter* instr) {
-    auto* c = instr->boxed.toDevice();
-
-    auto t = std::chrono::steady_clock::now();
-    timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
-                 .count()
-          << ',';
-    last_t = std::chrono::steady_clock::now();
+void* hipInstrumenterToDevice(hip::CounterInstrumenter* instr) {
+    lttng_ust_tracepoint(hip_instrumentation, instr_to_device_begin, instr);
+    auto* c = instr->toDevice();
+    lttng_ust_tracepoint(hip_instrumentation, instr_to_device_end, instr, c);
 
     return c;
 }
 
-void hipInstrumenterFromDevice(hipInstrumenter* instr, void* device_ptr) {
+void hipInstrumenterFromDevice(hip::CounterInstrumenter* instr,
+                               void* device_ptr) {
+    lttng_ust_tracepoint(hip_instrumentation, instr_sync_begin, instr);
     if (hipDeviceSynchronize() != hipSuccess) {
         return;
     }
+    lttng_ust_tracepoint(hip_instrumentation, instr_sync_end, instr);
 
-    // Counters kernel timing
-    auto t = std::chrono::steady_clock::now();
-    timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
-                 .count()
-          << ',';
+    lttng_ust_tracepoint(hip_instrumentation, instr_from_device_begin, instr,
+                         device_ptr);
 
-    last_t = std::chrono::steady_clock::now();
-
-    instr->boxed.fromDevice(device_ptr);
+    instr->fromDevice(device_ptr);
     hip::check(hipFree(device_ptr));
 
-    t = std::chrono::steady_clock::now();
-    timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
-                 .count()
-          << ',';
+    lttng_ust_tracepoint(hip_instrumentation, instr_from_device_end, instr,
+                         device_ptr);
 }
 
-void hipInstrumenterRecord(hipInstrumenter* instr) { instr->boxed.record(); }
+void hipInstrumenterRecord(hip::CounterInstrumenter* instr) {
+    lttng_ust_tracepoint(hip_instrumentation, instr_record_begin, instr);
+    instr->record();
+    lttng_ust_tracepoint(hip_instrumentation, instr_record_end, instr);
+}
 
-void freeHipInstrumenter(hipInstrumenter* instr) {
+void freeHipInstrumenter(hip::CounterInstrumenter* instr) {
     delete instr;
-    timer << '\n';
-    timer.flush();
+
+    lttng_ust_tracepoint(hip_instrumentation, delete_instrumenter, instr);
 }
 
 // ----- State recoverer ----- //
 
-hipStateRecoverer* hipNewStateRecoverer() {
-    auto* s = new hipStateRecoverer;
-
-    auto t = std::chrono::steady_clock::now();
-    timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
-                 .count()
-          << ',';
-
-    last_t = std::chrono::steady_clock::now();
-
+hip::StateRecoverer* hipNewStateRecoverer() {
+    auto* s = new hip::StateRecoverer;
+    lttng_ust_tracepoint(hip_instrumentation, new_state_recoverer, s);
     return s;
 }
 
-void* hipStateRecovererRegisterPointer(hipStateRecoverer* recoverer,
+void* hipStateRecovererRegisterPointer(hip::StateRecoverer* recoverer,
                                        void* potential_ptr) {
-    return recoverer->boxed.registerCallArgs(potential_ptr);
+    auto copy_ptr = recoverer->registerCallArgs(potential_ptr);
+    lttng_ust_tracepoint(hip_instrumentation, state_recoverer_register,
+                         recoverer, potential_ptr, copy_ptr);
+    return copy_ptr;
 }
 
-void hipStateRecovererRollback(hipStateRecoverer* recoverer,
-                               hipInstrumenter* instr) {
+void hipStateRecovererRollback(hip::StateRecoverer* recoverer,
+                               hip::CounterInstrumenter* instr) {
     // recoverer->boxed.rollback();
 
     // Revert call configuration
-    auto& ki = instr->boxed.kernelInfo();
+    auto& ki = instr->kernelInfo();
     if (__hipPushCallConfiguration(ki.blocks, ki.threads_per_blocks,
                                    instr->shared_mem,
                                    instr->stream) != hipSuccess) {
@@ -171,24 +138,28 @@ void hipStateRecovererRollback(hipStateRecoverer* recoverer,
     }
 }
 
-void freeHipStateRecoverer(hipStateRecoverer* recoverer) { delete recoverer; }
+void freeHipStateRecoverer(hip::StateRecoverer* recoverer) {
+    lttng_ust_tracepoint(hip_instrumentation, state_recoverer_cleanup,
+                         recoverer);
+    delete recoverer;
+}
 
 // ----- Event queue ----- //
 
-hipQueueInfo* newHipQueueInfo(hipInstrumenter* instr, EventType event_type,
-                              QueueType queue_type) {
-    last_t = std::chrono::steady_clock::now();
+hip::QueueInfo*
+newHipThreadQueueInfo(hip::ThreadCounterInstrumenter* thread_inst,
+                      EventType event_type, QueueType queue_type) {
 
     constexpr auto extra_size = 20u; // Extra padding just in case
     switch (queue_type) {
     case QueueType::Thread:
         switch (event_type) {
         case EventType::Event:
-            return new hipQueueInfo{
-                hip::QueueInfo::thread<hip::Event>(instr->boxed, extra_size)};
+            return new hip::QueueInfo{
+                hip::QueueInfo::thread<hip::Event>(*thread_inst, extra_size)};
         case EventType::TaggedEvent:
-            return new hipQueueInfo{hip::QueueInfo::thread<hip::TaggedEvent>(
-                instr->boxed, extra_size)};
+            return new hip::QueueInfo{hip::QueueInfo::thread<hip::TaggedEvent>(
+                *thread_inst, extra_size)};
 
         default:
             throw std::runtime_error(
@@ -197,78 +168,89 @@ hipQueueInfo* newHipQueueInfo(hipInstrumenter* instr, EventType event_type,
     case QueueType::Wave:
         switch (event_type) {
         case EventType::Event:
-            return new hipQueueInfo{
-                hip::QueueInfo::wave<hip::Event>(instr->boxed, extra_size)};
+            return new hip::QueueInfo{
+                hip::QueueInfo::wave<hip::Event>(*thread_inst, extra_size)};
 
         case EventType::TaggedEvent:
-            return new hipQueueInfo{hip::QueueInfo::wave<hip::TaggedEvent>(
-                instr->boxed, extra_size)};
+            return new hip::QueueInfo{hip::QueueInfo::wave<hip::TaggedEvent>(
+                *thread_inst, extra_size)};
 
         case EventType::WaveState:
-            return new hipQueueInfo{
-                hip::QueueInfo::wave<hip::WaveState>(instr->boxed, extra_size)};
+            return new hip::QueueInfo{
+                hip::QueueInfo::wave<hip::WaveState>(*thread_inst, extra_size)};
         }
     }
 }
 
-void* hipQueueInfoAllocBuffer(hipQueueInfo* queue_info) {
-    return queue_info->boxed.allocBuffer();
+hip::QueueInfo* newHipWaveQueueInfo(hip::WaveCounterInstrumenter* wave_inst,
+                                    EventType event_type,
+                                    QueueType queue_type) {
+    if (queue_type != QueueType::Wave) {
+        throw std::logic_error(
+            "newHipWaveQueueInfo() : Unsupported queue type");
+    }
+
+    switch (event_type) {
+    case EventType::Event:
+        return new hip::QueueInfo{hip::QueueInfo::wave<hip::Event>(*wave_inst)};
+
+    case EventType::TaggedEvent:
+        return new hip::QueueInfo{
+            hip::QueueInfo::wave<hip::TaggedEvent>(*wave_inst)};
+
+    case EventType::WaveState:
+        return new hip::QueueInfo{
+            hip::QueueInfo::wave<hip::WaveState>(*wave_inst)};
+    }
 }
 
-void* hipQueueInfoAllocOffsets(hipQueueInfo* queue_info) {
-    void* o = queue_info->boxed.allocOffsets();
-    queue_info->offsets = o;
+hip::QueueInfo* newHipQueueInfo(hip::CounterInstrumenter* instr,
+                                EventType event_type, QueueType queue_type) {
+    switch (instr->getType()) {
+    case hip::CounterInstrumenter::Type::Thread:
+        return newHipThreadQueueInfo(
+            reinterpret_cast<hip::ThreadCounterInstrumenter*>(instr),
+            event_type, queue_type);
+    case hip::CounterInstrumenter::Type::Wave:
+        return newHipWaveQueueInfo(
+            reinterpret_cast<hip::WaveCounterInstrumenter*>(instr), event_type,
+            queue_type);
+    case hip::CounterInstrumenter::Type::Default:
+        throw std::logic_error("newHipQueueInfo() : unimplemented Queue info "
+                               "from CounterInstrumenter!");
+    }
+}
 
-    auto t = std::chrono::steady_clock::now();
-    timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
-                 .count()
-          << ',';
+void* hipQueueInfoAllocBuffer(hip::QueueInfo* queue_info) {
+    return queue_info->allocBuffer();
+}
 
-    last_t = std::chrono::steady_clock::now();
+void* hipQueueInfoAllocOffsets(hip::QueueInfo* queue_info) {
+    void* o = queue_info->allocOffsets();
 
     return o;
 }
 
-void hipQueueInfoRecord(hipQueueInfo* queue_info, void* ptr) {
+void hipQueueInfoRecord(hip::QueueInfo* queue_info, void* events,
+                        void* offsets) {
+    lttng_ust_tracepoint(hip_instrumentation, instr_sync_begin, queue_info);
     if (hipDeviceSynchronize() != hipSuccess) {
         return;
     }
+    lttng_ust_tracepoint(hip_instrumentation, instr_sync_end, queue_info);
 
-    // Tracing kernel timing
-    auto t = std::chrono::steady_clock::now();
-    timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
-                 .count()
-          << ',';
-
-    last_t = std::chrono::steady_clock::now();
-
-    queue_info->boxed.record(ptr);
-    hip::check(hipFree(queue_info->offsets));
-
-    t = std::chrono::steady_clock::now();
-    timer << std::chrono::duration_cast<std::chrono::nanoseconds>(t - last_t)
-                 .count();
+    lttng_ust_tracepoint(hip_instrumentation, queue_record_begin, queue_info);
+    queue_info->record(events);
+    hip::check(hipFree(offsets));
+    lttng_ust_tracepoint(hip_instrumentation, queue_record_end, queue_info);
 }
+
+void freeHipQueueInfo(hip::QueueInfo* q) { delete q; }
 
 // ----- Experimental - Kernel timer ----- //
 
-std::ofstream kernel_timer_output;
-
-auto kernel_timer = std::chrono::steady_clock::now();
-
 void begin_kernel_timer(const char* kernel) {
-    if (!kernel_timer_output.is_open()) {
-        std::string prefix = "original";
-        if (auto* benchmark = std::getenv("RODINIA_BENCHMARK")) {
-            prefix += benchmark;
-            prefix += '_';
-        }
-
-        kernel_timer_output.open(prefix + "timing.csv", std::ofstream::trunc);
-        kernel_timer_output << "kernel,original\n";
-    }
-    kernel_timer_output << kernel << ',';
-    kernel_timer = std::chrono::steady_clock::now();
+    lttng_ust_tracepoint(hip_instrumentation, kernel_timer_begin, kernel);
 }
 
 void end_kernel_timer() {
@@ -276,11 +258,6 @@ void end_kernel_timer() {
         return;
     }
 
-    auto t1 = std::chrono::steady_clock::now();
-    kernel_timer_output << std::chrono::duration_cast<std::chrono::nanoseconds>(
-                               t1 - kernel_timer)
-                               .count()
-                        << '\n';
-    kernel_timer_output.flush();
+    lttng_ust_tracepoint(hip_instrumentation, kernel_timer_end);
 }
 }

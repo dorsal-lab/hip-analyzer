@@ -3,7 +3,9 @@ project(hip-analyzer LANGUAGES C CXX)
 
 
 set(CMAKE_CXX_STANDARD 20)
-list(APPEND CMAKE_CXX_FLAGS "-Wall -O3 -fPIE -fno-rtti")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O3 -fPIE -fno-rtti")
+
+option(ENABLE_TRACEPOINTS "Enable LTTng-UST Tracepoints" OFF)
 
 # ---- Paths setup ----- #
 
@@ -48,6 +50,12 @@ include_directories(
 
 include_directories(/usr/include/jsoncpp) # quick hack but I'm tired of fighting CMake
 
+if(ENABLE_TRACEPOINTS)
+    find_package(LTTngUST REQUIRED)
+    add_definitions(-DENABLE_TRACEPOINTS)
+    set(ENABLE_TRACEPOINTS_FLAGS -DENABLE_TRACEPOINTS)
+endif()
+
 # ----- Targets definitions ----- #
 
 # Instrumentation library
@@ -64,14 +72,14 @@ add_custom_command(
 )
 
 add_custom_command(
-    OUTPUT ${CMAKE_BINARY_DIR}/gpu_queue.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/gpu_queue.cpp -std=c++20 -o ${CMAKE_BINARY_DIR}/gpu_queue.o
+    OUTPUT ${CMAKE_BINARY_DIR}/queue_info.o
+    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/queue_info.cpp -std=c++20 -o ${CMAKE_BINARY_DIR}/queue_info.o ${ENABLE_TRACEPOINTS_FLAGS}
     DEPENDS 
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
-        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/queue_info.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/reduction_kernels.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
-        ${CMAKE_SOURCE_DIR}/src/gpu_queue.cpp
+        ${CMAKE_SOURCE_DIR}/src/queue_info.cpp
     VERBATIM
 )
 
@@ -129,12 +137,14 @@ target_link_libraries(
 # add_definitions(-DHIP_INSTRUMENTATION_VERBOSE)
 add_library(hip_instrumentation
     src/hip_instrumentation.cpp
+    src/hip_trace_manager.cpp
     src/basic_block.cpp
     src/gpu_info.cpp
     src/state_recoverer.cpp
     src/hip_instrumentation_cbindings.cpp
+    src/hip_instrumentation_tracepoint_provider.cpp
     ${CMAKE_BINARY_DIR}/gpu_hip_instrumentation.o
-    ${CMAKE_BINARY_DIR}/gpu_queue.o
+    ${CMAKE_BINARY_DIR}/queue_info.o
 )
 
 target_link_libraries(hip_instrumentation
@@ -144,6 +154,10 @@ target_link_libraries(hip_instrumentation
     dl
     pthread
 )
+
+if(ENABLE_TRACEPOINTS)
+    target_link_libraries(hip_instrumentation LTTng::UST)
+endif()
 
 
 # ----- Testing ----- #

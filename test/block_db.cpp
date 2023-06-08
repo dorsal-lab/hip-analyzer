@@ -10,7 +10,7 @@
 
 int main() {
     hip::KernelInfo ki("test", 4, dim3(1), dim3(1));
-    hip::Instrumenter instrumenter(ki);
+    hip::ThreadCounterInstrumenter instrumenter(ki);
 
     auto blocks = instrumenter.loadDatabase();
 

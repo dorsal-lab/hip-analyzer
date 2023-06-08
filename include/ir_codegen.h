@@ -67,8 +67,9 @@ struct InstrumentationFunctions {
         *hipStateRecovererRollback, *freeHipStateRecoverer;
 
     // hipQueueInfo
-    llvm::Function *newHipQueueInfo, *hipQueueInfoAllocBuffer,
-        *hipQueueInfoAllocOffsets, *hipQueueInfoRecord;
+    llvm::Function *newHipQueueInfo, *freeHipQueueInfo,
+        *hipQueueInfoAllocBuffer, *hipQueueInfoAllocOffsets,
+        *hipQueueInfoRecord;
 
     /** ctor
      * \brief Forward-declare instrumentation functions in the module, and
@@ -80,6 +81,8 @@ struct InstrumentationFunctions {
 struct CfgFunctions {
     // ----- CfgCountersFunctions ----- //
     llvm::Function* _hip_store_ctr;
+
+    llvm::Function* _hip_wave_ctr_get_offset;
 
     /** ctor
      * \brief Forward-declare cfg instrumentation functions in the module, and
@@ -179,6 +182,13 @@ bool isBlockInstrumentable(const llvm::BasicBlock& block);
 InstrumentedBlock getBlockInfo(const llvm::BasicBlock& block, unsigned int i);
 
 // ----- IR Modifiers ----- //
+
+/** \fn readFirstLaneI64
+ * \brief Converts an i64 (or ptr) VGPR value to an i64 that will be (hopefully)
+ * constrained to be stored in a sgpr
+ */
+llvm::Value* readFirstLaneI64(llvm::IRBuilder<>& builder,
+                              llvm::Value* i64_vgpr);
 
 /** \fn getFunction
  * \brief Util to get the handle to a function in LLVM IR

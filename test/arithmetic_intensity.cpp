@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
     kernel_info.dump();
 
     // Load binary dump of counters
-    hip::Instrumenter instrumenter(kernel_info);
+    hip::ThreadCounterInstrumenter instrumenter(kernel_info);
     auto elements = instrumenter.loadBin(hiptrace.getValue());
 
     std::cout << "Read " << elements << '\n';

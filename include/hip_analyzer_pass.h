@@ -94,6 +94,26 @@ struct KernelInstrumentationPass
     static const std::string utils_path;
 };
 
+struct CounterType {
+  public:
+    virtual ~CounterType() = default;
+    /** \fn getInstrumentedPrefix
+     * \brief Returns the instrumented kernel prefix corresponding to the
+     * counters type
+     */
+    virtual const std::string& getInstrumentedPrefix() const = 0;
+
+    /** \fn getInstrumenterType
+     * \brief Returns the constant i32 to pass to hipNewInstrumenter to create
+     * the proper CounterInstrumenter (defined in \ref
+     * hip_instrumentation_cbindings.hpp)
+     */
+    virtual llvm::ConstantInt*
+    getInstrumenterType(llvm::LLVMContext&) const = 0;
+
+    static std::unique_ptr<CounterType> create(const std::string& type);
+};
+
 struct CountersInstrumentationPass : public KernelInstrumentationPass {};
 
 /** \struct CfgInstrumentationpass
@@ -101,6 +121,8 @@ struct CountersInstrumentationPass : public KernelInstrumentationPass {};
  */
 struct ThreadCountersInstrumentationPass : public CountersInstrumentationPass {
     static const std::string instrumented_prefix;
+    static constexpr uint32_t CounterInstrumenterId = 0u;
+    static constexpr auto CounterType = "thread-counters";
 
     ThreadCountersInstrumentationPass() {}
 
@@ -125,6 +147,8 @@ struct ThreadCountersInstrumentationPass : public CountersInstrumentationPass {
  */
 struct WaveCountersInstrumentationPass : public CountersInstrumentationPass {
     static const std::string instrumented_prefix;
+    static constexpr uint32_t CounterInstrumenterId = 1u;
+    static constexpr auto CounterType = "wave-counters";
 
     WaveCountersInstrumentationPass() {}
 
@@ -316,10 +340,10 @@ struct TracingPass : public KernelInstrumentationPass {
  */
 struct HostPass : public llvm::PassInfoMixin<HostPass> {
     HostPass(bool tracing = false,
-             const std::string& counters_prefix =
-                 ThreadCountersInstrumentationPass::instrumented_prefix,
+             const std::string& counters_ty =
+                 ThreadCountersInstrumentationPass::CounterType,
              const std::string& trace_ty = "trace-wavestate")
-        : trace(tracing), counters_type(counters_prefix) {
+        : trace(tracing), counters_type(CounterType::create(counters_ty)) {
         if (tracing) {
             trace_type = TraceType::create(trace_ty);
         }
@@ -388,7 +412,7 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
   private:
     bool trace;
     std::unique_ptr<TraceType> trace_type;
-    const std::string& counters_type;
+    std::unique_ptr<CounterType> counters_type;
 };
 
 } // namespace hip

@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
 
     kernel_info.dump();
 
-    hip::Instrumenter instrumenter(kernel_info);
+    hip::ThreadCounterInstrumenter instrumenter(kernel_info);
 
     auto elements = instrumenter.loadBin(hiptrace.getValue());
 

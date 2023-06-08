@@ -10,6 +10,19 @@
 
 extern "C" {
 
+// ----- Utils ----- //
+
+__device__ uint32_t _hip_wave_id_1d() {
+    size_t waves_per_block = blockDim.x / warpSize;
+    if (blockDim.x % warpSize != 0) {
+        ++waves_per_block;
+    }
+
+    auto wave_in_block = threadIdx.x / warpSize;
+
+    return blockIdx.x * waves_per_block + wave_in_block;
+}
+
 // ----- Counters instrumentation ----- //
 
 /** \fn _hip_inc_wave_ctr
@@ -34,6 +47,13 @@ __device__ void _hip_store_ctr(const uint8_t counters[], size_t _bb_count,
     }
 }
 
+/** \fn _hip_wave_ctr_get_offset
+ * \brief Returns the counter base ptr for the wave
+ */
+__device__ void* _hip_wave_ctr_get_offset(uint32_t* base, uint32_t bb_count) {
+    return &base[_hip_wave_id_1d() * bb_count];
+}
+
 // ----- Tracing instrumentation ----- //
 
 __device__ void* _hip_get_trace_offset(void* storage, size_t* offsets,
@@ -50,14 +70,7 @@ __device__ void* _hip_get_trace_offset(void* storage, size_t* offsets,
 
 __device__ void* _hip_get_wave_trace_offset(void* storage, size_t* offsets,
                                             size_t event_size) {
-    size_t waves_per_block = blockDim.x / warpSize;
-    if (blockDim.x % warpSize != 0) {
-        ++waves_per_block;
-    }
-
-    auto wave_in_block = threadIdx.x / warpSize;
-
-    size_t wavefront_id = blockIdx.x * waves_per_block + wave_in_block;
+    uint32_t wavefront_id = _hip_wave_id_1d();
 
     auto offset = offsets[wavefront_id];
 

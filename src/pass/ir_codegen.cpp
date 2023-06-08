@@ -5,6 +5,7 @@
  */
 
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Mangler.h"
@@ -204,6 +205,46 @@ InstrumentedBlock getBlockInfo(const llvm::BasicBlock& bb, unsigned int i) {
     return {i, flops, f_ld, f_st, {}};
 }
 
+llvm::Value* readFirstLaneI64(llvm::IRBuilder<>& builder,
+                              llvm::Value* i64_vgpr) {
+    auto* ptr_ty = builder.getPtrTy();
+    auto* i32_ty = builder.getInt32Ty();
+    auto* i64_ty = builder.getInt64Ty();
+
+    auto* double_i32_ty =
+        llvm::VectorType::get(i32_ty, llvm::ElementCount::getFixed(2));
+
+    auto* f_ty = llvm::FunctionType::get(i32_ty, {i32_ty}, false);
+
+    auto* readfirstlane =
+        llvm::InlineAsm::get(f_ty, "v_readfirstlane_b32 $0, $1", "=s,v", true);
+
+    // Convert to i64 if the value is a pointer
+    bool ptr = i64_vgpr->getType()->isPointerTy();
+    if (ptr) {
+        i64_vgpr = builder.CreatePtrToInt(i64_vgpr, i64_ty);
+    }
+
+    auto* vgpr_pair = builder.CreateBitCast(i64_vgpr, double_i32_ty);
+
+    auto* lsb_vgpr = builder.CreateExtractElement(vgpr_pair, 0ul);
+    auto* msb_vgpr = builder.CreateExtractElement(vgpr_pair, 1ul);
+
+    auto* lsb_sgpr = builder.CreateCall(readfirstlane, lsb_vgpr);
+    auto* msb_sgpr = builder.CreateCall(readfirstlane, msb_vgpr);
+
+    auto* sgpr_pair = builder.CreateInsertElement(
+        llvm::UndefValue::get(double_i32_ty), lsb_sgpr, 0ul);
+    sgpr_pair = builder.CreateInsertElement(sgpr_pair, msb_sgpr, 1ul);
+
+    auto* sgpr = builder.CreateBitCast(sgpr_pair, i64_ty);
+    if (ptr) {
+        return builder.CreateIntToPtr(sgpr, ptr_ty);
+    } else {
+        return sgpr;
+    }
+}
+
 llvm::Function* getFunction(llvm::Module& mod, llvm::StringRef name,
                             llvm::FunctionType* type) {
     auto callee = mod.getOrInsertFunction(name, type);
@@ -222,14 +263,13 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
 
     auto* void_type = llvm::Type::getVoidTy(context);
     auto* uint32_type = llvm::Type::getInt32Ty(context);
-    auto* unqual_ptr_type = llvm::PointerType::getUnqual(context);
+    auto* ptr_type = llvm::PointerType::getUnqual(context);
 
     auto void_from_ptr_type =
-        llvm::FunctionType::get(void_type, {unqual_ptr_type}, false);
-    auto recoverer_ctor_type =
-        llvm::FunctionType::get(unqual_ptr_type, {}, false);
+        llvm::FunctionType::get(void_type, {ptr_type}, false);
+    auto recoverer_ctor_type = llvm::FunctionType::get(ptr_type, {}, false);
     auto ptr_from_ptr_type =
-        llvm::FunctionType::get(unqual_ptr_type, {unqual_ptr_type}, false);
+        llvm::FunctionType::get(ptr_type, {ptr_type}, false);
 
     // This is tedious, but now way around it
 
@@ -239,8 +279,9 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
     freeHipStateRecoverer =
         getFunction(mod, "freeHipStateRecoverer", void_from_ptr_type);
 
-    hipNewInstrumenter =
-        getFunction(mod, "hipNewInstrumenter", ptr_from_ptr_type);
+    hipNewInstrumenter = getFunction(
+        mod, "hipNewInstrumenter",
+        llvm::FunctionType::get(ptr_type, {ptr_type, uint32_type}, false));
 
     hipNewStateRecoverer =
         getFunction(mod, "hipNewStateRecoverer", recoverer_ctor_type);
@@ -248,8 +289,8 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
     hipInstrumenterToDevice =
         getFunction(mod, "hipInstrumenterToDevice", ptr_from_ptr_type);
 
-    auto from_device_type = llvm::FunctionType::get(
-        void_type, {unqual_ptr_type, unqual_ptr_type}, false);
+    auto from_device_type =
+        llvm::FunctionType::get(void_type, {ptr_type, ptr_type}, false);
     hipInstrumenterFromDevice =
         getFunction(mod, "hipInstrumenterFromDevice", from_device_type);
 
@@ -258,19 +299,16 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
 
     hipStateRecovererRegisterPointer = getFunction(
         mod, "hipStateRecovererRegisterPointer",
-        llvm::FunctionType::get(unqual_ptr_type,
-                                {unqual_ptr_type, unqual_ptr_type}, false));
+        llvm::FunctionType::get(ptr_type, {ptr_type, ptr_type}, false));
 
-    hipStateRecovererRollback =
-        getFunction(mod, "hipStateRecovererRollback",
-                    llvm::FunctionType::get(
-                        void_type, {unqual_ptr_type, unqual_ptr_type}, false));
+    hipStateRecovererRollback = getFunction(
+        mod, "hipStateRecovererRollback",
+        llvm::FunctionType::get(void_type, {ptr_type, ptr_type}, false));
 
     newHipQueueInfo =
         getFunction(mod, "newHipQueueInfo",
                     llvm::FunctionType::get(
-                        unqual_ptr_type,
-                        {unqual_ptr_type, uint32_type, uint32_type}, false));
+                        ptr_type, {ptr_type, uint32_type, uint32_type}, false));
 
     hipQueueInfoAllocBuffer =
         getFunction(mod, "hipQueueInfoAllocBuffer", ptr_from_ptr_type);
@@ -279,7 +317,11 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
         getFunction(mod, "hipQueueInfoAllocOffsets", ptr_from_ptr_type);
 
     hipQueueInfoRecord =
-        getFunction(mod, "hipQueueInfoRecord", from_device_type);
+        getFunction(mod, "hipQueueInfoRecord",
+                    llvm::FunctionType::get(
+                        void_type, {ptr_type, ptr_type, ptr_type}, false));
+
+    freeHipQueueInfo = getFunction(mod, "freeHipQueueInfo", void_from_ptr_type);
 }
 
 CfgFunctions::CfgFunctions(llvm::Module& mod) {
@@ -288,11 +330,15 @@ CfgFunctions::CfgFunctions(llvm::Module& mod) {
     auto* void_type = llvm::Type::getVoidTy(context);
     auto* ptr_ty = llvm::PointerType::getUnqual(context);
     auto* uint64_type = llvm::Type::getInt64Ty(context);
+    auto* uint32_type = llvm::Type::getInt32Ty(context);
 
     auto* _hip_store_ctr_type = llvm::FunctionType::get(
         void_type, {ptr_ty, uint64_type, ptr_ty}, false);
 
     _hip_store_ctr = getFunction(mod, "_hip_store_ctr", _hip_store_ctr_type);
+    _hip_wave_ctr_get_offset = getFunction(
+        mod, "_hip_wave_ctr_get_offset",
+        llvm::FunctionType::get(ptr_ty, {ptr_ty, uint32_type}, false));
 }
 
 llvm::FunctionType* getEventCtorType(llvm::LLVMContext& context) {

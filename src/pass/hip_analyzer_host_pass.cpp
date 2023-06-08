@@ -15,6 +15,30 @@
 
 namespace hip {
 
+template <typename Pass> struct CounterTypeImpl : public CounterType {
+    const std::string& getInstrumentedPrefix() const override {
+        return Pass::instrumented_prefix;
+    }
+
+    llvm::ConstantInt*
+    getInstrumenterType(llvm::LLVMContext& context) const override {
+        return llvm::IRBuilder<>(context).getInt32(Pass::CounterInstrumenterId);
+    }
+};
+
+std::unique_ptr<CounterType> CounterType::create(const std::string& type) {
+    if (type == ThreadCountersInstrumentationPass::CounterType) {
+        return std::make_unique<
+            CounterTypeImpl<ThreadCountersInstrumentationPass>>();
+    } else if (type == WaveCountersInstrumentationPass::CounterType) {
+        return std::make_unique<
+            CounterTypeImpl<WaveCountersInstrumentationPass>>();
+    } else {
+        throw std::runtime_error(
+            "hip::CounterType::create() : Unknown Counter type " + type);
+    }
+}
+
 bool isDeviceStub(llvm::Function& f) {
     auto name = f.getName().str();
 
@@ -109,7 +133,8 @@ llvm::Function*
 HostPass::addCountersDeviceStub(llvm::Function& f_original) const {
     auto& context = f_original.getContext();
 
-    return duplicateStubWithArgs(f_original, counters_type,
+    return duplicateStubWithArgs(f_original,
+                                 counters_type->getInstrumentedPrefix(),
                                  {llvm::PointerType::getUnqual(context)});
 }
 
@@ -237,13 +262,16 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
     auto* ptr_ty = llvm::PointerType::getUnqual(context);
 
     auto* new_stub = dyn_cast<llvm::Function>(
-        mod.getOrInsertFunction(getClonedName(stub, counters_type + "tmp_"),
-                                fun_type)
+        mod.getOrInsertFunction(
+               getClonedName(stub,
+                             counters_type->getInstrumentedPrefix() + "tmp_"),
+               fun_type)
             .getCallee());
 
     auto* bb = llvm::BasicBlock::Create(context, "", new_stub);
 
-    auto* counters_stub = &cloneWithPrefix(stub, counters_type, {ptr_ty});
+    auto* counters_stub = &cloneWithPrefix(
+        stub, counters_type->getInstrumentedPrefix(), {ptr_ty});
 
     auto* tracing_stub =
         trace ? &cloneWithPrefix(stub, TracingPass::instrumented_prefix,
@@ -258,7 +286,8 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
         instr_handlers.hipNewInstrumenter,
         {builder.CreateBitCast(builder.CreateGlobalStringPtr(
                                    call_to_launch->getArgOperand(0)->getName()),
-                               ptr_ty)});
+                               ptr_ty),
+         counters_type->getInstrumenterType(context)});
 
     auto* recoverer =
         builder.CreateCall(instr_handlers.hipNewStateRecoverer, {});
@@ -334,12 +363,16 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
     if (trace) {
         // Store counters (runtime)
         builder.CreateCall(instr_handlers.hipQueueInfoRecord,
-                           {queue_info, events_buffer});
+                           {queue_info, events_buffer, events_offsets});
     }
 
     // Free allocated instrumentation
     builder.CreateCall(instr_handlers.freeHipInstrumenter, {instr});
     builder.CreateCall(instr_handlers.freeHipStateRecoverer, {recoverer});
+
+    if (trace) {
+        builder.CreateCall(instr_handlers.freeHipQueueInfo, {queue_info});
+    }
 
     builder.CreateRetVoid();
 

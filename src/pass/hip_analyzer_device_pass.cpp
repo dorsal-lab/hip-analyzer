@@ -306,8 +306,9 @@ bool WaveCountersInstrumentationPass::instrumentFunction(
     std::map<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*>> idx_map;
 
     auto& context = f.getContext();
+    CfgFunctions instrumentation_handlers(*f.getParent());
 
-    auto* instr_ptr = f.getArg(f.arg_size() - 1);
+    auto* raw_storage_ptr = f.getArg(f.arg_size() - 1); // Last arg
 
     llvm::IRBuilder<> builder(&f.getEntryBlock());
     builder.SetInsertPointPastAllocas(&f);
@@ -320,7 +321,7 @@ bool WaveCountersInstrumentationPass::instrumentFunction(
     // First pass : create fake (zero) values and increment them
     unsigned int bb_id = 0u;
     for (auto& bb : f) {
-        builder.SetInsertPoint(bb.getFirstNonPHI());
+        builder.SetInsertPoint(&*bb.getFirstNonPHIOrDbgOrAlloca());
 
         auto* dummy_idx = builder.CreateIntrinsic(llvm::Intrinsic::ssa_copy,
                                                   {vector_ty}, init_vector);
@@ -334,11 +335,12 @@ bool WaveCountersInstrumentationPass::instrumentFunction(
     // Second pass : replace all uses with PHI nodes from predecessors
 
     for (auto& bb : f) {
-        builder.SetInsertPoint(&bb.front());
         if (bb.isEntryBlock()) {
+            builder.SetInsertPointPastAllocas(&f);
             idx_map[&bb].first->replaceAllUsesWith(init_vector);
             continue;
         }
+        builder.SetInsertPoint(&bb.front());
 
         auto* phi = builder.CreatePHI(vector_ty, 0);
 
@@ -351,6 +353,15 @@ bool WaveCountersInstrumentationPass::instrumentFunction(
         idx_map[&bb].first = phi;
     }
 
+    // Fetch counter offset
+
+    builder.SetInsertPointPastAllocas(&f);
+    auto* storage_ptr_vgpr =
+        builder.CreateCall(instrumentation_handlers._hip_wave_ctr_get_offset,
+                           {raw_storage_ptr, builder.getInt32(blocks.size())});
+
+    auto* storage_ptr = hip::readFirstLaneI64(builder, storage_ptr_vgpr);
+
     // Save for all terminating basic blocks
     for (auto& bb : f) {
         auto* terminator = bb.getTerminator();
@@ -358,7 +369,7 @@ bool WaveCountersInstrumentationPass::instrumentFunction(
             builder.SetInsertPoint(terminator);
 
             for (auto i = 0u; i < bb_id; ++i) {
-                storeCounter(builder, idx_map[&bb].second, instr_ptr, i);
+                storeCounter(builder, idx_map[&bb].second, storage_ptr, i);
             }
         }
     }
