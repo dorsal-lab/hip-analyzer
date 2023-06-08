@@ -18,18 +18,18 @@
 
 // ----- Memory operations ----- //
 
-LTTNG_UST_TRACEPOINT_EVENT_CLASS(
-    hip_instrumentation, memory, LTTNG_UST_TP_ARGS(const void*, device_ptr),
+LTTNG_UST_TRACEPOINT_EVENT(
+    hip_instrumentation, hipMalloc,
+    LTTNG_UST_TP_ARGS(const void*, device_ptr, size_t, size),
     LTTNG_UST_TP_FIELDS(lttng_ust_field_integer_hex(
-        uintptr_t, device_ptr, reinterpret_cast<uintptr_t>(device_ptr))))
+        uintptr_t, device_ptr, reinterpret_cast<uintptr_t>(device_ptr))
+                            lttng_ust_field_integer(size_t, size, size)))
 
-LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, memory,
-                                    hip_instrumentation, hipMalloc,
-                                    LTTNG_UST_TP_ARGS(const void*, device_ptr))
-
-LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, memory,
-                                    hip_instrumentation, hipFree,
-                                    LTTNG_UST_TP_ARGS(const void*, device_ptr))
+LTTNG_UST_TRACEPOINT_EVENT(hip_instrumentation, hipFree,
+                           LTTNG_UST_TP_ARGS(const void*, device_ptr),
+                           LTTNG_UST_TP_FIELDS(lttng_ust_field_integer_hex(
+                               uintptr_t, device_ptr,
+                               reinterpret_cast<uintptr_t>(device_ptr))))
 
 // ----- HIP Instrumentation handlers ----- //
 

@@ -126,7 +126,7 @@ hipError_t hipMalloc(void** ptr, size_t size) {
 #ifdef HIP_INSTRUMENTATION_VERBOSE
     std::cout << "hipMalloc : " << *ptr << " (" << size << ")\n";
 #endif
-    lttng_ust_tracepoint(hip_instrumentation, hipMalloc, *ptr);
+    lttng_ust_tracepoint(hip_instrumentation, hipMalloc, *ptr, size);
     if (err != hipSuccess) {
         throw std::bad_alloc();
     }
