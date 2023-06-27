@@ -30,9 +30,6 @@ llvm::AnalysisKey AnalysisPass::Key;
 
 AnalysisPass::Result AnalysisPass::run(llvm::Function& fn,
                                        llvm::FunctionAnalysisManager& fam) {
-    llvm::errs() << "Function " << fn.getName() << '\n';
-    fn.print(llvm::dbgs(), nullptr);
-
     Result blocks;
 
     std::vector<hip::BasicBlock> blocks_legacy;
@@ -98,9 +95,6 @@ KernelInstrumentationPass::run(llvm::Module& mod,
                        .getManager();
 
         optimizeFunction(f_original, fm);
-
-        llvm::dbgs() << "Function " << f_original.getName() << '\n'
-                     << f_original;
 
         // Clone the kernel, with extra arguments
         auto& f = cloneWithPrefix(f_original, getInstrumentedKernelPrefix(),
@@ -315,7 +309,7 @@ bool WaveCountersInstrumentationPass::instrumentFunction(
 
     auto* zero = builder.getInt32(0);
     auto* vector_ty = getVectorCounterType(context, blocks.size());
-    auto* init_vector =
+    llvm::Value* init_vector =
         llvm::ConstantVector::getSplat(vector_ty->getElementCount(), zero);
 
     // First pass : create fake (zero) values and increment them
@@ -337,7 +331,15 @@ bool WaveCountersInstrumentationPass::instrumentFunction(
     for (auto& bb : f) {
         if (bb.isEntryBlock()) {
             builder.SetInsertPointPastAllocas(&f);
+            bb_id = 0u;
+            for (auto& _bb : f) {
+                auto* zero_sgpr = initializeSGPR(builder, 0u);
+                init_vector =
+                    builder.CreateInsertElement(init_vector, zero_sgpr, bb_id);
+                ++bb_id;
+            }
             idx_map[&bb].first->replaceAllUsesWith(init_vector);
+
             continue;
         }
         builder.SetInsertPoint(&bb.front());
@@ -387,7 +389,7 @@ llvm::Value* WaveCountersInstrumentationPass::getCounterAndIncrement(
     auto* i32_ty = getScalarCounterType(mod.getContext());
     auto* f_ty = llvm::FunctionType::get(i32_ty, {i32_ty}, false);
     auto* inc_sgpr =
-        llvm::InlineAsm::get(f_ty, inline_asm, inline_asm_constraints, true);
+        llvm::InlineAsm::get(f_ty, inline_asm, inline_asm_constraints, false);
 
     // Extract counter from vector
     auto* extracted = builder.CreateExtractElement(vec, bb);
@@ -415,7 +417,7 @@ void WaveCountersInstrumentationPass::storeCounter(llvm::IRBuilder<>& builder,
     // readfirstlane inline asm
     auto* readlane_ty = llvm::FunctionType::get(i32_ty, {i32_ty}, false);
     auto* readline_asm = llvm::InlineAsm::get(
-        readlane_ty, "v_readfirstlane_b32 $0, $1", "=s,v", true);
+        readlane_ty, "v_readfirstlane_b32 $0, $1", "=s,v", false);
 
     // store inline asm
     auto* f_ty =

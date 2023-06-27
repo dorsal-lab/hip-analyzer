@@ -95,16 +95,12 @@ class WaveTrace : public TraceType {
         llvm::IRBuilder<> builder_locals(&entry);
         setInsertPointPastAllocas(builder_locals, kernel);
 
-        auto* zero = builder_locals.getInt32(0);
-        auto* i32_ty = llvm::Type::getInt32Ty(kernel.getContext());
-
         // alloca = builder_locals.CreateAlloca(i32_ty, 0, nullptr, "");
 
         for (auto& bb : kernel) {
             builder_locals.SetInsertPoint(&bb.front());
 
-            auto* dummy_idx = builder_locals.CreateIntrinsic(
-                llvm::Intrinsic::ssa_copy, {i32_ty}, {zero});
+            auto* dummy_idx = initializeSGPR(builder_locals, 0u);
 
             auto* incremented = getCounterAndIncrement(
                 *kernel.getParent(), builder_locals, dummy_idx);
@@ -278,8 +274,8 @@ class WaveState : public WaveTrace {
         auto* ctor = llvm::InlineAsm::get(ctor_ty, wave_event_ctor_asm,
                                           wave_event_ctor_constraints, true);
 
-        llvm::dbgs() << "Base storage " << *thread_storage << '\n';
-        llvm::dbgs() << "Counter " << *counter << '\n';
+        // llvm::dbgs() << "Base storage " << *thread_storage << '\n';
+        // llvm::dbgs() << "Counter " << *counter << '\n';
 
         thread_storage = builder.CreateIntToPtr(thread_storage, ptr_ty);
 

@@ -168,7 +168,20 @@ void setInsertPointPastAllocas(llvm::IRBuilderBase& builder,
     builder.SetInsertPoint(bb.getFirstNonPHIOrDbg());
 }
 
-bool isBlockInstrumentable(const llvm::BasicBlock& block) { return true; }
+bool isBlockInstrumentable(const llvm::BasicBlock& block) {
+    if (block.isEntryBlock() || isa<llvm::ReturnInst>(block.getTerminator())) {
+        return true;
+    }
+
+    for (const auto& parent : llvm::predecessors(&block)) {
+        auto* term = parent->getTerminator();
+        if (isa<llvm::BranchInst>(term) || isa<llvm::SwitchInst>(term)) {
+            return true;
+        }
+    }
+
+    return false;
+}
 
 void insertInstrumentationLocals(InstrumentationContext& context) {}
 
@@ -243,6 +256,18 @@ llvm::Value* readFirstLaneI64(llvm::IRBuilder<>& builder,
     } else {
         return sgpr;
     }
+}
+
+llvm::Value* initializeSGPR(llvm::IRBuilder<>& builder, uint32_t initializer) {
+    auto* i32_ty = builder.getInt32Ty();
+    auto init_val = builder.getInt32(initializer);
+
+    auto* f_ty = llvm::FunctionType::get(i32_ty, {i32_ty}, false);
+
+    auto* mov_b32 =
+        llvm::InlineAsm::get(f_ty, "s_mov_b32 $0, $1", "=s,i", false);
+
+    return builder.CreateCall(mov_b32, {init_val});
 }
 
 llvm::Function* getFunction(llvm::Module& mod, llvm::StringRef name,
