@@ -100,7 +100,7 @@ class WaveTrace : public TraceType {
         for (auto& bb : kernel) {
             builder_locals.SetInsertPoint(&bb.front());
 
-            auto* dummy_idx = initializeSGPR(builder_locals, 0u);
+            auto* dummy_idx = initializeSGPR(builder_locals, 0u, "s20");
 
             auto* incremented = getCounterAndIncrement(
                 *kernel.getParent(), builder_locals, dummy_idx);

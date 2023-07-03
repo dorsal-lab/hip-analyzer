@@ -258,14 +258,17 @@ llvm::Value* readFirstLaneI64(llvm::IRBuilder<>& builder,
     }
 }
 
-llvm::Value* initializeSGPR(llvm::IRBuilder<>& builder, uint32_t initializer) {
+llvm::Value* initializeSGPR(llvm::IRBuilder<>& builder, uint32_t initializer,
+                            std::string_view reg) {
     auto* i32_ty = builder.getInt32Ty();
     auto init_val = builder.getInt32(initializer);
 
-    auto* f_ty = llvm::FunctionType::get(i32_ty, {i32_ty}, false);
+    auto* f_ty = llvm::FunctionType::get(builder.getVoidTy(), {i32_ty}, false);
 
-    auto* mov_b32 =
-        llvm::InlineAsm::get(f_ty, "s_mov_b32 $0, $1", "=s,i", false);
+    auto instr = llvm::Twine("s_mov_b32 ").concat(reg).concat(", $0").str();
+    auto constraints = llvm::Twine("i,~{").concat(reg).concat("}").str();
+
+    auto* mov_b32 = llvm::InlineAsm::get(f_ty, instr, constraints, true);
 
     return builder.CreateCall(mov_b32, {init_val});
 }

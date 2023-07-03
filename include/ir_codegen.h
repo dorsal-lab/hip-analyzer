@@ -193,7 +193,8 @@ llvm::Value* readFirstLaneI64(llvm::IRBuilder<>& builder,
 /** \fn initializeSGPR
  * \brief Initializes a i32 SGPR to the given value
  */
-llvm::Value* initializeSGPR(llvm::IRBuilder<>& builder, uint32_t initializer);
+llvm::Value* initializeSGPR(llvm::IRBuilder<>& builder, uint32_t initializer,
+                            std::string_view reg);
 
 /** \fn getFunction
  * \brief Util to get the handle to a function in LLVM IR

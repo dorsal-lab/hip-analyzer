@@ -292,14 +292,6 @@ bool WaveCountersInstrumentationPass::instrumentFunction(
     llvm::Function& f, llvm::Function& original_function,
     AnalysisPass::Result& blocks) {
 
-    // LLVM uses SSA, which means the vector has to be passed by value to each
-    // basic block as a PHI node to maintain a global state throughout the
-    // function. We construct this spaghetti of PHI nodes in two times, by first
-    // creating bogey values (ssa_copy from 0) then through a second pass to add
-    // the actual incremented value.
-    std::map<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*>> idx_map;
-
-    auto& context = f.getContext();
     CfgFunctions instrumentation_handlers(*f.getParent());
 
     auto* raw_storage_ptr = f.getArg(f.arg_size() - 1); // Last arg
@@ -307,52 +299,21 @@ bool WaveCountersInstrumentationPass::instrumentFunction(
     llvm::IRBuilder<> builder(&f.getEntryBlock());
     builder.SetInsertPointPastAllocas(&f);
 
-    auto* zero = builder.getInt32(0);
-    auto* vector_ty = getVectorCounterType(context, blocks.size());
-    llvm::Value* init_vector =
-        llvm::ConstantVector::getSplat(vector_ty->getElementCount(), zero);
-
     // First pass : create fake (zero) values and increment them
     unsigned int bb_id = 0u;
     for (auto& bb : f) {
         builder.SetInsertPoint(&*bb.getFirstNonPHIOrDbgOrAlloca());
 
-        auto* dummy_idx = builder.CreateIntrinsic(llvm::Intrinsic::ssa_copy,
-                                                  {vector_ty}, init_vector);
-        auto* incremented =
-            getCounterAndIncrement(*f.getParent(), builder, dummy_idx, bb_id);
-
-        idx_map.insert({&bb, {dummy_idx, incremented}});
-        ++bb_id;
-    }
-
-    // Second pass : replace all uses with PHI nodes from predecessors
-
-    for (auto& bb : f) {
         if (bb.isEntryBlock()) {
-            builder.SetInsertPointPastAllocas(&f);
-            bb_id = 0u;
-            for (auto& _bb : f) {
-                auto* zero_sgpr = initializeSGPR(builder, 0u);
-                init_vector =
-                    builder.CreateInsertElement(init_vector, zero_sgpr, bb_id);
-                ++bb_id;
-            }
-            idx_map[&bb].first->replaceAllUsesWith(init_vector);
-
-            continue;
-        }
-        builder.SetInsertPoint(&bb.front());
-
-        auto* phi = builder.CreatePHI(vector_ty, 0);
-
-        for (const auto& pred : llvm::predecessors(&bb)) {
-            phi->addIncoming(idx_map[pred].second, pred);
+            initializeSGPR(builder, 0, "s20");
         }
 
-        idx_map[&bb].first->replaceAllUsesWith(phi);
-        dyn_cast<llvm::Instruction>(idx_map[&bb].first)->eraseFromParent();
-        idx_map[&bb].first = phi;
+        // Counting register is fixed as s20, being the first non-allocated
+        // scalar in the kernel prelude
+        auto* incremented =
+            getCounterAndIncrement(*f.getParent(), builder, bb_id, "s20");
+
+        ++bb_id;
     }
 
     // Fetch counter offset
@@ -370,9 +331,7 @@ bool WaveCountersInstrumentationPass::instrumentFunction(
         if (isa<llvm::ReturnInst>(terminator)) {
             builder.SetInsertPoint(terminator);
 
-            for (auto i = 0u; i < bb_id; ++i) {
-                storeCounter(builder, idx_map[&bb].second, storage_ptr, i);
-            }
+            storeCounter(builder, storage_ptr, 0, "s20");
         }
     }
 
@@ -381,56 +340,44 @@ bool WaveCountersInstrumentationPass::instrumentFunction(
 }
 
 llvm::Value* WaveCountersInstrumentationPass::getCounterAndIncrement(
-    llvm::Module& mod, llvm::IRBuilder<>& builder, llvm::Value* vec,
-    unsigned bb) {
-    static constexpr auto* inline_asm = "s_add_u32 $0, $0, 1";
-    static constexpr auto* inline_asm_constraints = "=s,s";
+    llvm::Module& mod, llvm::IRBuilder<>& builder, unsigned bb,
+    std::string_view reg) {
 
-    auto* i32_ty = getScalarCounterType(mod.getContext());
-    auto* f_ty = llvm::FunctionType::get(i32_ty, {i32_ty}, false);
-    auto* inc_sgpr =
-        llvm::InlineAsm::get(f_ty, inline_asm, inline_asm_constraints, false);
+    auto instr = llvm::Twine("s_add_u32 ")
+                     .concat(reg)
+                     .concat(", ")
+                     .concat(reg)
+                     .concat(", 1")
+                     .str();
+    auto constraints = llvm::Twine("~{").concat(reg).concat("}").str();
 
-    // Extract counter from vector
-    auto* extracted = builder.CreateExtractElement(vec, bb);
-    // Increment as a SGPR (hopefully!)
-    auto* incremented = builder.CreateCall(inc_sgpr, {extracted});
-    // Return the vector with inserted value
-    return builder.CreateInsertElement(vec, incremented, bb);
+    auto* void_ty = builder.getVoidTy();
+    auto* f_ty = llvm::FunctionType::get(void_ty, {}, false);
+    auto* inc_sgpr = llvm::InlineAsm::get(f_ty, instr, constraints, true);
+
+    return builder.CreateCall(inc_sgpr, {});
 }
 
 void WaveCountersInstrumentationPass::storeCounter(llvm::IRBuilder<>& builder,
-                                                   llvm::Value* vec,
                                                    llvm::Value* ptr,
-                                                   unsigned bb) {
-    // We have to set an offset for each store, so construct a string each time!
-    // (Hopefully we'll get std::format aaaanytime now)
+                                                   unsigned bb,
+                                                   std::string_view reg) {
     constexpr unsigned dword_size = 4u; // 4 bytes for a 32 bit integer
-    static constexpr auto* inline_asm_constraints = "s,s";
 
-    std::stringstream ss;
-    ss << "s_store_dword $0, $1, " << dword_size * bb;
+    auto instr = llvm::Twine("s_store_dword  ")
+                     .concat(reg)
+                     .concat(", $0, ")
+                     .concat(std::to_string(dword_size * bb))
+                     .str();
+    auto constraints = llvm::Twine("s,~{").concat(reg).concat("}").str();
 
-    auto* i32_ty = builder.getInt32Ty();
     auto* ptr_ty = builder.getPtrTy();
 
-    // readfirstlane inline asm
-    auto* readlane_ty = llvm::FunctionType::get(i32_ty, {i32_ty}, false);
-    auto* readline_asm = llvm::InlineAsm::get(
-        readlane_ty, "v_readfirstlane_b32 $0, $1", "=s,v", false);
-
     // store inline asm
-    auto* f_ty =
-        llvm::FunctionType::get(builder.getVoidTy(), {i32_ty, ptr_ty}, false);
-    auto* store_sgpr =
-        llvm::InlineAsm::get(f_ty, ss.str(), inline_asm_constraints, true);
+    auto* f_ty = llvm::FunctionType::get(builder.getVoidTy(), {ptr_ty}, false);
+    auto* store_sgpr = llvm::InlineAsm::get(f_ty, instr, constraints, true);
 
-    // Extract value from vector
-    auto* extracted = builder.CreateExtractElement(vec, bb);
-    // Store in SGPR
-    auto* sgpr = builder.CreateCall(readline_asm, {extracted});
-    // Create call to inline asm to store the value
-    builder.CreateCall(store_sgpr, {sgpr, ptr});
+    builder.CreateCall(store_sgpr, {ptr});
 }
 
 llvm::SmallVector<llvm::Type*>
@@ -474,12 +421,6 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
 
     auto* thread_storage =
         event->getThreadStorage(mod, builder, storage_ptr, offsets_ptr);
-
-    /*
-    builder.CreateCall(event->getEventCreator(mod),
-                              {thread_storage, idx, event->getEventSize(mod),
-                               event->getEventCtor(mod), getIndex(0, context)});
-    */
 
     // Start at 1 because the first block is handled separately
 

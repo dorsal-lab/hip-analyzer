@@ -175,11 +175,11 @@ struct WaveCountersInstrumentationPass : public CountersInstrumentationPass {
      * the value
      */
     llvm::Value* getCounterAndIncrement(llvm::Module& mod,
-                                        llvm::IRBuilder<>& builder,
-                                        llvm::Value* vec, unsigned bb);
+                                        llvm::IRBuilder<>& builder, unsigned bb,
+                                        std::string_view reg);
 
-    void storeCounter(llvm::IRBuilder<>& builder, llvm::Value* vec,
-                      llvm::Value* ptr, unsigned bb);
+    void storeCounter(llvm::IRBuilder<>& builder, llvm::Value* ptr, unsigned bb,
+                      std::string_view reg);
 };
 
 /** \class TraceType
