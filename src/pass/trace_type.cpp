@@ -165,17 +165,10 @@ class WaveTrace : public TraceType {
             throw std::runtime_error("Cannot store wave counters in an "
                                      "alloca-ted value (or is it in LDS?)");
         }
-        // Increment the value, but with inline asm
-        auto* int32_ty = getCounterType(mod);
-        auto* increment = getEventSize(mod);
 
-        auto* f_ty = llvm::FunctionType::get(
-            int32_ty, {int32_ty /*, builder.getInt64Ty()*/}, false);
+        auto* inc_sgpr = incrementRegisterAsm(builder, "s20");
 
-        auto* inc_sgpr = llvm::InlineAsm::get(f_ty, sgpr_inline_asm,
-                                              sgpr_asm_constraints, true);
-
-        return builder.CreateCall(inc_sgpr, {counter /*, increment*/});
+        return builder.CreateCall(inc_sgpr, {counter});
     }
 
     llvm::Value* traceIdxAtBlock(llvm::BasicBlock& bb) override {

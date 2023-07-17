@@ -202,6 +202,12 @@ llvm::Value* initializeSGPR(llvm::IRBuilder<>& builder, uint32_t initializer,
 llvm::Function* getFunction(llvm::Module& mod, llvm::StringRef name,
                             llvm::FunctionType* type);
 
+/** \fn incrementRegisterAsm
+ * \brief Returns the inline asm to increment a given hardware register
+ */
+llvm::InlineAsm* incrementRegisterAsm(llvm::IRBuilder<>& builder,
+                                      std::string_view reg);
+
 /** \fn getEventCtorType
  * \brief Return the generic event constructor type
  */

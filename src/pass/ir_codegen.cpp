@@ -289,6 +289,21 @@ llvm::Function* getFunction(llvm::Module& mod, llvm::StringRef name,
     return fun;
 }
 
+llvm::InlineAsm* incrementRegisterAsm(llvm::IRBuilder<>& builder,
+                                      std::string_view reg) {
+    auto instr = llvm::Twine("s_add_u32 ")
+                     .concat(reg)
+                     .concat(", ")
+                     .concat(reg)
+                     .concat(", 1")
+                     .str();
+    auto constraints = llvm::Twine("~{").concat(reg).concat("}").str();
+
+    auto* void_ty = builder.getVoidTy();
+    auto* f_ty = llvm::FunctionType::get(void_ty, {}, false);
+    return llvm::InlineAsm::get(f_ty, instr, constraints, true);
+}
+
 InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
     auto& context = mod.getContext();
 

@@ -343,18 +343,7 @@ llvm::Value* WaveCountersInstrumentationPass::getCounterAndIncrement(
     llvm::Module& mod, llvm::IRBuilder<>& builder, unsigned bb,
     std::string_view reg) {
 
-    auto instr = llvm::Twine("s_add_u32 ")
-                     .concat(reg)
-                     .concat(", ")
-                     .concat(reg)
-                     .concat(", 1")
-                     .str();
-    auto constraints = llvm::Twine("~{").concat(reg).concat("}").str();
-
-    auto* void_ty = builder.getVoidTy();
-    auto* f_ty = llvm::FunctionType::get(void_ty, {}, false);
-    auto* inc_sgpr = llvm::InlineAsm::get(f_ty, instr, constraints, true);
-
+    auto* inc_sgpr = incrementRegisterAsm(builder, reg);
     return builder.CreateCall(inc_sgpr, {});
 }
 
