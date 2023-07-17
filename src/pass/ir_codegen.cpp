@@ -95,7 +95,7 @@ llvm::CallInst* firstCallToFunction(llvm::Function& f,
                                     const std::string& function) {
     return dyn_cast<llvm::CallInst>(
         &(*findInstruction(f, [&function](auto* instr) {
-            if (auto* call_inst = dyn_cast<llvm::CallInst>(instr)) {
+            if (auto* call_inst = llvm::dyn_cast<llvm::CallInst>(instr)) {
                 return call_inst->getCalledFunction()->getName() == function;
             } else {
                 return false;
@@ -148,9 +148,10 @@ llvm::BasicBlock::iterator getFirstNonPHIOrDbgOrAlloca(llvm::BasicBlock& bb) {
 
     if (bb.isEntryBlock()) {
         llvm::BasicBlock::iterator End = bb.end();
-        while (InsertPt != End && (isa<llvm::AllocaInst>(*InsertPt) ||
-                                   isa<llvm::DbgInfoIntrinsic>(*InsertPt) ||
-                                   isa<llvm::PseudoProbeInst>(*InsertPt))) {
+        while (InsertPt != End &&
+               (llvm::isa<llvm::AllocaInst>(*InsertPt) ||
+                llvm::isa<llvm::DbgInfoIntrinsic>(*InsertPt) ||
+                llvm::isa<llvm::PseudoProbeInst>(*InsertPt))) {
             if (const llvm::AllocaInst* AI =
                     dyn_cast<llvm::AllocaInst>(&*InsertPt)) {
                 if (!AI->isStaticAlloca())
@@ -169,13 +170,15 @@ void setInsertPointPastAllocas(llvm::IRBuilderBase& builder,
 }
 
 bool isBlockInstrumentable(const llvm::BasicBlock& block) {
-    if (block.isEntryBlock() || isa<llvm::ReturnInst>(block.getTerminator())) {
+    if (block.isEntryBlock() ||
+        llvm::isa<llvm::ReturnInst>(block.getTerminator())) {
         return true;
     }
 
     for (const auto& parent : llvm::predecessors(&block)) {
         auto* term = parent->getTerminator();
-        if (isa<llvm::BranchInst>(term) || isa<llvm::SwitchInst>(term)) {
+        if (llvm::isa<llvm::BranchInst>(term) ||
+            llvm::isa<llvm::SwitchInst>(term)) {
             return true;
         }
     }
@@ -423,7 +426,7 @@ llvm::Function& cloneWithName(llvm::Function& f, const std::string& name,
 
     auto callee = mod.getOrInsertFunction(name, new_fun_type);
 
-    if (isa<llvm::Function>(callee.getCallee())) {
+    if (llvm::isa<llvm::Function>(callee.getCallee())) {
         return *dyn_cast<llvm::Function>(&*callee.getCallee());
     } else {
         throw std::runtime_error("Could not clone function");
@@ -466,9 +469,9 @@ void pushAdditionalArguments(llvm::Function& f,
 
     // Replace the void* array with additional size, modify types for each
     auto alloca_array = findInstruction(f, [](const auto* inst) -> bool {
-        if (auto* alloca_inst = dyn_cast<llvm::AllocaInst>(inst)) {
+        if (auto* alloca_inst = llvm::dyn_cast<llvm::AllocaInst>(inst)) {
             return hasUse(inst, [alloca_inst](const auto* v) -> bool {
-                if (auto* call_inst = dyn_cast<llvm::CallInst>(v)) {
+                if (auto* call_inst = llvm::dyn_cast<llvm::CallInst>(v)) {
                     return hasFunctionCall(*call_inst, "hipLaunchKernel") &&
                            call_inst->getArgOperand(5) == alloca_inst;
                 }
@@ -483,7 +486,8 @@ void pushAdditionalArguments(llvm::Function& f,
         throw std::runtime_error("Could not find allocated args array");
     }
 
-    auto* alloca_array_inst = dyn_cast<llvm::AllocaInst>(&(*alloca_array));
+    auto* alloca_array_inst =
+        llvm::dyn_cast<llvm::AllocaInst>(&(*alloca_array));
 
     builder.SetInsertPoint(alloca_array_inst);
     auto array_size = getArraySize(alloca_array_inst);

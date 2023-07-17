@@ -147,7 +147,7 @@ bool hasUse(const llvm::Value* v,
 template <typename T>
 llvm::BasicBlock::iterator firstInstructionOf(llvm::Function& f) {
     return findInstruction(
-        f, [](const llvm::Instruction* i) { return isa<T>(i); });
+        f, [](const llvm::Instruction* i) { return llvm::isa<T>(i); });
 }
 
 void setInsertPointPastAllocas(llvm::IRBuilderBase& builder, llvm::Function& f);

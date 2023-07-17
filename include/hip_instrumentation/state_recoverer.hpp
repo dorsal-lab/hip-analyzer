@@ -144,7 +144,7 @@ class HipMemoryManager {
         std::scoped_lock lock(mutex);
         try {
             return alloc_map.at(ptr);
-        } catch (std::out_of_range e) {
+        } catch (std::out_of_range& e) {
             std::cerr << "Accessing " << std::hex << ptr << std::dec << '\n';
             throw std::runtime_error("HipMemoryManager::getTaggedPtr() : "
                                      "Unregistered pointer access");

@@ -28,7 +28,7 @@ message(${CMAKE_PREFIX_PATH})
 
 # HIP
 
-find_package(hip)
+find_package(hip REQUIRED)
 
 # LLVM & Clang
 
@@ -37,7 +37,6 @@ link_directories(BEFORE ${ROCM_LLVM}/lib ${ROCM_PATH}/lib)
 set(LLVM_LINK_COMPONENTS support)
 find_package(Clang REQUIRED)
 find_package(LLVM CONFIG REQUIRED)
-message(${LLVM_INSTALL_PREFIX})
 
 include_directories(
     include
@@ -150,7 +149,7 @@ add_library(hip_instrumentation
 target_link_libraries(hip_instrumentation
     hip::host
     jsoncpp
-    rocprofiler64
+    rocprofiler64v2
     dl
     pthread
 )

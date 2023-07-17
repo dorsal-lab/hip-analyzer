@@ -150,7 +150,7 @@ hip::QueueInfo*
 newHipThreadQueueInfo(hip::ThreadCounterInstrumenter* thread_inst,
                       EventType event_type, QueueType queue_type) {
 
-    constexpr auto extra_size = 20u; // Extra padding just in case
+    constexpr auto extra_size = 2u; // Extra padding just in case
     switch (queue_type) {
     case QueueType::Thread:
         switch (event_type) {
