@@ -92,20 +92,21 @@ class WaveTrace : public TraceType {
         idx_map.clear(); // Reset map
 
         auto& entry = kernel.getEntryBlock();
-        llvm::IRBuilder<> builder_locals(&entry);
-        setInsertPointPastAllocas(builder_locals, kernel);
-
-        // alloca = builder_locals.CreateAlloca(i32_ty, 0, nullptr, "");
+        llvm::IRBuilder<> builder(&entry);
 
         for (auto& bb : kernel) {
-            builder_locals.SetInsertPoint(&bb.front());
+            llvm::dbgs() << "BB : \n" << bb << '\n';
+            builder.SetInsertPoint(&*bb.getFirstNonPHIOrDbgOrAlloca());
 
-            auto* dummy_idx = initializeSGPR(builder_locals, 0u, "s20");
+            if (bb.isEntryBlock()) {
+                // Initialize s[20:21] to base offset (thread storage)
+                // initializeSGPR(builder, 0, "s20");
+            }
 
-            auto* incremented = getCounterAndIncrement(
-                *kernel.getParent(), builder_locals, dummy_idx);
+            auto* incremented =
+                getCounterAndIncrement(*kernel.getParent(), builder, nullptr);
 
-            idx_map.insert({&bb, {dummy_idx, incremented}});
+            idx_map.insert({&bb, {incremented, incremented}});
         }
 
         return idx_map;
@@ -129,46 +130,15 @@ class WaveTrace : public TraceType {
         return thread_storage;
     }
 
-    void finalizeTracingIndices(llvm::Function& kernel) override {
-        // Construct phi nodes from predecessors of each bb, then replace all
-        // uses of the original value with the phi node
-        auto* i32_ty = llvm::Type::getInt32Ty(kernel.getContext());
-
-        for (auto& bb : kernel) {
-            llvm::IRBuilder<> builder_locals(&bb.front());
-
-            if (bb.isEntryBlock()) {
-                idx_map[&bb].first->replaceAllUsesWith(
-                    builder_locals.getInt32(0));
-                continue;
-            }
-
-            // TODO check NumReservedValues
-            auto* phi = builder_locals.CreatePHI(i32_ty, 0);
-
-            for (const auto& pred : llvm::predecessors(&bb)) {
-                phi->addIncoming(idx_map[pred].second, pred);
-            }
-
-            // Replace the dummy value created in initTracingIndices by the Phi
-            // node
-            idx_map[&bb].first->replaceAllUsesWith(phi);
-            dyn_cast<llvm::Instruction>(idx_map[&bb].first)->eraseFromParent();
-            idx_map[&bb].first = phi;
-        }
-    }
+    void finalizeTracingIndices(llvm::Function& kernel) override {}
 
     llvm::Value* getCounterAndIncrement(llvm::Module& mod,
                                         llvm::IRBuilder<>& builder,
                                         llvm::Value* counter) override final {
-        if (counter->getType()->isPointerTy()) {
-            throw std::runtime_error("Cannot store wave counters in an "
-                                     "alloca-ted value (or is it in LDS?)");
-        }
+        auto* inc_lsb = incrementRegisterAsm(builder, "s20");
+        auto* inc_msb = incrementRegisterAsm(builder, "s21", true);
 
-        auto* inc_sgpr = incrementRegisterAsm(builder, "s20");
-
-        return builder.CreateCall(inc_sgpr, {counter});
+        return builder.CreateCall(inc_lsb, {});
     }
 
     llvm::Value* traceIdxAtBlock(llvm::BasicBlock& bb) override {
@@ -184,10 +154,6 @@ class WaveTrace : public TraceType {
     llvm::Value* thread_storage = nullptr;
 
   private:
-    // Inline asm to increase a (supposedly) sgpr
-    static constexpr auto* sgpr_inline_asm = "s_add_u32 $0, $0, 1";
-    static constexpr auto* sgpr_asm_constraints = "=s,s";
-
     std::map<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*>> idx_map;
 };
 
@@ -259,6 +225,8 @@ class WaveState : public WaveTrace {
     void createEvent(llvm::Module& mod, llvm::IRBuilder<>& builder,
                      llvm::Value* thread_storage, llvm::Value* counter,
                      uint64_t bb) override {
+        // We are not calling a "simple" device function. This constructor is
+        // handwritten in assembly.
         auto* int64_ty = builder.getInt64Ty();
         auto* ptr_ty = builder.getPtrTy();
         auto* ctor_ty = llvm::FunctionType::get(builder.getVoidTy(),
@@ -279,16 +247,17 @@ class WaveState : public WaveTrace {
   private:
     static constexpr auto* wave_event_ctor_asm =
         // Prepare payload
-        "s_memrealtime s[8:9]\n"                  // timestamp
-        "s_mov_b64 s[10:11], exec\n"              // exec mask
-        "s_getreg_b32 s13, hwreg(HW_REG_HW_ID)\n" // hw_id
-        "s_mov_b32 s12, $0\n"                     // bb
+        "s_memrealtime s[24:25]\n"                // timestamp
+        "s_mov_b64 s[26:27], exec\n"              // exec mask
+        "s_getreg_b32 s22, hwreg(HW_REG_HW_ID)\n" // hw_id
+        "s_mov_b32 s23, $0\n"                     // bb
 
         // Write to mem
-        "s_store_dwordx4 s[8:11], $1, 0\n"
-        "s_store_dwordx2 s[12:13], $1, 4\n";
+        "s_store_dwordx4 s[24:27], s[20:21], 0\n"
+        "s_store_dwordx2 s[22:23], s[20:21], 4\n";
     static constexpr auto* wave_event_ctor_constraints =
-        "i,s,~{s8},~{s9},~{s10},~{s11},~{s12},~{s13}";
+        "i,s,~{s22},~{s23},~{s24},~{s25},~{s26},~{s27}," // Temp values
+        "~{s20},~{s21}";                                 // Address
 };
 
 } // namespace

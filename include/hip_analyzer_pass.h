@@ -215,7 +215,7 @@ class TraceType {
             llvm::Type::getInt64Ty(context),
             mod.getDataLayout()
                 .getTypeAllocSize(getEventType(context))
-                .getFixedSize());
+                .getFixedValue());
     };
 
     /** \fn getOffsetGetter
