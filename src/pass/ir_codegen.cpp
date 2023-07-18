@@ -13,6 +13,7 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
+#include <string>
 
 #include "ir_codegen.h"
 #include "llvm_instr_counters.h"
@@ -248,6 +249,58 @@ llvm::Value* readFirstLaneI64(llvm::IRBuilder<>& builder,
 
     auto* lsb_sgpr = builder.CreateCall(readfirstlane, lsb_vgpr);
     auto* msb_sgpr = builder.CreateCall(readfirstlane, msb_vgpr);
+
+    auto* sgpr_pair = builder.CreateInsertElement(
+        llvm::UndefValue::get(double_i32_ty), lsb_sgpr, 0ul);
+    sgpr_pair = builder.CreateInsertElement(sgpr_pair, msb_sgpr, 1ul);
+
+    auto* sgpr = builder.CreateBitCast(sgpr_pair, i64_ty);
+    if (ptr) {
+        return builder.CreateIntToPtr(sgpr, ptr_ty);
+    } else {
+        return sgpr;
+    }
+}
+
+llvm::Value* readFirstLaneI64(llvm::IRBuilder<>& builder, llvm::Value* i64_vgpr,
+                              uint8_t reg) {
+    auto* ptr_ty = builder.getPtrTy();
+    auto* i32_ty = builder.getInt32Ty();
+    auto* i64_ty = builder.getInt64Ty();
+
+    auto reg_num = static_cast<unsigned int>(reg);
+    auto reg_lsb = llvm::Twine('s').concat(std::to_string(reg_num)).str();
+    auto reg_msb = llvm::Twine('s').concat(std::to_string(reg_num + 1)).str();
+
+    auto* double_i32_ty =
+        llvm::VectorType::get(i32_ty, llvm::ElementCount::getFixed(2));
+
+    auto* f_ty = llvm::FunctionType::get(i32_ty, {i32_ty}, false);
+
+    auto instr = llvm::Twine("v_readfirstlane_b32 $0, $1").str();
+    auto constraints_lsb =
+        llvm::Twine("={").concat(reg_lsb).concat("},v").str();
+    auto constraints_msb =
+        llvm::Twine("={").concat(reg_msb).concat("},v").str();
+
+    auto* readfirstlane_lsb =
+        llvm::InlineAsm::get(f_ty, instr, constraints_lsb, true);
+    auto* readfirstlane_msb =
+        llvm::InlineAsm::get(f_ty, instr, constraints_msb, true);
+
+    // Convert to i64 if the value is a pointer
+    bool ptr = i64_vgpr->getType()->isPointerTy();
+    if (ptr) {
+        i64_vgpr = builder.CreatePtrToInt(i64_vgpr, i64_ty);
+    }
+
+    auto* vgpr_pair = builder.CreateBitCast(i64_vgpr, double_i32_ty);
+
+    auto* lsb_vgpr = builder.CreateExtractElement(vgpr_pair, 0ul);
+    auto* msb_vgpr = builder.CreateExtractElement(vgpr_pair, 1ul);
+
+    auto* lsb_sgpr = builder.CreateCall(readfirstlane_lsb, lsb_vgpr);
+    auto* msb_sgpr = builder.CreateCall(readfirstlane_msb, msb_vgpr);
 
     auto* sgpr_pair = builder.CreateInsertElement(
         llvm::UndefValue::get(double_i32_ty), lsb_sgpr, 0ul);

@@ -190,6 +190,13 @@ InstrumentedBlock getBlockInfo(const llvm::BasicBlock& block, unsigned int i);
 llvm::Value* readFirstLaneI64(llvm::IRBuilder<>& builder,
                               llvm::Value* i64_vgpr);
 
+/** \fn readFirstLaneI64
+ * \brief Converts an i64 (or ptr) VGPR value to an i64 that will be stored in
+ * the given register name
+ */
+llvm::Value* readFirstLaneI64(llvm::IRBuilder<>& builder, llvm::Value* i64_vgpr,
+                              uint8_t reg);
+
 /** \fn initializeSGPR
  * \brief Initializes a i32 SGPR to the given value
  */

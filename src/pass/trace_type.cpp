@@ -126,7 +126,7 @@ class WaveTrace : public TraceType {
         // Because readfirstlane is only for 32 bit integers, we have to perform
         // two readlanes then assemble the result after a zext
 
-        thread_storage = readFirstLaneI64(builder, vgpr);
+        thread_storage = readFirstLaneI64(builder, vgpr, 20);
         return thread_storage;
     }
 
