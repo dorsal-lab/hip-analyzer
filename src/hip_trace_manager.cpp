@@ -131,8 +131,6 @@ std::ostream& dumpEventsBin(std::ostream& out,
     return out;
 }
 
-std::unique_ptr<HipTraceManager> HipTraceManager::instance;
-
 HipTraceManager::HipTraceManager() {
     // Startup thread
     fs_thread = std::make_unique<std::thread>([this]() { runThread(); });

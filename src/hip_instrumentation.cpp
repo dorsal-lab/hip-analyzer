@@ -7,6 +7,7 @@
 #include "hip_instrumentation/hip_instrumentation.hpp"
 #include "hip_instrumentation/hip_trace_manager.hpp"
 #include "hip_instrumentation/hip_utils.hpp"
+#include "hip_instrumentation/state_recoverer.hpp"
 
 #include <chrono>
 #include <filesystem>
@@ -22,6 +23,12 @@
 #include "rocprofiler/v2/rocprofiler.h"
 
 namespace hip {
+
+// The order in which these are destroyed may cause a deadlock, due to the
+// HipMemoryManager hanging on hipFree if it is called after destruction from
+// the fs_thread
+std::unique_ptr<HipMemoryManager> HipMemoryManager::instance;
+std::unique_ptr<HipTraceManager> HipTraceManager::instance;
 
 // ---- Instrumentation ----- //
 

@@ -59,8 +59,6 @@ void StateRecoverer::rollback() const {
     }
 }
 
-std::unique_ptr<HipMemoryManager> HipMemoryManager::instance;
-
 HipMemoryManager::HipMemoryManager() {
     so_handle = dlopen("libamdhip64.so", RTLD_LAZY);
     if (!so_handle) {
@@ -123,9 +121,6 @@ HipMemoryManager::~HipMemoryManager() {
 extern "C" {
 hipError_t hipMalloc(void** ptr, size_t size) {
     auto err = hip::HipMemoryManager::getInstance().hipMalloc(ptr, size);
-#ifdef HIP_INSTRUMENTATION_VERBOSE
-    std::cout << "hipMalloc : " << *ptr << " (" << size << ")\n";
-#endif
     lttng_ust_tracepoint(hip_instrumentation, hipMalloc, *ptr, size);
     if (err != hipSuccess) {
         throw std::bad_alloc();
@@ -134,9 +129,6 @@ hipError_t hipMalloc(void** ptr, size_t size) {
 }
 
 hipError_t hipFree(void* ptr) {
-#ifdef HIP_INSTRUMENTATION_VERBOSE
-    std::cout << "hipFree : " << ptr << '\n';
-#endif
     lttng_ust_tracepoint(hip_instrumentation, hipFree, ptr);
     return hip::HipMemoryManager::getInstance().hipFree(ptr);
 }
