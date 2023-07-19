@@ -290,7 +290,7 @@ class WaveCounterInstrumenter : public CounterInstrumenter {
     using counter_t = uint32_t;
 
     WaveCounterInstrumenter(KernelInfo& ki) : CounterInstrumenter(ki) {
-        instr_size = kernel_info->wavefrontCount() * kernel_info->basic_blocks;
+        instr_size = kernel_info->wavefrontCount();
         reserve();
     }
 
@@ -313,7 +313,7 @@ class WaveCounterInstrumenter : public CounterInstrumenter {
      */
     const KernelInfo& setKernelInfo(KernelInfo& ki) override {
         kernel_info.emplace(ki);
-        instr_size = kernel_info->wavefrontCount() * kernel_info->basic_blocks;
+        instr_size = kernel_info->wavefrontCount();
         reserve();
 
         return *kernel_info;
