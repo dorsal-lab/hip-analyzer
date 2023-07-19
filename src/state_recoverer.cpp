@@ -109,7 +109,7 @@ hipError_t HipMemoryManager::hipFreeWrapper(void* ptr) {
 
 HipMemoryManager::~HipMemoryManager() {
     std::scoped_lock lock(mutex);
-    if (auto* env = std::getenv("HIP_MEM_VERBOSE")) {
+    if (std::getenv("HIP_MEM_VERBOSE") != nullptr) {
         for (auto& [ptr, tagged_ptr] : alloc_map) {
             std::cout
                 << "HipMemoryManager::~HipMemoryManager() : unfreed object "

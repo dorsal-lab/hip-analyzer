@@ -220,8 +220,8 @@ void HipTraceManager::handlePayload(EventsQueuePayload&& payload,
                                     std::ofstream& out) {
     auto& [events, queue_info] = payload;
 
-    const auto* data = queue_info.events().data();
-    auto stamp = queue_info.getInstrumenter()->getStamp();
+    [[maybe_unused]] const auto* data = queue_info.events().data();
+    [[maybe_unused]] auto stamp = queue_info.getInstrumenter()->getStamp();
 
     lttng_ust_tracepoint(hip_instrumentation, collector_dump_wave, &out, data,
                          stamp);

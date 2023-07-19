@@ -160,10 +160,8 @@ newHipThreadQueueInfo(hip::ThreadCounterInstrumenter* thread_inst,
         case EventType::TaggedEvent:
             return new hip::QueueInfo{hip::QueueInfo::thread<hip::TaggedEvent>(
                 *thread_inst, extra_size)};
-
         default:
-            throw std::runtime_error(
-                "newHipQueueInfo() : Unsupported queue type");
+            break;
         }
     case QueueType::Wave:
         switch (event_type) {
@@ -180,6 +178,8 @@ newHipThreadQueueInfo(hip::ThreadCounterInstrumenter* thread_inst,
                 hip::QueueInfo::wave<hip::WaveState>(*thread_inst, extra_size)};
         }
     }
+
+    throw std::logic_error("newHipQueueInfo() : Unsupported queue type");
 }
 
 hip::QueueInfo* newHipWaveQueueInfo(hip::WaveCounterInstrumenter* wave_inst,
@@ -202,6 +202,8 @@ hip::QueueInfo* newHipWaveQueueInfo(hip::WaveCounterInstrumenter* wave_inst,
         return new hip::QueueInfo{
             hip::QueueInfo::wave<hip::WaveState>(*wave_inst)};
     }
+
+    throw std::logic_error("newHipWaveQueueInfo() : Unsupported queue type");
 }
 
 hip::QueueInfo* newHipQueueInfo(hip::CounterInstrumenter* instr,
@@ -219,6 +221,8 @@ hip::QueueInfo* newHipQueueInfo(hip::CounterInstrumenter* instr,
         throw std::logic_error("newHipQueueInfo() : unimplemented Queue info "
                                "from CounterInstrumenter!");
     }
+
+    throw std::logic_error("newHipWaveQueueInfo() : Unsupported queue type");
 }
 
 void* hipQueueInfoAllocBuffer(hip::QueueInfo* queue_info) {

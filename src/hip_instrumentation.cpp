@@ -171,10 +171,10 @@ void ThreadCounterInstrumenter::dumpCsv(const std::string& filename_in) {
     std::ofstream out(filename);
     out << csv_header << '\n';
 
-    for (auto block = 0; block < kernel_info->total_blocks; ++block) {
-        for (auto thread = 0; thread < kernel_info->total_threads_per_blocks;
+    for (auto block = 0u; block < kernel_info->total_blocks; ++block) {
+        for (auto thread = 0u; thread < kernel_info->total_threads_per_blocks;
              ++thread) {
-            for (auto bblock = 0; bblock < kernel_info->basic_blocks;
+            for (auto bblock = 0u; bblock < kernel_info->basic_blocks;
                  ++bblock) {
                 auto index = block * kernel_info->total_threads_per_blocks *
                                  kernel_info->basic_blocks +
