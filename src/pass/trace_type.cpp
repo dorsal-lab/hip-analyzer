@@ -136,9 +136,12 @@ class WaveTrace : public TraceType {
                                         llvm::IRBuilder<>& builder,
                                         llvm::Value* counter) override final {
         auto* inc_lsb = incrementRegisterAsm(builder, "s20");
-        auto* inc_msb = incrementRegisterAsm(builder, "s21", true);
+        auto* inc_msb = incrementRegisterAsm(builder, "s21", true, "0");
 
-        return builder.CreateCall(inc_lsb, {});
+        auto* incremented = builder.CreateCall(inc_lsb, {});
+        builder.CreateCall(inc_msb, {});
+
+        return incremented;
     }
 
     llvm::Value* traceIdxAtBlock(llvm::BasicBlock& bb) override {

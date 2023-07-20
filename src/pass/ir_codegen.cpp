@@ -343,13 +343,15 @@ llvm::Function* getFunction(llvm::Module& mod, llvm::StringRef name,
 }
 
 llvm::InlineAsm* incrementRegisterAsm(llvm::IRBuilder<>& builder,
-                                      std::string_view reg, bool carry) {
+                                      std::string_view reg, bool carry,
+                                      std::string_view inc) {
     const char* opcode = carry ? "s_addc_u32 " : "s_add_u32 ";
     auto instr = llvm::Twine(opcode)
                      .concat(reg)
                      .concat(", ")
                      .concat(reg)
-                     .concat(", 1")
+                     .concat(", ")
+                     .concat(inc)
                      .str();
     auto constraints = llvm::Twine("~{").concat(reg).concat("}").str();
 

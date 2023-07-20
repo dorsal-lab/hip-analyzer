@@ -213,7 +213,8 @@ llvm::Function* getFunction(llvm::Module& mod, llvm::StringRef name,
  * \brief Returns the inline asm to increment a given hardware register
  */
 llvm::InlineAsm* incrementRegisterAsm(llvm::IRBuilder<>& builder,
-                                      std::string_view reg, bool carry = false);
+                                      std::string_view reg, bool carry = false,
+                                      std::string_view inc = "1");
 
 /** \fn getEventCtorType
  * \brief Return the generic event constructor type
