@@ -135,7 +135,7 @@ class WaveTrace : public TraceType {
     llvm::Value* getCounterAndIncrement(llvm::Module& mod,
                                         llvm::IRBuilder<>& builder,
                                         llvm::Value* counter) override final {
-        auto* inc_lsb = incrementRegisterAsm(builder, "s20");
+        auto* inc_lsb = incrementRegisterAsm(builder, "s20", false, "24");
         auto* inc_msb = incrementRegisterAsm(builder, "s21", true, "0");
 
         auto* incremented = builder.CreateCall(inc_lsb, {});
@@ -203,7 +203,7 @@ class WaveState : public WaveTrace {
     llvm::Type* getEventType(llvm::LLVMContext& context) const override {
         auto* i64 = llvm::Type::getInt64Ty(context);
         auto* i32 = llvm::Type::getInt32Ty(context);
-        return llvm::StructType::create(context, {i64, i64, i64, i32},
+        return llvm::StructType::create(context, {i64, i64, i32, i32},
                                         "hipWaveState");
     }
 
