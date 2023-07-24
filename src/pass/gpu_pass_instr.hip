@@ -12,15 +12,38 @@ extern "C" {
 
 // ----- Utils ----- //
 
-__device__ uint32_t _hip_wave_id_1d() {
-    size_t waves_per_block = blockDim.x / warpSize;
-    if (blockDim.x % warpSize != 0) {
+__device__ uint32_t _hip_flat_size() {
+    return blockDim.x * blockDim.y * blockDim.z * gridDim.x * gridDim.y * gridDim.z;
+}
+
+__device__ uint32_t _hip_flat_block_id() {
+    return blockIdx.x + blockIdx.y * gridDim.x + blockIdx.z * gridDim.x * gridDim.y;
+}
+
+__device__ uint32_t _hip_flat_thread_id() {
+    return threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.y * blockDim.x;
+}
+
+__device__ uint32_t _hip_flat_block_size() {
+    return blockDim.x * blockDim.y * blockDim.z;
+}
+
+__device__ uint32_t _hip_waves_per_block() {
+    auto block_size = _hip_flat_block_size();
+    uint32_t waves_per_block = block_size / warpSize;
+    if (block_size % warpSize != 0) {
         ++waves_per_block;
     }
 
-    auto wave_in_block = threadIdx.x / warpSize;
+    return waves_per_block;
+}
 
-    return blockIdx.x * waves_per_block + wave_in_block;
+__device__ uint32_t _hip_wave_id_1d() {
+    auto block_id = _hip_flat_block_id();
+    auto waves_per_block = _hip_waves_per_block();
+    auto wave_in_block = _hip_flat_thread_id() / warpSize;
+
+    return block_id * waves_per_block + wave_in_block;
 }
 
 // ----- Counters instrumentation ----- //
