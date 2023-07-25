@@ -9,8 +9,10 @@
 
 #include "hip/hip_runtime.h"
 
+#include <chrono>
 #include <dlfcn.h>
 #include <new>
+#include <thread>
 
 #include "hip_analyzer_tracepoints.h"
 
@@ -86,11 +88,24 @@ hipError_t HipMemoryManager::hipMallocWrapper(void** ptr, size_t size,
                                               size_t el_size) {
     std::scoped_lock lock(mutex);
     hipError_t err = hipMallocHandler(ptr, size);
+
+    // We might quickly run out of memory if kernels are executed back to back.
+    // Try to wait a bit before returning an error
+    if (err == hipErrorOutOfMemory) {
+        auto waited = 0u;
+        do {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            ++waited;
+            err = hipMallocHandler(ptr, size);
+        } while (err == hipErrorOutOfMemory && waited < 1000u);
+    }
+
     if (err == hipSuccess) {
         TaggedPointer tagged_ptr{static_cast<uint8_t*>(*ptr), size, el_size};
 
         alloc_map.emplace(std::make_pair(*ptr, tagged_ptr));
     }
+
     return err;
 }
 
@@ -123,7 +138,9 @@ hipError_t hipMalloc(void** ptr, size_t size) {
     auto err = hip::HipMemoryManager::getInstance().hipMalloc(ptr, size);
     lttng_ust_tracepoint(hip_instrumentation, hipMalloc, *ptr, size);
     if (err != hipSuccess) {
-        throw std::bad_alloc();
+        throw std::runtime_error(
+            std::string("hipMalloc() : allocation error, ") +
+            hipGetErrorString(err));
     }
     return err;
 }
