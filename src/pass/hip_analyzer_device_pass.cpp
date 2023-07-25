@@ -297,21 +297,20 @@ bool WaveCountersInstrumentationPass::instrumentFunction(
     auto* raw_storage_ptr = f.getArg(f.arg_size() - 1); // Last arg
 
     llvm::IRBuilder<> builder(&f.getEntryBlock());
-    builder.SetInsertPointPastAllocas(&f);
 
     // First pass : create fake (zero) values and increment them
     unsigned int bb_id = 0u;
     for (auto& bb : f) {
-        builder.SetInsertPoint(&*bb.getFirstNonPHIOrDbgOrAlloca());
-
         if (bb.isEntryBlock()) {
+            builder.SetInsertPoint(&bb.front());
             initializeSGPR(builder, 0, "s20");
         }
 
+        builder.SetInsertPoint(&*bb.getFirstNonPHIOrDbgOrAlloca());
+
         // Counting register is fixed as s20, being the first non-allocated
         // scalar in the kernel prelude
-        auto* incremented =
-            getCounterAndIncrement(*f.getParent(), builder, bb_id, "s20");
+        getCounterAndIncrement(*f.getParent(), builder, bb_id, "s20");
 
         ++bb_id;
     }
@@ -357,7 +356,7 @@ void WaveCountersInstrumentationPass::storeCounter(llvm::IRBuilder<>& builder,
                      .concat(reg)
                      .concat(", $0, ")
                      .concat(std::to_string(dword_size * bb))
-                     .concat("\ns_waitcnt 0\ns_dcache_wb")
+                     .concat("\ns_dcache_wb\ns_waitcnt 0")
                      .str();
     auto constraints = llvm::Twine("s,~{").concat(reg).concat("}").str();
 
