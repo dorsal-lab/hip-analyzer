@@ -12,6 +12,7 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Value.h"
+#include <string>
 
 namespace hip {
 namespace {
@@ -99,8 +100,7 @@ class WaveTrace : public TraceType {
             builder.SetInsertPoint(&*bb.getFirstNonPHIOrDbgOrAlloca());
 
             if (bb.isEntryBlock()) {
-                // Initialize s[20:21] to base offset (thread storage)
-                // initializeSGPR(builder, 0, "s20");
+                continue;
             }
 
             auto* incremented =
@@ -126,7 +126,7 @@ class WaveTrace : public TraceType {
         // Because readfirstlane is only for 32 bit integers, we have to perform
         // two readlanes then assemble the result after a zext
 
-        thread_storage = readFirstLaneI64(builder, vgpr, 20);
+        thread_storage = readFirstLaneI64(builder, vgpr, index_register);
         return thread_storage;
     }
 
@@ -135,8 +135,9 @@ class WaveTrace : public TraceType {
     llvm::Value* getCounterAndIncrement(llvm::Module& mod,
                                         llvm::IRBuilder<>& builder,
                                         llvm::Value* counter) override final {
-        auto* inc_lsb = incrementRegisterAsm(builder, "s20", false, "24");
-        auto* inc_msb = incrementRegisterAsm(builder, "s21", true, "0");
+        auto* inc_lsb = incrementRegisterAsm(builder, index_lsb, false,
+                                             std::to_string(eventSize()));
+        auto* inc_msb = incrementRegisterAsm(builder, index_msb, true, "0");
 
         auto* incremented = builder.CreateCall(inc_lsb, {});
         builder.CreateCall(inc_msb, {});
@@ -153,8 +154,14 @@ class WaveTrace : public TraceType {
                              llvm::Value* thread_storage, llvm::Value* counter,
                              uint64_t bb) override = 0;
 
+    virtual size_t eventSize() const = 0;
+
   protected:
     llvm::Value* thread_storage = nullptr;
+    constexpr static uint8_t index_register = 22;
+
+    std::string index_lsb = 's' + std::to_string(index_register);
+    std::string index_msb = 's' + std::to_string(index_register + 1);
 
   private:
     std::map<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*>> idx_map;
@@ -247,20 +254,22 @@ class WaveState : public WaveTrace {
                            {getIndex(bb, mod.getContext()), thread_storage});
     }
 
+    size_t eventSize() const override { return 24u; }
+
   private:
     static constexpr auto* wave_event_ctor_asm =
         // Prepare payload
         "s_memrealtime s[24:25]\n"                // timestamp
         "s_mov_b64 s[26:27], exec\n"              // exec mask
-        "s_getreg_b32 s22, hwreg(HW_REG_HW_ID)\n" // hw_id
-        "s_mov_b32 s23, $0\n"                     // bb
+        "s_getreg_b32 s28, hwreg(HW_REG_HW_ID)\n" // hw_id
+        "s_mov_b32 s29, $0\n"                     // bb
 
         // Write to mem
-        "s_store_dwordx4 s[24:27], s[20:21], 0\n"
-        "s_store_dwordx2 s[22:23], s[20:21], 4\n";
+        "s_store_dwordx4 s[24:27], s[22:23], 0\n"
+        "s_store_dwordx2 s[28:29], s[22:23], 16\n";
     static constexpr auto* wave_event_ctor_constraints =
         "i,s,~{s22},~{s23},~{s24},~{s25},~{s26},~{s27}," // Temp values
-        "~{s20},~{s21}";                                 // Address
+        "~{s28},~{s29}";                                 // Address
 };
 
 } // namespace

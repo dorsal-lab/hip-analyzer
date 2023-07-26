@@ -303,14 +303,14 @@ bool WaveCountersInstrumentationPass::instrumentFunction(
     for (auto& bb : f) {
         if (bb.isEntryBlock()) {
             builder.SetInsertPoint(&bb.front());
-            initializeSGPR(builder, 0, "s20");
+            initializeSGPR(builder, 0, index_reg_str);
+        } else {
+            builder.SetInsertPoint(&*bb.getFirstNonPHIOrDbgOrAlloca());
         }
-
-        builder.SetInsertPoint(&*bb.getFirstNonPHIOrDbgOrAlloca());
 
         // Counting register is fixed as s20, being the first non-allocated
         // scalar in the kernel prelude
-        getCounterAndIncrement(*f.getParent(), builder, bb_id, "s20");
+        getCounterAndIncrement(*f.getParent(), builder, bb_id, index_reg_str);
 
         ++bb_id;
     }
@@ -330,7 +330,7 @@ bool WaveCountersInstrumentationPass::instrumentFunction(
         if (isa<llvm::ReturnInst>(terminator)) {
             builder.SetInsertPoint(terminator);
 
-            storeCounter(builder, storage_ptr, 0, "s20");
+            storeCounter(builder, storage_ptr, 0, index_reg_str);
         }
     }
 

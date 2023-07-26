@@ -180,6 +180,10 @@ struct WaveCountersInstrumentationPass : public CountersInstrumentationPass {
 
     void storeCounter(llvm::IRBuilder<>& builder, llvm::Value* ptr, unsigned bb,
                       std::string_view reg);
+
+  protected:
+    constexpr static uint8_t index_reg = 22u;
+    std::string index_reg_str = 's' + std::to_string(index_reg);
 };
 
 /** \class TraceType
