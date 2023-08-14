@@ -158,7 +158,7 @@ class WaveTrace : public TraceType {
 
   protected:
     llvm::Value* thread_storage = nullptr;
-    constexpr static uint8_t index_register = 22;
+    constexpr static uint8_t index_register = 20u;
 
     std::string index_lsb = 's' + std::to_string(index_register);
     std::string index_msb = 's' + std::to_string(index_register + 1);
@@ -237,10 +237,9 @@ class WaveState : public WaveTrace {
                      uint64_t bb) override {
         // We are not calling a "simple" device function. This constructor is
         // handwritten in assembly.
-        auto* int64_ty = builder.getInt64Ty();
-        auto* ptr_ty = builder.getPtrTy();
-        auto* ctor_ty = llvm::FunctionType::get(builder.getVoidTy(),
-                                                {int64_ty, ptr_ty}, false);
+        auto* int32_ty = builder.getInt32Ty();
+        auto* ctor_ty =
+            llvm::FunctionType::get(builder.getVoidTy(), {int32_ty}, false);
 
         auto* ctor = llvm::InlineAsm::get(ctor_ty, wave_event_ctor_asm,
                                           wave_event_ctor_constraints, true);
@@ -248,10 +247,7 @@ class WaveState : public WaveTrace {
         // llvm::dbgs() << "Base storage " << *thread_storage << '\n';
         // llvm::dbgs() << "Counter " << *counter << '\n';
 
-        thread_storage = builder.CreateIntToPtr(thread_storage, ptr_ty);
-
-        builder.CreateCall(ctor,
-                           {getIndex(bb, mod.getContext()), thread_storage});
+        builder.CreateCall(ctor, {builder.getInt32(bb)});
     }
 
     size_t eventSize() const override { return 24u; }
@@ -265,11 +261,10 @@ class WaveState : public WaveTrace {
         "s_mov_b32 s29, $0\n"                     // bb
 
         // Write to mem
-        "s_store_dwordx4 s[24:27], s[22:23], 0\n"
-        "s_store_dwordx2 s[28:29], s[22:23], 16\n";
+        "s_store_dwordx4 s[24:27], s[20:21], 0\n"
+        "s_store_dwordx2 s[28:29], s[20:21], 16\n";
     static constexpr auto* wave_event_ctor_constraints =
-        "i,s,~{s22},~{s23},~{s24},~{s25},~{s26},~{s27}," // Temp values
-        "~{s28},~{s29}";                                 // Address
+        "i,~{s24},~{s25},~{s26},~{s27},~{s28},~{s29}"; // Temp values
 };
 
 } // namespace
