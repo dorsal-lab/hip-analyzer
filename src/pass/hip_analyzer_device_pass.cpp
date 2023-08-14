@@ -358,7 +358,7 @@ void WaveCountersInstrumentationPass::storeCounter(llvm::IRBuilder<>& builder,
                      .concat(std::to_string(dword_size * bb))
                      .concat("\ns_dcache_wb\ns_waitcnt 0")
                      .str();
-    auto constraints = llvm::Twine("s,~{").concat(reg).concat("}").str();
+    auto constraints = "s";
 
     auto* ptr_ty = builder.getPtrTy();
 
