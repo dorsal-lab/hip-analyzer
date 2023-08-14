@@ -24,7 +24,7 @@ static llvm::cl::opt<std::string>
 static llvm::cl::opt<bool>
     do_trace("hip-trace",
              llvm::cl::desc("hip-analyzer add to trace kernel values"),
-             llvm::cl::init(false));
+             llvm::cl::init(true));
 
 llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
     return {
@@ -49,18 +49,24 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
                     return false;
                 });
 
+            pb.registerOptimizerLastEPCallback(
+                [](llvm::ModulePassManager& pm, llvm::OptimizationLevel Level) {
+                    if (wave_counters) {
+                        pm.addPass(hip::WaveCountersInstrumentationPass());
+                    } else {
+                        pm.addPass(hip::ThreadCountersInstrumentationPass());
+                    }
+
+                    if (do_trace) {
+                        pm.addPass(hip::TracingPass(trace_type.getValue()));
+                    }
+                });
+
             pb.registerPipelineStartEPCallback([](llvm::ModulePassManager& pm,
                                                   llvm::OptimizationLevel
                                                       Level) {
-                if (wave_counters) {
-                    pm.addPass(hip::WaveCountersInstrumentationPass());
-                } else {
-                    pm.addPass(hip::ThreadCountersInstrumentationPass());
-                }
-
-                if (do_trace) {
-                    pm.addPass(hip::TracingPass(trace_type.getValue()));
-                }
+                // Overloading device stubs is only possible before
+                // optimizations (all calls would be inlined)
                 const auto& cfg_prefix =
                     wave_counters
                         ? hip::WaveCountersInstrumentationPass::CounterType
@@ -68,6 +74,7 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
                 pm.addPass(
                     hip::HostPass(do_trace, cfg_prefix, trace_type.getValue()));
             });
+
             pb.registerAnalysisRegistrationCallback(
                 [](llvm::FunctionAnalysisManager& fam) {
                     fam.registerPass([&] { return hip::AnalysisPass(); });
