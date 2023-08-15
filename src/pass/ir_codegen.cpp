@@ -353,7 +353,7 @@ llvm::InlineAsm* incrementRegisterAsm(llvm::IRBuilder<>& builder,
                      .concat(", ")
                      .concat(inc)
                      .str();
-    auto constraints = "";
+    auto constraints = "~{scc}";
 
     auto* void_ty = builder.getVoidTy();
     auto* f_ty = llvm::FunctionType::get(void_ty, {}, false);
