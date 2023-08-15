@@ -322,7 +322,7 @@ llvm::Value* initializeSGPR(llvm::IRBuilder<>& builder, uint32_t initializer,
     auto* f_ty = llvm::FunctionType::get(builder.getVoidTy(), {i32_ty}, false);
 
     auto instr = llvm::Twine("s_mov_b32 ").concat(reg).concat(", $0").str();
-    auto constraints = llvm::Twine("i,~{").concat(reg).concat("}").str();
+    auto constraints = "i";
 
     auto* mov_b32 = llvm::InlineAsm::get(f_ty, instr, constraints, true);
 
@@ -353,7 +353,7 @@ llvm::InlineAsm* incrementRegisterAsm(llvm::IRBuilder<>& builder,
                      .concat(", ")
                      .concat(inc)
                      .str();
-    auto constraints = llvm::Twine("~{").concat(reg).concat("}").str();
+    auto constraints = "";
 
     auto* void_ty = builder.getVoidTy();
     auto* f_ty = llvm::FunctionType::get(void_ty, {}, false);

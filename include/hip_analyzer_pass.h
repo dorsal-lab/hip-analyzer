@@ -182,7 +182,7 @@ struct WaveCountersInstrumentationPass : public CountersInstrumentationPass {
                       std::string_view reg);
 
   protected:
-    constexpr static uint8_t index_reg = 22u;
+    constexpr static uint8_t index_reg = 20u;
     std::string index_reg_str = 's' + std::to_string(index_reg);
 };
 
