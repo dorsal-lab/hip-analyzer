@@ -152,22 +152,21 @@ add_executable(wavestate ${CMAKE_CURRENT_BINARY_DIR}/wavestate.o)
 target_link_libraries(wavestate hip_instrumentation)
 set_target_properties(wavestate PROPERTIES LINKER_LANGUAGE CXX)
 
-
-# ----- wavestate ----- #
+# ----- get_wave_trace_offset ----- #
 
 add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/wave_id.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include -O3 ${CMAKE_SOURCE_DIR}/test/wave_id.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/wave_id.o
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/get_wave_trace_offset.o
+    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include -O3 ${CMAKE_SOURCE_DIR}/test/get_wave_trace_offset.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/get_wave_trace_offset.o
     DEPENDS
         ${CMAKE_SOURCE_DIR}/src/pass/gpu_pass_instr.hip
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/queue_info.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation_cbindings.hpp
-        ${CMAKE_SOURCE_DIR}/test/wave_id.cpp
+        ${CMAKE_SOURCE_DIR}/test/get_wave_trace_offset.cpp
     VERBATIM
 )
 
-add_executable(wave_id ${CMAKE_CURRENT_BINARY_DIR}/wave_id.o)
-target_link_libraries(wave_id hip_instrumentation)
-set_target_properties(wave_id PROPERTIES LINKER_LANGUAGE CXX)
+add_executable(get_wave_trace_offset ${CMAKE_CURRENT_BINARY_DIR}/get_wave_trace_offset.o)
+target_link_libraries(get_wave_trace_offset hip_instrumentation)
+set_target_properties(get_wave_trace_offset PROPERTIES LINKER_LANGUAGE CXX)

@@ -56,4 +56,6 @@ int main() {
     hip::assertC(test_n_threads(2, 0), "2 threads");
     hip::assertC(test_n_threads(6, 0), "6 threads");
     hip::assertC(test_n_threads(64, 0), "64 threads");
+
+    return 0;
 }
