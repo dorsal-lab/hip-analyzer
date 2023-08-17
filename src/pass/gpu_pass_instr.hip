@@ -138,11 +138,11 @@ __device__ void _hip_create_wave_event(void* storage, uint32_t* idx,
 
 // ----- Events constructors ----- //
 
-__device__ void _hip_event_ctor(void* buf, size_t bb) {
+__device__ void _hip_event_ctor(void* buf, uint32_t bb) {
     new (buf) hip::Event{bb};
 }
 
-__device__ void _hip_tagged_event_ctor(void* buf, size_t bb) {
+__device__ void _hip_tagged_event_ctor(void* buf, uint32_t bb) {
     new (buf) hip::TaggedEvent{bb};
 }
 
