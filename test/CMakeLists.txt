@@ -152,6 +152,25 @@ add_executable(wavestate ${CMAKE_CURRENT_BINARY_DIR}/wavestate.o)
 target_link_libraries(wavestate hip_instrumentation)
 set_target_properties(wavestate PROPERTIES LINKER_LANGUAGE CXX)
 
+# ----- wavestate_asm ----- #
+
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/wavestate_asm.o
+    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/wavestate_asm.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/wavestate_asm.o
+    DEPENDS
+        ${CMAKE_SOURCE_DIR}/src/pass/gpu_pass_instr.hip
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/queue_info.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation_cbindings.hpp
+        ${CMAKE_SOURCE_DIR}/test/wavestate_asm.cpp
+    VERBATIM
+)
+
+add_executable(wavestate_asm ${CMAKE_CURRENT_BINARY_DIR}/wavestate_asm.o)
+target_link_libraries(wavestate_asm hip_instrumentation)
+set_target_properties(wavestate_asm PROPERTIES LINKER_LANGUAGE CXX)
+
 # ----- get_wave_trace_offset ----- #
 
 add_custom_command(
