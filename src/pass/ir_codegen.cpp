@@ -456,7 +456,7 @@ TracingFunctions::TracingFunctions(llvm::Module& mod) {
     auto* void_type = llvm::Type::getVoidTy(context);
     auto* ptr_type = llvm::PointerType::getUnqual(context);
     auto* uint64_type = llvm::Type::getInt64Ty(context);
-    // auto* uint32_type = llvm::Type::getInt32Ty(context);
+    auto* uint32_type = llvm::Type::getInt32Ty(context);
 
     // Unqual ptr hides function pointers?
     // auto* _hip_event_ctor_type = getEventCtorType(context);
@@ -465,7 +465,7 @@ TracingFunctions::TracingFunctions(llvm::Module& mod) {
         ptr_type, {ptr_type, ptr_type, uint64_type}, false);
 
     auto* event_creator_type = llvm::FunctionType::get(
-        void_type, {ptr_type, ptr_type, uint64_type, ptr_type, uint64_type},
+        void_type, {ptr_type, ptr_type, uint64_type, ptr_type, uint32_type},
         false);
 
     _hip_get_trace_offset =

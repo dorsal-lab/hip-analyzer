@@ -79,6 +79,8 @@ __device__ void* _hip_wave_ctr_get_offset(uint32_t* base, uint32_t bb_count) {
 
 // ----- Tracing instrumentation ----- //
 
+using offset_getter = void*(*)(void*, size_t*, size_t);
+
 __device__ void* _hip_get_trace_offset(void* storage, size_t* offsets,
                                        size_t event_size) {
     auto thread_id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -105,11 +107,11 @@ __device__ void* _hip_get_wave_trace_offset(void* storage, size_t* offsets,
 }
 
 // Generic function pointer to : void event_ctor(void* storage, size_t bb);
-using event_ctor = void (*)(void*, size_t);
+using event_ctor = void (*)(void*, uint32_t);
 
 __device__ void _hip_create_event(void* storage, uint32_t* idx,
                                   size_t event_size, event_ctor ctor,
-                                  size_t bb) {
+                                  uint32_t bb) {
     auto* bitcast = reinterpret_cast<uint8_t*>(storage);
 
     ctor(&bitcast[*idx * event_size], bb);
@@ -122,7 +124,7 @@ __device__ size_t* _hip_wave_get_index_in_block(size_t* idx_array) {
 
 __device__ void _hip_create_wave_event(void* storage, uint32_t* idx,
                                        size_t event_size, event_ctor ctor,
-                                       size_t bb) {
+                                       uint32_t bb) {
     uint64_t thread = __lastbit_u32_u64(hip::gcnasm::get_exec());
     hip::WaveState state;
     ctor(&state, bb);
@@ -144,7 +146,7 @@ __device__ void _hip_tagged_event_ctor(void* buf, size_t bb) {
     new (buf) hip::TaggedEvent{bb};
 }
 
-__device__ void _hip_wavestate_ctor(void* buf, size_t bb) {
+__device__ void _hip_wavestate_ctor(void* buf, uint32_t bb) {
     new (buf) hip::WaveState{bb};
 }
 }

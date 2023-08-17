@@ -183,10 +183,10 @@ inline __device__ uint64_t get_stamp() {
 /** \struct Event
  * \brief Contains just the basic block id
  */
-struct Event {
-    __device__ Event(size_t bb) : bb(bb) {}
+struct __attribute__((__packed__)) Event {
+    __device__ Event(uint32_t bb) : bb(bb) {}
 
-    size_t bb;
+    uint32_t bb;
 
     static std::string description;
     static std::string name;
@@ -195,28 +195,30 @@ struct Event {
 /** \struct TaggedEvent
  * \brief Event, with an associated timestamp
  */
-struct TaggedEvent {
-    __device__ TaggedEvent(size_t bb) : bb(bb) { stamp = gcnasm::get_stamp(); }
+struct __attribute__((__packed__)) TaggedEvent {
+    __device__ TaggedEvent(uint32_t bb) : bb(bb) {
+        stamp = gcnasm::get_stamp();
+    }
 
-    size_t bb;
     uint64_t stamp;
+    uint32_t bb;
 
     static std::string description;
     static std::string name;
 };
 
-struct WaveState {
+struct __attribute__((__packed__)) WaveState {
     __device__ WaveState() {}
-    __device__ WaveState(size_t bb) : bb(bb) {
+    __device__ WaveState(uint32_t bb) : bb(bb) {
         stamp = gcnasm::get_stamp();
         exec = gcnasm::get_exec();
         hw_id = gcnasm::get_hw_id();
     }
 
-    size_t bb;
     uint64_t stamp;
     uint64_t exec;
     uint32_t hw_id;
+    uint32_t bb;
 
     static std::string description;
     static std::string name;

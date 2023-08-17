@@ -12,14 +12,14 @@
 
 #include <iostream>
 
-__global__ void create_one_event(void* buffer, size_t bb) {
+__global__ void create_one_event(void* buffer, uint32_t bb) {
     uint32_t idx = 0;
 
     _hip_create_wave_event(buffer, &idx, sizeof(hip::WaveState),
                            _hip_wavestate_ctor, bb);
 }
 
-bool test_n_threads(size_t n, size_t bb) {
+bool test_n_threads(size_t n, uint32_t bb) {
     std::cout << "Testing n_threads : " << n << ", " << bb << '\n';
 
     hip::WaveState* wavestate;
