@@ -356,7 +356,7 @@ void WaveCountersInstrumentationPass::storeCounter(llvm::IRBuilder<>& builder,
                      .concat(reg)
                      .concat(", $0, ")
                      .concat(std::to_string(dword_size * bb))
-                     .concat("\ns_dcache_wb\ns_waitcnt 0")
+                     .concat("\ns_waitcnt lgkmcnt(0)\ns_dcache_wb\n")
                      .str();
     auto constraints = "s";
 
@@ -431,7 +431,15 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
 
         auto* counter = event->traceIdxAtBlock(*curr_bb);
 
+        // Create an event
         event->createEvent(mod, builder, thread_storage, counter, bb_instr.id);
+
+        // For all terminating blocks, may need to add instructions to flush
+        auto* terminator = curr_bb->getTerminator();
+        if (llvm::isa<llvm::ReturnInst>(terminator)) {
+            builder.SetInsertPoint(terminator);
+            event->finalize(builder);
+        }
     }
 
     event->finalizeTracingIndices(f);

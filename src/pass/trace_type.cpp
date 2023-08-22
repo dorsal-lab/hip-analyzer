@@ -252,6 +252,19 @@ class WaveState : public WaveTrace {
 
     size_t eventSize() const override { return 24u; }
 
+    void finalize(llvm::IRBuilder<>& builder) const override {
+        // If a wave writes to scalar cache, it has to be explicitely flushed
+        // at the end of the wave lifetime to ensure the following wave does not
+        // overwrite it. This is hardly explained in the ISA description, and
+        // the compiler is supposed to do it itself but does not for inline
+        // assembly.
+        auto* flush_ty =
+            llvm::FunctionType::get(builder.getVoidTy(), {}, false);
+        auto* flush = llvm::InlineAsm::get(flush_ty, flush_asm, "", true);
+
+        builder.CreateCall(flush, {});
+    }
+
   private:
     static constexpr auto* wave_event_ctor_asm =
         // Prepare payload
@@ -265,6 +278,9 @@ class WaveState : public WaveTrace {
         "s_store_dwordx2 s[28:29], s[20:21], 16\n";
     static constexpr auto* wave_event_ctor_constraints =
         "i,~{s24},~{s25},~{s26},~{s27},~{s28},~{s29}"; // Temp values
+
+    static constexpr auto* flush_asm = "s_waitcnt lgkmcnt(0)\n"
+                                       "s_dcache_wb\n";
 };
 
 } // namespace

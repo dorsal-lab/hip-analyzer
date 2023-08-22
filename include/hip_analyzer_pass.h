@@ -298,6 +298,13 @@ class TraceType {
         return llvm::Type::getInt32Ty(mod.getContext());
     }
 
+    /** \fn finalize
+     * \brief This function is called at each terminating point of the
+     * instrumented kernel (returns). This allows to perform trace-specific
+     * operations such as a cache flush
+     */
+    virtual void finalize(llvm::IRBuilder<>& builder) const {}
+
   protected:
     static std::pair<llvm::Value*, llvm::Value*>
     getPair(llvm::LLVMContext& context, uint64_t event, uint64_t queue) {

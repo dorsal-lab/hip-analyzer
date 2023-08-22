@@ -226,7 +226,10 @@ hip::QueueInfo* newHipQueueInfo(hip::CounterInstrumenter* instr,
 }
 
 void* hipQueueInfoAllocBuffer(hip::QueueInfo* queue_info) {
-    return queue_info->allocBuffer();
+    auto ptr = queue_info->allocBuffer();
+    // std::cerr << "Queue buffer " << ptr << ' ' << queue_info->totalSize()
+    //           << '\n';
+    return ptr;
 }
 
 void* hipQueueInfoAllocOffsets(hip::QueueInfo* queue_info) {
