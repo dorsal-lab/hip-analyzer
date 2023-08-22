@@ -28,6 +28,7 @@ __global__ void create_one_event(void* buffer, uint32_t bb) {
                  "s_store_dwordx2 s[28:29], s[20:21], 16\n"
 
                  "s_waitcnt lgkmcnt(0)\n"
+                 "s_dcache_wb\n"
                  :
                  : "v"(lsb), "v"(msb), "v"(bb)
                  : "s24", "s25", "s26", "s27", "s28", "s29");
