@@ -275,12 +275,12 @@ class WaveState : public WaveTrace {
 
         // Write to mem
         "s_store_dwordx4 s[24:27], s[20:21], 0\n"
-        "s_store_dwordx2 s[28:29], s[20:21], 16\n";
+        "s_store_dwordx2 s[28:29], s[20:21], 16\n"
+        "s_waitcnt lgkmcnt(0)\n";
     static constexpr auto* wave_event_ctor_constraints =
         "i,~{s24},~{s25},~{s26},~{s27},~{s28},~{s29}"; // Temp values
 
-    static constexpr auto* flush_asm = "s_waitcnt lgkmcnt(0)\n"
-                                       "s_dcache_wb\n";
+    static constexpr auto* flush_asm = "s_dcache_wb\n";
 };
 
 } // namespace
