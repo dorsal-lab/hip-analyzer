@@ -48,6 +48,12 @@ LTTNG_UST_TRACEPOINT_EVENT_CLASS(
                                         reinterpret_cast<uintptr_t>(ptr))))
 
 LTTNG_UST_TRACEPOINT_EVENT(
+    hip_instrumentation, init,
+    LTTNG_UST_TP_ARGS(const char*, commit_hash, uint64_t, timestamp),
+    LTTNG_UST_TP_FIELDS(lttng_ust_field_string(commit_hash, commit_hash)
+                            lttng_ust_field_integer(uint64_t, timestamp,
+                                                    timestamp)))
+LTTNG_UST_TRACEPOINT_EVENT(
     hip_instrumentation, new_instrumenter,
     LTTNG_UST_TP_ARGS(const void*, instr, const char*, kernel),
     LTTNG_UST_TP_FIELDS(lttng_ust_field_integer_hex(

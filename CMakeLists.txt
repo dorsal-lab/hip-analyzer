@@ -12,7 +12,6 @@ option(ENABLE_TRACEPOINTS "Enable LTTng-UST Tracepoints" OFF)
 string(REPLACE ":" ";" CMAKE_PREFIX_PATH "$ENV{CMAKE_PREFIX_PATH}")
 string(REPLACE ":" ";" CMAKE_LIBRARY_PATH "$ENV{CMAKE_LIBRARY_PATH}")
 
-
 if(NOT DEFINED ROCM_LLVM)
     set(ROCM_LLVM ${ROCM_PATH}/llvm)
 endif()
@@ -49,10 +48,17 @@ include_directories(
 
 include_directories(/usr/include/jsoncpp) # quick hack but I'm tired of fighting CMake
 
+# Tracepoints
+
 if(ENABLE_TRACEPOINTS)
     find_package(LTTngUST REQUIRED)
     add_definitions(-DENABLE_TRACEPOINTS)
     set(ENABLE_TRACEPOINTS_FLAGS -DENABLE_TRACEPOINTS)
+
+    # CheckGitSetup (from https://jonathanhamberg.com/post/cmake-embedding-git-hash/)
+
+    include(TracepointProvider.cmake)
+    CheckGitSetup()
 endif()
 
 # ----- Targets definitions ----- #
@@ -115,8 +121,7 @@ add_library(
 
 add_dependencies(hip-analyzer-pass gpu_pass_instr)
 
-target_link_libraries(
-    hip-analyzer-pass
+target_link_libraries(hip-analyzer-pass
     LLVMPasses
     LLVMCore
     LLVMSupport
@@ -124,8 +129,7 @@ target_link_libraries(
     jsoncpp
 )
 
-target_link_libraries(
-    hip-kernel-timer-pass
+target_link_libraries(hip-kernel-timer-pass
     LLVMPasses
     LLVMCore
     LLVMSupport
@@ -135,15 +139,6 @@ target_link_libraries(
 
 # add_definitions(-DHIP_INSTRUMENTATION_VERBOSE)
 add_library(hip_instrumentation
-    src/hip_instrumentation.cpp
-    src/hip_trace_manager.cpp
-    src/basic_block.cpp
-    src/gpu_info.cpp
-    src/state_recoverer.cpp
-    src/hip_instrumentation_cbindings.cpp
-    src/hip_instrumentation_tracepoint_provider.cpp
-    ${CMAKE_BINARY_DIR}/gpu_hip_instrumentation.o
-    ${CMAKE_BINARY_DIR}/queue_info.o
 )
 
 target_link_libraries(hip_instrumentation
@@ -156,8 +151,36 @@ target_link_libraries(hip_instrumentation
 
 if(ENABLE_TRACEPOINTS)
     target_link_libraries(hip_instrumentation LTTng::UST)
-endif()
+    add_custom_target(hip_instrumentation_tracepoints_o
+        COMMAND ar -x $<TARGET_FILE:hip_instrumentation_tracepoints>
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        DEPENDS hip_instrumentation_tracepoints
+    )
+    add_dependencies(hip_instrumentation hip_instrumentation_tracepoints_o)
 
+    target_sources(hip_instrumentation PRIVATE
+        src/hip_instrumentation.cpp
+        src/hip_trace_manager.cpp
+        src/basic_block.cpp
+        src/gpu_info.cpp
+        src/state_recoverer.cpp
+        src/hip_instrumentation_cbindings.cpp
+        ${CMAKE_BINARY_DIR}/hip_instrumentation_tracepoint_provider.cpp.o
+        ${CMAKE_BINARY_DIR}/gpu_hip_instrumentation.o
+        ${CMAKE_BINARY_DIR}/queue_info.o
+    )
+else()
+    target_sources(hip_instrumentation PRIVATE
+        src/hip_instrumentation.cpp
+        src/hip_trace_manager.cpp
+        src/basic_block.cpp
+        src/gpu_info.cpp
+        src/state_recoverer.cpp
+        src/hip_instrumentation_cbindings.cpp
+        ${CMAKE_BINARY_DIR}/gpu_hip_instrumentation.o
+        ${CMAKE_BINARY_DIR}/queue_info.o
+    )
+endif()
 
 # ----- Testing ----- #
 
