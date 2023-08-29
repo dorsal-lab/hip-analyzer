@@ -86,14 +86,12 @@ hip::KernelTimerPass::run(llvm::Module& mod,
                 if (hasFunctionCall(inst, "hipLaunchKernel")) {
                     auto* call_to_launch = dyn_cast<llvm::CallInst>(&inst);
                     llvm::IRBuilder<> builder(&inst);
+
                     builder.CreateCall(
                         functions.begin_kernel_timer,
                         {builder.CreateBitCast(
                             builder.CreateGlobalStringPtr(
-                                dyn_cast<llvm::ConstantExpr>(
-                                    call_to_launch->getArgOperand(0))
-                                    ->getOperand(0)
-                                    ->getName()),
+                                call_to_launch->getArgOperand(0)->getName()),
                             unqual_ptr_type)});
 
                     builder.SetInsertPoint(call_to_launch->getNextNode());
