@@ -13,6 +13,7 @@
 
 #include "hip/hip_runtime_api.h"
 
+#include <atomic>
 #include <chrono>
 #include <fstream>
 #include <stdexcept>
@@ -256,15 +257,24 @@ void freeHipQueueInfo(hip::QueueInfo* q) { delete q; }
 
 // ----- Experimental - Kernel timer ----- //
 
-void begin_kernel_timer(const char* kernel) {
-    lttng_ust_tracepoint(hip_instrumentation, kernel_timer_begin, kernel);
+namespace {
+
+std::atomic<unsigned int> timer_kernel_id{0u};
+
 }
 
-void end_kernel_timer() {
+unsigned int begin_kernel_timer(const char* kernel) {
+    auto id = timer_kernel_id++;
+    lttng_ust_tracepoint(hip_instrumentation, kernel_timer_begin, kernel, id);
+
+    return id;
+}
+
+void end_kernel_timer(unsigned int id) {
     if (hipDeviceSynchronize() != hipSuccess) {
         return;
     }
 
-    lttng_ust_tracepoint(hip_instrumentation, kernel_timer_end);
+    lttng_ust_tracepoint(hip_instrumentation, kernel_timer_end, id);
 }
 }

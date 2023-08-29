@@ -53,19 +53,19 @@ llvmGetPassPluginInfo() {
 
 hip::KernelTimerFunctions::KernelTimerFunctions(llvm::Module& mod) {
     auto& context = mod.getContext();
-    auto* void_type = llvm::Type::getVoidTy(context);
-    auto* unqual_ptr_type = llvm::PointerType::getUnqual(context);
+    auto* void_ty = llvm::Type::getVoidTy(context);
+    auto* unqual_ptr_ty = llvm::PointerType::getUnqual(context);
+    auto* i32_ty = llvm::IntegerType::getInt32Ty(context);
 
-    auto void_from_ptr_type =
-        llvm::FunctionType::get(void_type, {unqual_ptr_type}, false);
+    auto i32_from_ptr_ty =
+        llvm::FunctionType::get(i32_ty, {unqual_ptr_ty}, false);
 
-    auto void_from_void_type = llvm::FunctionType::get(void_type, {}, false);
+    auto void_from_i32_type = llvm::FunctionType::get(void_ty, {i32_ty}, false);
 
     begin_kernel_timer =
-        getFunction(mod, "begin_kernel_timer", void_from_ptr_type);
+        getFunction(mod, "begin_kernel_timer", i32_from_ptr_ty);
 
-    end_kernel_timer =
-        getFunction(mod, "end_kernel_timer", void_from_void_type);
+    end_kernel_timer = getFunction(mod, "end_kernel_timer", void_from_i32_type);
 }
 
 llvm::PreservedAnalyses
@@ -87,7 +87,7 @@ hip::KernelTimerPass::run(llvm::Module& mod,
                     auto* call_to_launch = dyn_cast<llvm::CallInst>(&inst);
                     llvm::IRBuilder<> builder(&inst);
 
-                    builder.CreateCall(
+                    auto* kernel_launch_id = builder.CreateCall(
                         functions.begin_kernel_timer,
                         {builder.CreateBitCast(
                             builder.CreateGlobalStringPtr(
@@ -96,7 +96,8 @@ hip::KernelTimerPass::run(llvm::Module& mod,
 
                     builder.SetInsertPoint(call_to_launch->getNextNode());
 
-                    builder.CreateCall(functions.end_kernel_timer, {});
+                    builder.CreateCall(functions.end_kernel_timer,
+                                       {kernel_launch_id});
 
                     llvm::dbgs() << f << '\n';
                 }

@@ -212,13 +212,15 @@ LTTNG_UST_TRACEPOINT_EVENT(
 
 // ----- Kernel timing pass ----- //
 
-LTTNG_UST_TRACEPOINT_EVENT(hip_instrumentation, kernel_timer_begin,
-                           LTTNG_UST_TP_ARGS(const char*, kernel),
-                           LTTNG_UST_TP_FIELDS(lttng_ust_field_string(kernel,
-                                                                      kernel)))
+LTTNG_UST_TRACEPOINT_EVENT(
+    hip_instrumentation, kernel_timer_begin,
+    LTTNG_UST_TP_ARGS(const char*, kernel, unsigned int, id),
+    LTTNG_UST_TP_FIELDS(lttng_ust_field_string(kernel, kernel)
+                            lttng_ust_field_integer(unsigned int, id, id)))
 
-LTTNG_UST_TRACEPOINT_EVENT(hip_instrumentation, kernel_timer_end,
-                           LTTNG_UST_TP_ARGS(), LTTNG_UST_TP_FIELDS())
+LTTNG_UST_TRACEPOINT_EVENT(
+    hip_instrumentation, kernel_timer_end, LTTNG_UST_TP_ARGS(unsigned int, id),
+    LTTNG_UST_TP_FIELDS(lttng_ust_field_integer(unsigned int, id, id)))
 
 #endif /*_HIP_INSTRUMENTATION_TP_H */
 
