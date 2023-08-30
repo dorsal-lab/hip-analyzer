@@ -62,6 +62,15 @@ class HipTraceManager {
 
     void registerQueue(QueueInfo& queue, void* queue_data);
 
+    size_t queuedPayloads();
+
+    bool isEmpty() { return queuedPayloads() == 0; }
+
+    /** \fn flush
+     * \brief Returns once the queue has been emptied to disk
+     */
+    void flush();
+
   private:
     HipTraceManager();
 

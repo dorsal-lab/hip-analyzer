@@ -287,4 +287,16 @@ void HipTraceManager::runThread() {
     }
 }
 
+size_t HipTraceManager::queuedPayloads() {
+    std::lock_guard lock{mutex};
+
+    return queue.size();
+}
+
+void HipTraceManager::flush() {
+    while (!isEmpty()) {
+        std::this_thread::sleep_for(std::milliseconds(1));
+    }
+}
+
 } // namespace hip
