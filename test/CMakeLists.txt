@@ -189,3 +189,11 @@ add_custom_command(
 add_executable(get_wave_trace_offset ${CMAKE_CURRENT_BINARY_DIR}/get_wave_trace_offset.o)
 target_link_libraries(get_wave_trace_offset hip_instrumentation)
 set_target_properties(get_wave_trace_offset PROPERTIES LINKER_LANGUAGE CXX)
+
+# ----- replace_main.so ----- #
+
+add_library(replace_main SHARED
+    ${CMAKE_SOURCE_DIR}/test/replace_main.c
+)
+target_compile_options(replace_main PRIVATE "-fPIC")
+target_link_libraries(replace_main dl)
