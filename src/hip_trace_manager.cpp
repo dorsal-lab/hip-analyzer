@@ -247,7 +247,7 @@ void HipTraceManager::runThread() {
                          .count();
 
     std::stringstream filename;
-    if (auto* env = std::getenv(HIPTRACE_ENV)) {
+    if (auto* env = std::getenv(HIPTRACE_ENV.data())) {
         filename << env << '_' << stamp << ".hiptrace";
     } else {
         filename << "hiptrace_" << stamp << ".hiptrace";
@@ -299,7 +299,7 @@ size_t HipTraceManager::queuedPayloads() {
 
 void HipTraceManager::flush() {
     while (!isEmpty()) {
-        std::this_thread::sleep_for(std::milliseconds(1));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
 
