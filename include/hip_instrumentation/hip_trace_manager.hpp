@@ -86,6 +86,8 @@ class HipTraceManager {
     std::mutex mutex;
     std::condition_variable cond;
     std::queue<Payload> queue;
+
+    constexpr std::string_view HIPTRACE_ENV = "HIPTRACE_OUTPUT";
 };
 
 /** \brief Small header to validate the trace type - thread counters

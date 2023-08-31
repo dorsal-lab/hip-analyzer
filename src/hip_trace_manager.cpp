@@ -247,7 +247,11 @@ void HipTraceManager::runThread() {
                          .count();
 
     std::stringstream filename;
-    filename << "hiptrace_" << stamp << ".hiptrace";
+    if (auto* env = std::getenv(HIPTRACE_ENV)) {
+        filename << env << '_' << stamp << ".hiptrace";
+    } else {
+        filename << "hiptrace_" << stamp << ".hiptrace";
+    }
 
     std::ofstream out{filename.str(), std::ostream::binary};
 
