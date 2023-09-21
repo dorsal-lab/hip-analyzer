@@ -266,4 +266,15 @@ void pushAdditionalArguments(llvm::Function& f,
  */
 void assertModuleIntegrity(llvm::Module& m);
 
+/** \fn dumpMetadata
+ * \brief Print function / instruction metadata
+ */
+void dumpMetadata(llvm::Function* f);
+void dumpMetadata(llvm::Instruction* i);
+
+/** \fn getSubroutineType
+ * \brief Return debug subroutine type from function (if any)
+ */
+llvm::DISubroutineType* getSubroutineType(llvm::Function* f);
+
 } // namespace hip

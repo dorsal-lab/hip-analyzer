@@ -626,4 +626,35 @@ void assertModuleIntegrity(llvm::Module& mod) {
     }
 }
 
+void dumpMetadata(llvm::Function* f) {
+    llvm::SmallVector<std::pair<unsigned, llvm::MDNode*>> vec;
+    f->getAllMetadata(vec);
+    for (auto& [id, node] : vec) {
+        if (node != nullptr) {
+            llvm::dbgs() << "DBG " << id << '\n';
+            node->printTree(llvm::dbgs());
+            llvm::dbgs() << '\n';
+        }
+    }
+}
+
+void dumpMetadata(llvm::Instruction* i) {
+    llvm::SmallVector<std::pair<unsigned, llvm::MDNode*>> vec;
+    i->getAllMetadata(vec);
+    for (auto& [id, node] : vec) {
+        if (node != nullptr) {
+            llvm::dbgs() << "DBG " << id << '\n';
+            node->printTree(llvm::dbgs());
+            llvm::dbgs() << '\n';
+        }
+    }
+}
+
+llvm::DISubroutineType* getSubroutineType(llvm::Function* f) {
+    auto* di = f->getSubprogram();
+    return di != nullptr
+               ? dyn_cast<llvm::DISubroutineType>(di->getOperand(4).get())
+               : nullptr;
+}
+
 } // namespace hip

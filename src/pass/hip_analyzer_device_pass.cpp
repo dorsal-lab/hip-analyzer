@@ -91,6 +91,8 @@ KernelInstrumentationPass::run(llvm::Module& mod,
             continue;
         }
 
+        // getSubroutineType(f_original)->printTree(llvm::dbgs());
+
         auto& fm = modm.getResult<llvm::FunctionAnalysisManagerModuleProxy>(mod)
                        .getManager();
 

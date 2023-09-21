@@ -82,6 +82,7 @@ llvm::PreservedAnalyses HostPass::run(llvm::Module& mod,
     for (auto& f_original : mod.functions()) {
         if (isDeviceStub(f_original) && !f_original.isDeclaration()) {
             // Device stub
+            llvm::dbgs() << f_original;
 
             // Duplicates the stub and calls the appropriate function
             auto* stub_counter = addCountersDeviceStub(f_original);
@@ -296,17 +297,17 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
     llvm::SmallVector<llvm::Value*> args;
     llvm::SmallVector<llvm::Value*> tracing_args;
 
+    dumpMetadata(&stub);
+
     auto stub_arg_it = stub.args().begin();
     for (llvm::Argument& arg : new_stub->args()) {
         // Save value if vector
         if (arg.getType()->isPointerTy() && !stub_arg_it->hasByValAttr()) {
-            auto* bitcast = builder.CreateBitCast(&arg, ptr_ty);
             args.push_back(&arg);
-            tracing_args.push_back(builder.CreateBitCast(
-                builder.CreateCall(
-                    instr_handlers.hipStateRecovererRegisterPointer,
-                    {recoverer, bitcast}),
-                arg.getType()));
+
+            tracing_args.push_back(builder.CreateCall(
+                instr_handlers.hipStateRecovererRegisterPointer,
+                {recoverer, &arg}));
         } else {
             args.push_back(&arg);
             tracing_args.push_back(&arg);
