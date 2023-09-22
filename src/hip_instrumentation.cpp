@@ -14,6 +14,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 #include <variant>
 
 // Jsoncpp (shipped with ubuntu & debian)
@@ -316,7 +317,7 @@ bool ThreadCounterInstrumenter::parseHeader(const std::string& header) {
     return true;
 }
 
-size_t ThreadCounterInstrumenter::loadBin(const std::string& filename) {
+size_t CounterInstrumenter::loadBin(const std::string& filename) {
     // Load from file
 
     std::ifstream in(filename, std::ios::binary);
@@ -337,8 +338,7 @@ size_t ThreadCounterInstrumenter::loadBin(const std::string& filename) {
     }
 
     // Ugly cast, but works
-    in.read(reinterpret_cast<char*>(host_counters.data()),
-            host_counters.size() * sizeof(counter_t));
+    in.read(reinterpret_cast<char*>(countersData()), instr_size);
 
     return in.gcount();
 }
@@ -360,8 +360,9 @@ std::string CounterInstrumenter::getDatabaseName() const {
 
 const std::vector<hip::BasicBlock>& CounterInstrumenter::loadDatabase() {
     if (!kernel_info.has_value()) {
-        throw std::runtime_error("hip::Instrumenter::loadDatabase() : Unknown "
-                                 "kernel name, cannot load database");
+        throw std::runtime_error(
+            "hip::ThreadCounterInstrumenter::loadDatabase() : Unknown "
+            "kernel name, cannot load database");
     }
 
     return loadDatabase(kernel_info->name);
@@ -424,7 +425,46 @@ void WaveCounterInstrumenter::record() {
     trace_manager.registerWaveCounters(*this, std::move(host_counters));
 }
 
-size_t WaveCounterInstrumenter::loadCsv(const std::string& filename) {}
-size_t WaveCounterInstrumenter::loadBin(const std::string& filename) {}
+bool WaveCounterInstrumenter::parseHeader(const std::string& header) {
+    std::stringstream ss;
+    ss << header;
+
+    auto get_token = [&]() -> std::string {
+        std::string buf;
+        if (!std::getline(ss, buf, ',')) {
+            throw std::runtime_error(
+                "hip::WaveCounterInstrumenter::parseHeader() : Could not read "
+                "token from header : " +
+                header);
+        }
+
+        return buf;
+    };
+
+    auto trace_type = get_token();
+    if (trace_type != hiptrace_wave_counters_name) {
+        return false;
+    }
+
+    auto kernel_name =
+        get_token(); // Is a different kernel name a reason to fail?
+
+    auto instr_size_file = std::stoul(get_token());
+    if (instr_size_file != instr_size) {
+        return false;
+        //"hip::Instrumenter::parseHeader() : Incompatible counter number,
+        // faulty database?"
+    }
+
+    auto stamp_file = std::stoull(get_token());
+    stamp = stamp_file;
+
+    auto counter_size = std::stoul(get_token());
+    if (counter_size != kernel_info->instr_size) {
+        return false;
+    }
+
+    return true;
+}
 
 } // namespace hip

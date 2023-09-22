@@ -184,7 +184,20 @@ class CounterInstrumenter {
      */
     std::unique_ptr<CounterInstrumenter> fromBin(const std::string& filename);
 
+    /** \fn parseHeader
+     * \brief Validate header from binary trace
+     */
+    virtual bool parseHeader(const std::string& header) = 0;
+
+    size_t loadBin(const std::string& filename);
+    size_t loadBin(std::ifstream& tracefile);
+
   protected:
+    /** \fn countersData
+     * \brief Returns a pointer to the counters data (for loading purposes)
+     */
+    virtual void* countersData() = 0;
+
     std::string autoFilenamePrefix() const;
 
     /** \fn toDevice
@@ -196,6 +209,8 @@ class CounterInstrumenter {
     std::optional<KernelInfo> kernel_info;
 
     std::vector<hip::BasicBlock>* blocks;
+
+    size_t instr_size;
 
     /** \brief std::chrono stamp for quick identification
      */
@@ -221,6 +236,7 @@ class ThreadCounterInstrumenter : public CounterInstrumenter {
 
     ThreadCounterInstrumenter(KernelInfo& ki) : CounterInstrumenter(ki) {
         host_counters.assign(ki.instr_size, 0u);
+        instr_size = ki.instr_size;
     }
 
     ThreadCounterInstrumenter() : CounterInstrumenter() {}
@@ -249,13 +265,14 @@ class ThreadCounterInstrumenter : public CounterInstrumenter {
         host_counters.reserve(ki.instr_size);
         host_counters.assign(ki.instr_size, 0u);
 
+        instr_size = ki.instr_size;
+
         return *kernel_info;
     }
 
     const std::vector<counter_t>& getVec() const { return host_counters; }
 
     size_t loadCsv(const std::string& filename);
-    size_t loadBin(const std::string& filename);
 
     // ----- Post-instrumentation reduce ----- //
 
@@ -269,10 +286,10 @@ class ThreadCounterInstrumenter : public CounterInstrumenter {
     unsigned int reduceFlops(const counter_t* device_ptr,
                              hipStream_t stream = nullptr) const;
 
-    /** \fn parseHeader
-     * \brief Validate header from binary trace
-     */
-    bool parseHeader(const std::string& header);
+    bool parseHeader(const std::string& header) override;
+
+  protected:
+    void* countersData() override { return host_counters.data(); }
 
   private:
     std::vector<counter_t> host_counters;
@@ -321,8 +338,10 @@ class WaveCounterInstrumenter : public CounterInstrumenter {
 
     const std::vector<counter_t>& getVec() const { return host_counters; }
 
-    size_t loadCsv(const std::string& filename);
-    size_t loadBin(const std::string& filename);
+    bool parseHeader(const std::string& header) override;
+
+  protected:
+    void* countersData() override { return host_counters.data(); }
 
   private:
     void reserve() {
@@ -331,7 +350,6 @@ class WaveCounterInstrumenter : public CounterInstrumenter {
     }
 
     std::vector<counter_t> host_counters;
-    size_t instr_size;
 };
 
 } // namespace hip

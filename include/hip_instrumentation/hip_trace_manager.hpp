@@ -90,6 +90,25 @@ class HipTraceManager {
     constexpr static std::string_view HIPTRACE_ENV = "HIPTRACE_OUTPUT";
 };
 
+class HipTraceFile {
+  public:
+    /** ctor
+     * \brief Constructor. Load a trace file and initialize
+     */
+    HipTraceFile(std::string_view filename);
+
+    /** \fn getNext
+     * \brief Return the next payload
+     */
+    HipTraceManager::Payload getNext();
+
+  private:
+    void init();
+    void parseHeader();
+
+    size_t offset = 0u;
+};
+
 /** \brief Small header to validate the trace type - thread counters
  */
 constexpr std::string_view hiptrace_counters_name = "hiptrace_counters";
