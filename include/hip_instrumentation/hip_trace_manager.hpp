@@ -10,6 +10,7 @@
 #include <hip_instrumentation/queue_info.hpp>
 
 #include <condition_variable>
+#include <fstream>
 #include <mutex>
 #include <queue>
 #include <variant>
@@ -90,6 +91,10 @@ class HipTraceManager {
     constexpr static std::string_view HIPTRACE_ENV = "HIPTRACE_OUTPUT";
 };
 
+/** \class HipTraceFile
+ * \brief Stateful representation of a HipTrace input file. Generates
+ * CounterInstrumenters and QueueInfos
+ */
 class HipTraceFile {
   public:
     /** ctor
@@ -102,11 +107,17 @@ class HipTraceFile {
      */
     HipTraceManager::Payload getNext();
 
+    /** \fn done
+     * \brief Returns whether the current file has been fully consumed
+     */
+    bool done();
+
   private:
     void init();
     void parseHeader();
 
     size_t offset = 0u;
+    std::ifstream input;
 };
 
 /** \brief Small header to validate the trace type - thread counters

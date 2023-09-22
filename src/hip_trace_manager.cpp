@@ -303,4 +303,18 @@ void HipTraceManager::flush() {
     }
 }
 
+HipTraceFile::HipTraceFile(std::string_view filename) {
+    // Attempt to open file
+
+    // Read header for trace type
+
+    // update offset
+}
+
+HipTraceManager::Payload HipTraceFile::getNext() {
+    // Parse next header
+}
+
+bool HipTraceFile::done() { return true; }
+
 } // namespace hip
