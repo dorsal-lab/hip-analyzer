@@ -97,6 +97,8 @@ class HipTraceManager {
  */
 class HipTraceFile {
   public:
+    enum class Kind { Managed, Counters, WaveCounters, ErrorKind };
+
     /** ctor
      * \brief Constructor. Load a trace file and initialize
      */
@@ -113,12 +115,16 @@ class HipTraceFile {
     bool done();
 
   private:
-    void init();
-    void parseHeader();
+    Kind parseHeader(std::string_view header);
 
     size_t offset = 0u;
     std::ifstream input;
+    Kind trace_kind;
 };
+
+/** \brief Small header to validate the trace type - composite tracefile
+ */
+constexpr auto hiptrace_managed_name = "hiptrace_managed";
 
 /** \brief Small header to validate the trace type - thread counters
  */

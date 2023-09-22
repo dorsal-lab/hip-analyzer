@@ -169,21 +169,6 @@ class CounterInstrumenter {
         return std::make_pair(stamp_begin, stamp_end);
     }
 
-    size_t shared_mem;
-    hipStream_t stream;
-
-    // Static factory methods
-
-    /** \fn loadCsv
-     * \brief Load data from a csv-formated file.
-     */
-    std::unique_ptr<CounterInstrumenter> fromCsv(const std::string& filename);
-
-    /** \fn loadBin
-     * \brief Load data from a packed binary format (see \ref dumpBin).
-     */
-    std::unique_ptr<CounterInstrumenter> fromBin(const std::string& filename);
-
     /** \fn parseHeader
      * \brief Validate header from binary trace
      */
@@ -191,6 +176,9 @@ class CounterInstrumenter {
 
     size_t loadBin(const std::string& filename);
     size_t loadBin(std::ifstream& tracefile);
+
+    size_t shared_mem;
+    hipStream_t stream;
 
   protected:
     /** \fn countersData

@@ -142,6 +142,37 @@ void* CounterInstrumenter::toDevice(size_t size) {
     return data_device;
 }
 
+size_t CounterInstrumenter::loadBin(const std::string& filename) {
+    // Load from file
+
+    std::ifstream in(filename, std::ios::binary);
+    if (!in.is_open()) {
+        throw std::runtime_error(
+            "hip::Instrumenter::loadBin() : Could not open file " + filename);
+    }
+    return loadBin(in);
+}
+
+size_t CounterInstrumenter::loadBin(std::ifstream& in) {
+    // Load from file
+
+    std::string buffer;
+    if (!std::getline(in, buffer)) {
+        throw std::runtime_error(
+            "hip::Instrumenter::loadBin() : Could not read header ");
+    }
+
+    if (!parseHeader(buffer)) {
+        throw std::runtime_error(
+            "hip::Instrumenter::loadBin() : Incompatible header : " + buffer);
+    }
+
+    // Ugly cast, but works
+    in.read(reinterpret_cast<char*>(countersData()), instr_size);
+
+    return in.gcount();
+}
+
 void* ThreadCounterInstrumenter::toDevice() {
     auto size = kernel_info->instr_size * sizeof(counter_t);
     return CounterInstrumenter::toDevice(size);
@@ -315,32 +346,6 @@ bool ThreadCounterInstrumenter::parseHeader(const std::string& header) {
     }
 
     return true;
-}
-
-size_t CounterInstrumenter::loadBin(const std::string& filename) {
-    // Load from file
-
-    std::ifstream in(filename, std::ios::binary);
-    if (!in.is_open()) {
-        throw std::runtime_error(
-            "hip::Instrumenter::loadBin() : Could not open file " + filename);
-    }
-
-    std::string buffer;
-    if (!std::getline(in, buffer)) {
-        throw std::runtime_error(
-            "hip::Instrumenter::loadBin() : Could not read header " + filename);
-    }
-
-    if (!parseHeader(buffer)) {
-        throw std::runtime_error(
-            "hip::Instrumenter::loadBin() : Incompatible header : " + buffer);
-    }
-
-    // Ugly cast, but works
-    in.read(reinterpret_cast<char*>(countersData()), instr_size);
-
-    return in.gcount();
 }
 
 std::string CounterInstrumenter::getDatabaseName() const {

@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
 
     hip::HipTraceFile trace{input_file.getValue()};
 
-    while (trace.done()) {
+    while (!trace.done()) {
         auto payload = trace.getNext();
 
         std::visit([](auto&& var) { visitor(std::move(var)); }, payload);

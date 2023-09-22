@@ -7,10 +7,14 @@
 
 #include "hip_instrumentation/hip_trace_manager.hpp"
 
+#include <charconv>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
+#include <string>
 
 #include "hip_analyzer_tracepoints.h"
 
@@ -32,7 +36,8 @@ std::ostream& dumpBinCounters(std::ostream& out, const void* counters,
 
     out << header << ',' << kernel_info.name << ',' << kernel_info.instr_size
         << ',' << stamp << ',' << interval.first << ',' << interval.second
-        << ',' << static_cast<unsigned int>(counter_size) << ',';
+        << ',' << num_counters << ',' << static_cast<unsigned int>(counter_size)
+        << ',';
 
     // Kernel call configuration
 
@@ -193,10 +198,6 @@ void HipTraceManager::registerQueue(QueueInfo& queue_info, void* queue_data) {
     cond.notify_one();
 }
 
-/** \brief Small header to validate the trace type
- */
-constexpr auto hiptrace_managed_name = "hiptrace_managed";
-
 template <>
 void HipTraceManager::handlePayload(
     CountersQueuePayload<ThreadCounters>&& payload, std::ofstream& out) {
@@ -303,18 +304,142 @@ void HipTraceManager::flush() {
     }
 }
 
-HipTraceFile::HipTraceFile(std::string_view filename) {
-    // Attempt to open file
+HipTraceFile::HipTraceFile(std::string_view filename) : input(filename.data()) {
+    // Check that file is open
+    if (!input.is_open()) {
+        throw std::runtime_error(
+            "HipTraceFile::HipTraceFile() : Could not open file " +
+            std::string(filename));
+    }
 
     // Read header for trace type
+    std::string buffer;
+    if (!std::getline(input, buffer)) {
+        throw std::runtime_error(
+            "HipTraceFile::HipTraceFile() : Could not get header");
+    }
+
+    trace_kind = parseHeader(buffer);
+    if (trace_kind == Kind::ErrorKind) {
+        throw std::runtime_error(
+            "HipTraceFile::HipTraceFile() : Non-valid token (\"" + buffer +
+            "\")");
+    }
 
     // update offset
+    if (trace_kind == Kind::Managed) {
+        offset += buffer.size();
+    } else {
+        // Have to rewind
+        input.seekg(0);
+    }
+}
+
+HipTraceFile::Kind HipTraceFile::parseHeader(std::string_view header) {
+    auto end = header.find(',');
+
+    auto header_trimmed = header.substr(0, end);
+
+    if (header_trimmed == hiptrace_managed_name) {
+        return Kind::Managed;
+    } else if (header_trimmed == hiptrace_counters_name) {
+        return Kind::Counters;
+    } else if (header_trimmed == hiptrace_wave_counters_name) {
+        return Kind::Counters;
+    } else {
+        return Kind::ErrorKind;
+    }
+}
+
+template <typename Instr>
+HipTraceManager::CountersQueuePayload<Instr>
+loadInstr(const std::string& header, std::ifstream& f) {
+    // Get header, construct kernel info
+    std::stringstream ss;
+    ss << header;
+
+    auto get_token = [&]() -> std::string {
+        std::string token;
+        std::getline(ss, token, ',');
+        return token;
+    };
+
+    auto parse_u64 = [&]() -> uint64_t {
+        uint64_t val;
+        std::string token = get_token();
+        if (std::from_chars(token.data(), token.data() + token.length(), val)
+                .ec != std::errc()) {
+            throw std::runtime_error("Could not parse u64 token : " + token);
+        }
+        return val;
+    };
+
+    auto type_header = get_token(); // Ignore for now
+    auto kernel_name = get_token();
+    auto instr_size = parse_u64();
+    auto stamp = parse_u64();
+
+    std::pair<uint64_t, uint64_t> interval;
+    interval.first = parse_u64();
+    interval.second = parse_u64();
+
+    auto num_counters = parse_u64();
+    auto counter_size = parse_u64();
+
+    // Kernel info
+    dim3 blocks, threads;
+    uint64_t bb;
+
+    auto geometry_header = get_token();
+    bb = parse_u64();
+    blocks.x = parse_u64();
+    blocks.y = parse_u64();
+    blocks.z = parse_u64();
+
+    threads.x = parse_u64();
+    threads.y = parse_u64();
+    threads.z = parse_u64();
+
+    KernelInfo ki(kernel_name, bb, blocks, threads);
+    ki.dump();
+
+    Instr vec;
+    vec.resize(instr_size);
+    f.read(reinterpret_cast<char*>(vec.data()), num_counters * counter_size);
+
+    return {vec, ki, stamp, interval};
 }
 
 HipTraceManager::Payload HipTraceFile::getNext() {
-    // Parse next header
+    // Get header
+    std::string buffer;
+
+    if (!std::getline(input, buffer)) {
+        throw std::runtime_error(
+            "HipTraceFile::getNext() : Could not get header");
+    }
+
+    auto event_kind = parseHeader(buffer);
+
+    // Rewind, and re-run parser
+
+    switch (event_kind) {
+    case Kind::Managed:
+        throw std::runtime_error(
+            "HipTraceManager::getNext() : Unexpected header");
+
+    case Kind::Counters:
+        return loadInstr<HipTraceManager::ThreadCounters>(buffer, input);
+    case Kind::WaveCounters:
+        return loadInstr<HipTraceManager::WaveCounters>(buffer, input);
+    case Kind::ErrorKind:
+        throw std::runtime_error(
+            "HipTraceFile::getNext() : Could not parse header " + buffer);
+    }
 }
 
-bool HipTraceFile::done() { return true; }
+bool HipTraceFile::done() {
+    return input.peek() == std::ifstream::traits_type::eof();
+}
 
 } // namespace hip
