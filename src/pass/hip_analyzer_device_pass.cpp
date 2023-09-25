@@ -453,7 +453,7 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
 
 llvm::SmallVector<llvm::Type*>
 TracingPass::getExtraArguments(llvm::LLVMContext& context) const {
-    return {event->getEventType(context)->getPointerTo(),
+    return {llvm::PointerType::getUnqual(context),
             llvm::Type::getInt64PtrTy(context)};
 }
 

@@ -142,10 +142,10 @@ HostPass::addCountersDeviceStub(llvm::Function& f_original) const {
 llvm::Function*
 HostPass::addTracingDeviceStub(llvm::Function& f_original) const {
     auto& context = f_original.getContext();
-    auto* i8_ptr = llvm::Type::getInt8PtrTy(context);
+    auto* ptr_ty = llvm::PointerType::getUnqual(context);
 
     return duplicateStubWithArgs(f_original, TracingPass::instrumented_prefix,
-                                 {i8_ptr, i8_ptr});
+                                 {ptr_ty, ptr_ty});
 }
 
 llvm::Function*
@@ -156,9 +156,7 @@ HostPass::duplicateStubWithArgs(llvm::Function& f_original,
     auto& mod = *f_original.getParent();
     auto& context = mod.getContext();
 
-    // Useful types
-    auto* i8_ptr = llvm::Type::getInt8PtrTy(context);
-    auto* i32_ptr = llvm::Type::getInt32PtrTy(context);
+    auto* ptr_ty = llvm::PointerType::getUnqual(context);
 
     auto& f = cloneWithPrefix(f_original, prefix, new_args);
 
@@ -196,8 +194,7 @@ HostPass::duplicateStubWithArgs(llvm::Function& f_original,
 
     auto* call_to_launch = firstCallToFunction(f, "hipLaunchKernel");
 
-    call_to_launch->setArgOperand(
-        0, llvm::ConstantExpr::getPointerCast(global_sym, i8_ptr));
+    call_to_launch->setArgOperand(0, global_sym);
 
     // Modify __hip_module_ctor to register kernel
 
@@ -236,15 +233,15 @@ HostPass::duplicateStubWithArgs(llvm::Function& f_original,
         register_function->getCalledFunction(),
         {
             register_function->getArgOperand(0),
-            llvm::ConstantExpr::getPointerCast(global_sym, i8_ptr),
+            global_sym,
             name,
             name,
             llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), -1, true),
-            llvm::ConstantPointerNull::get(i8_ptr),
-            llvm::ConstantPointerNull::get(i8_ptr),
-            llvm::ConstantPointerNull::get(i8_ptr),
-            llvm::ConstantPointerNull::get(i8_ptr),
-            llvm::ConstantPointerNull::get(i32_ptr),
+            llvm::ConstantPointerNull::get(ptr_ty),
+            llvm::ConstantPointerNull::get(ptr_ty),
+            llvm::ConstantPointerNull::get(ptr_ty),
+            llvm::ConstantPointerNull::get(ptr_ty),
+            llvm::ConstantPointerNull::get(ptr_ty),
         });
 
     return &f;
@@ -551,25 +548,22 @@ llvm::Constant* HostPass::createKernelSymbol(llvm::Function& stub,
                                              const std::string& suffix) const {
     auto kernel_name = kernelNameFromStub(stub);
     auto suffixed = getClonedName(kernel_name, suffix);
+    auto* ptr_ty = llvm::PointerType::getUnqual(stub.getContext());
 
     auto& mod = *stub.getParent();
 
-    return mod.getOrInsertGlobal(
-        suffixed, new_stub.getFunctionType()->getPointerTo(),
-        [&mod, &new_stub, &suffixed]() {
-            return new llvm::GlobalVariable(
-                mod, new_stub.getFunctionType()->getPointerTo(), true,
-                llvm::GlobalValue::ExternalLinkage, &new_stub, suffixed);
-        });
+    return mod.getOrInsertGlobal(suffixed, ptr_ty, [&]() {
+        return new llvm::GlobalVariable(mod, ptr_ty, true,
+                                        llvm::GlobalValue::ExternalLinkage,
+                                        &new_stub, suffixed);
+    });
 }
 
 std::string HostPass::kernelNameFromStub(llvm::Function& stub) const {
     auto* call_to_launch = firstCallToFunction(stub, "hipLaunchKernel");
 
     return call_to_launch
-        ->getArgOperand(0)    // First argument to hipLaunchKernel
-        ->stripPointerCasts() // the stub addrss is automatically casted
-                              // to i8, need to remove it
+        ->getArgOperand(0) // First argument to hipLaunchKernel
         ->getName()
         .str();
 }
