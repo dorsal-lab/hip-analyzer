@@ -345,7 +345,7 @@ HipTraceFile::Kind HipTraceFile::parseHeader(std::string_view header) {
     } else if (header_trimmed == hiptrace_counters_name) {
         return Kind::Counters;
     } else if (header_trimmed == hiptrace_wave_counters_name) {
-        return Kind::Counters;
+        return Kind::WaveCounters;
     } else {
         return Kind::ErrorKind;
     }
@@ -403,8 +403,9 @@ loadInstr(const std::string& header, std::ifstream& f) {
     KernelInfo ki(kernel_name, bb, blocks, threads);
     ki.dump();
 
+    // Read counters
     Instr vec;
-    vec.resize(instr_size);
+    vec.resize(num_counters * counter_size);
     f.read(reinterpret_cast<char*>(vec.data()), num_counters * counter_size);
 
     return {vec, ki, stamp, interval};

@@ -8,7 +8,9 @@
 
 #include "hip/hip_runtime.h"
 
+#include <cstdint>
 #include <optional>
+#include <stdexcept>
 #include <unordered_map>
 #include <vector>
 
@@ -220,6 +222,10 @@ class CounterInstrumenter {
  */
 class ThreadCounterInstrumenter : public CounterInstrumenter {
   public:
+    /** \brief Counter underlying type
+     */
+    using counter_t = uint8_t;
+
     Type getType() const override { return Type::Thread; }
 
     ThreadCounterInstrumenter(KernelInfo& ki) : CounterInstrumenter(ki) {
@@ -227,11 +233,18 @@ class ThreadCounterInstrumenter : public CounterInstrumenter {
         instr_size = ki.instr_size;
     }
 
-    ThreadCounterInstrumenter() : CounterInstrumenter() {}
+    ThreadCounterInstrumenter(std::vector<counter_t>&& counters, KernelInfo& ki)
+        : CounterInstrumenter(ki), host_counters(counters) {
+        instr_size = ki.instr_size;
+        if (host_counters.size() != instr_size) {
+            std::cerr << host_counters.size() << " != " << instr_size << '\n';
+            throw std::runtime_error(
+                "ThreadCounterInstrumenter::ThreadCounterInstrumenter() : "
+                "Unexpected counters size");
+        }
+    }
 
-    /** \brief Counter underlying type
-     */
-    using counter_t = uint8_t;
+    ThreadCounterInstrumenter() : CounterInstrumenter() {}
 
     void* toDevice() override;
 
@@ -297,6 +310,17 @@ class WaveCounterInstrumenter : public CounterInstrumenter {
     WaveCounterInstrumenter(KernelInfo& ki) : CounterInstrumenter(ki) {
         instr_size = kernel_info->wavefrontCount();
         reserve();
+    }
+
+    WaveCounterInstrumenter(std::vector<counter_t>&& counters, KernelInfo& ki)
+        : CounterInstrumenter(ki), host_counters(counters) {
+        instr_size = ki.wavefrontCount() * sizeof(counter_t);
+        if (host_counters.size() != instr_size) {
+            std::cerr << host_counters.size() << " != " << instr_size << '\n';
+            throw std::runtime_error(
+                "WaveCounterInstrumenter::WaveCounterInstrumenter() : "
+                "Unexpected counters size");
+        }
     }
 
     WaveCounterInstrumenter() : CounterInstrumenter() {}

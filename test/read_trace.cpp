@@ -22,17 +22,23 @@ template <typename T> void visitor(T&&);
 
 template <>
 void visitor(hip::HipTraceManager::CountersQueuePayload<
-             hip::HipTraceManager::ThreadCounters>&&) {
+             hip::HipTraceManager::ThreadCounters>&& payload) {
     std::cout << "Thread counters\n";
+
+    auto& [vec, ki, stamp, interval] = payload;
+    hip::ThreadCounterInstrumenter instr(std::move(vec), ki);
 }
 
 template <>
 void visitor(hip::HipTraceManager::CountersQueuePayload<
-             hip::HipTraceManager::WaveCounters>&&) {
+             hip::HipTraceManager::WaveCounters>&& payload) {
     std::cout << "Wave counters\n";
+
+    auto& [vec, ki, stamp, interval] = payload;
+    hip::WaveCounterInstrumenter instr(std::move(vec), ki);
 }
 
-template <> void visitor(hip::HipTraceManager::EventsQueuePayload&&) {
+template <> void visitor(hip::HipTraceManager::EventsQueuePayload&& payload) {
     std::cout << "Events\n";
 }
 

@@ -6,6 +6,7 @@
 
 #include "hip_instrumentation/hip_instrumentation_cbindings.hpp"
 #include "hip_instrumentation/hip_instrumentation.hpp"
+#include "hip_instrumentation/hip_trace_manager.hpp"
 #include "hip_instrumentation/queue_info.hpp"
 #include "hip_instrumentation/state_recoverer.hpp"
 
@@ -15,8 +16,12 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstddef>
+#include <cstdlib>
 #include <fstream>
+#include <optional>
 #include <stdexcept>
+#include <type_traits>
 
 #include "hip_analyzer_tracepoints.h"
 
@@ -55,6 +60,77 @@ hip::CounterInstrumenter* hipNewInstrumenter(const char* kernel_name,
     hip::KernelInfo ki{kernel_name, bblocks, blocks, threads};
 
     instr->setKernelInfo(ki);
+
+    // Save stream for eventual re-push
+    instr->shared_mem = shared_mem;
+    instr->stream = stream;
+
+    // Revert call configuration
+
+    if (__hipPushCallConfiguration(blocks, threads, shared_mem, stream) !=
+        hipSuccess) {
+        throw std::runtime_error(
+            "hipNewInstrumenter() : Could not push call configuration");
+    }
+
+    return instr;
+}
+
+hip::CounterInstrumenter* hipGetNextInstrumenter() {
+    static std::optional<hip::HipTraceFile> trace_file;
+
+    if (!trace_file.has_value()) {
+        auto filename = std::getenv("HIPTRACE_INPUT");
+        if (filename == nullptr) {
+            throw std::runtime_error(
+                "hipGetNextInstrumenter() : \"HIPTRACE_INPUT\" not defined for "
+                "replay mode");
+        }
+
+        trace_file.emplace(filename);
+    }
+
+    if (trace_file->done()) {
+        throw std::runtime_error(
+            "hipGetNextInstrumenter() : Reached end of trace");
+    }
+
+    // Pop call configuration, verify constency
+    dim3 blocks, threads;
+    size_t shared_mem;
+    hipStream_t stream;
+
+    // Get the pushed call configuration
+    if (__hipPopCallConfiguration(&blocks, &threads, &shared_mem, &stream) !=
+        hipSuccess) {
+        throw std::runtime_error(
+            "hipNewInstrumenter() : Could not pop call configuration");
+    }
+
+    auto next = trace_file->getNext();
+
+    hip::CounterInstrumenter* instr;
+
+    std::visit(
+        [&instr](auto&& event) {
+            using T = std::decay_t<decltype(event)>;
+            if constexpr (std::is_same_v<
+                              T, hip::HipTraceManager::CountersQueuePayload<
+                                     hip::HipTraceManager::ThreadCounters>>) {
+                auto& [vec, ki, stamp, interval] = event;
+                instr = new hip::ThreadCounterInstrumenter(std::move(vec), ki);
+            } else if constexpr (std::is_same_v<
+                                     T,
+                                     hip::HipTraceManager::CountersQueuePayload<
+                                         hip::HipTraceManager::WaveCounters>>) {
+                auto& [vec, ki, stamp, interval] = event;
+                instr = new hip::WaveCounterInstrumenter(std::move(vec), ki);
+            } else {
+                throw std::runtime_error(
+                    "hipGetNextInstrumenter() : Unexpected event");
+            }
+        },
+        next);
 
     // Save stream for eventual re-push
     instr->shared_mem = shared_mem;

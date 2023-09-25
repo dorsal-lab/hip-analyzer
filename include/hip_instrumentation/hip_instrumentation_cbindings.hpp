@@ -24,6 +24,11 @@ enum class CounterType : uint32_t { Thread = 0u, Wave = 1u };
 hip::CounterInstrumenter* hipNewInstrumenter(const char* kernel_name,
                                              CounterType type);
 
+/** \fn hipGetNextInstrumenter
+ * \brief Create a new instrumenter by loading it from a tracefile
+ */
+hip::CounterInstrumenter* hipGetNextInstrumenter();
+
 /** \fn hipInstrumenterToDevice
  * \brief Create the instrumentation counters
  */
