@@ -388,6 +388,10 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
     hipNewStateRecoverer =
         getFunction(mod, "hipNewStateRecoverer", recoverer_ctor_type);
 
+    hipGetNextInstrumenter =
+        getFunction(mod, "hipGetNextInstrumenter",
+                    llvm::FunctionType::get(ptr_type, {}, false));
+
     hipInstrumenterToDevice =
         getFunction(mod, "hipInstrumenterToDevice", ptr_from_ptr_type);
 

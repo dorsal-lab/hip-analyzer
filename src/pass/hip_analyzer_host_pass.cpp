@@ -51,7 +51,7 @@ bool isDeviceStub(llvm::Function& f) {
                name,
                cloned_suffix +
                    WaveCountersInstrumentationPass::instrumented_prefix) &&
-           !contains(name, cloned_suffix + TracingPass::instrumented_prefix) &&
+           !contains(name, cloned_suffix + TraceType::default_tracing_prefix) &&
            !contains(name, dummy_kernel_name);
 }
 
@@ -68,7 +68,7 @@ bool isKernelCallSite(llvm::Function& f) {
                cloned_suffix +
                    WaveCountersInstrumentationPass::instrumented_prefix) &&
            !contains(f.getName().str(),
-                     cloned_suffix + TracingPass::instrumented_prefix);
+                     cloned_suffix + TraceType::default_tracing_prefix);
 }
 
 llvm::PreservedAnalyses HostPass::run(llvm::Module& mod,
@@ -85,11 +85,13 @@ llvm::PreservedAnalyses HostPass::run(llvm::Module& mod,
             llvm::dbgs() << f_original;
 
             // Duplicates the stub and calls the appropriate function
-            auto* stub_counter = addCountersDeviceStub(f_original);
+            auto* stub_counter =
+                addCountersDeviceStub(f_original, *counters_type);
             llvm::dbgs() << *stub_counter;
 
             if (trace) {
-                auto* stub_trace = addTracingDeviceStub(f_original);
+                auto* stub_trace =
+                    addTracingDeviceStub(f_original, *trace_type);
                 llvm::dbgs() << *stub_trace;
             }
 
@@ -130,28 +132,28 @@ llvm::PreservedAnalyses HostPass::run(llvm::Module& mod,
     // alwaysinline
 }
 
-llvm::Function*
-HostPass::addCountersDeviceStub(llvm::Function& f_original) const {
+llvm::Function* HostPass::addCountersDeviceStub(llvm::Function& f_original,
+                                                CounterType& counter_type) {
     auto& context = f_original.getContext();
 
     return duplicateStubWithArgs(f_original,
-                                 counters_type->getInstrumentedPrefix(),
+                                 counter_type.getInstrumentedPrefix(),
                                  {llvm::PointerType::getUnqual(context)});
 }
 
-llvm::Function*
-HostPass::addTracingDeviceStub(llvm::Function& f_original) const {
+llvm::Function* HostPass::addTracingDeviceStub(llvm::Function& f_original,
+                                               TraceType& trace_type) {
     auto& context = f_original.getContext();
     auto* ptr_ty = llvm::PointerType::getUnqual(context);
 
-    return duplicateStubWithArgs(f_original, TracingPass::instrumented_prefix,
+    return duplicateStubWithArgs(f_original, trace_type.getInstrumentedPrefix(),
                                  {ptr_ty, ptr_ty});
 }
 
 llvm::Function*
 HostPass::duplicateStubWithArgs(llvm::Function& f_original,
                                 const std::string& prefix,
-                                llvm::ArrayRef<llvm::Type*> new_args) const {
+                                llvm::ArrayRef<llvm::Type*> new_args) {
     llvm::dbgs() << "DuplicateStubWithArgs : " << f_original.getName() << '\n';
     auto& mod = *f_original.getParent();
     auto& context = mod.getContext();
@@ -272,7 +274,7 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
         stub, counters_type->getInstrumentedPrefix(), {ptr_ty});
 
     auto* tracing_stub =
-        trace ? &cloneWithPrefix(stub, TracingPass::instrumented_prefix,
+        trace ? &cloneWithPrefix(stub, trace_type->getInstrumentedPrefix(),
                                  {ptr_ty, ptr_ty})
               : nullptr;
 
@@ -383,7 +385,7 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
     return new_stub;
 }
 
-void HostPass::addDeviceStubCall(llvm::Function& f_original) const {
+void HostPass::addDeviceStubCall(llvm::Function& f_original) {
     auto* kernel_call = firstCallToFunction(f_original, "hipLaunchKernel");
 
     auto* gep_of_array =
@@ -525,7 +527,7 @@ void HostPass::addDeviceStubCall(llvm::Function& f_original) const {
     bb_to_delete->eraseFromParent();
 }
 
-llvm::Function* HostPass::getDeviceStub(llvm::GlobalValue* fake_symbol) const {
+llvm::Function* HostPass::getDeviceStub(llvm::GlobalValue* fake_symbol) {
     auto name = fake_symbol->getName().str();
     auto demangled =
         llvm::demangle(name); // THIS WILL NOT WORK WITH OVERLOADED KERNELS
@@ -545,21 +547,21 @@ llvm::Function* HostPass::getDeviceStub(llvm::GlobalValue* fake_symbol) const {
 
 llvm::Constant* HostPass::createKernelSymbol(llvm::Function& stub,
                                              llvm::Function& new_stub,
-                                             const std::string& suffix) const {
+                                             const std::string& suffix) {
     auto kernel_name = kernelNameFromStub(stub);
     auto suffixed = getClonedName(kernel_name, suffix);
     auto* ptr_ty = llvm::PointerType::getUnqual(stub.getContext());
 
-    auto& mod = *stub.getParent();
+    auto* mod = stub.getParent();
 
-    return mod.getOrInsertGlobal(suffixed, ptr_ty, [&]() {
-        return new llvm::GlobalVariable(mod, ptr_ty, true,
+    return mod->getOrInsertGlobal(suffixed, ptr_ty, [&]() {
+        return new llvm::GlobalVariable(*mod, ptr_ty, true,
                                         llvm::GlobalValue::ExternalLinkage,
                                         &new_stub, suffixed);
     });
 }
 
-std::string HostPass::kernelNameFromStub(llvm::Function& stub) const {
+std::string HostPass::kernelNameFromStub(llvm::Function& stub) {
     auto* call_to_launch = firstCallToFunction(stub, "hipLaunchKernel");
 
     return call_to_launch

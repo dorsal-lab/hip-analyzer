@@ -385,7 +385,6 @@ llvm::VectorType* WaveCountersInstrumentationPass::getVectorCounterType(
 
 // ----- hip::TracingPass ----- //
 
-const std::string TracingPass::instrumented_prefix = "tracing_";
 const std::string TracingPass::utils_path = "gpu_pass_instr.ll";
 
 bool TracingPass::instrumentFunction(llvm::Function& f,

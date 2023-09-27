@@ -60,7 +60,7 @@ struct InstrumentationFunctions {
     // hipInstrumenter
     llvm::Function *hipNewInstrumenter, *hipInstrumenterToDevice,
         *hipInstrumenterFromDevice, *hipInstrumenterRecord,
-        *freeHipInstrumenter;
+        *hipGetNextInstrumenter, *freeHipInstrumenter;
 
     // hipStateRecoverer
     llvm::Function *hipNewStateRecoverer, *hipStateRecovererRegisterPointer,

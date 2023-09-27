@@ -305,6 +305,16 @@ class TraceType {
      */
     virtual void finalize(llvm::IRBuilder<>& builder) const {}
 
+    /** \fn getInstrumentedPrefix
+     * \brief Returns the instrumented kernel prefix corresponding to the
+     * tracing type
+     */
+    virtual const std::string& getInstrumentedPrefix() const {
+        return default_tracing_prefix;
+    };
+
+    static const std::string default_tracing_prefix;
+
   protected:
     static std::pair<llvm::Value*, llvm::Value*>
     getPair(llvm::LLVMContext& context, uint64_t event, uint64_t queue) {
@@ -314,7 +324,6 @@ class TraceType {
 };
 
 struct TracingPass : public KernelInstrumentationPass {
-    static const std::string instrumented_prefix;
     static const std::string utils_path;
 
     TracingPass(const std::string& trace_type)
@@ -336,8 +345,7 @@ struct TracingPass : public KernelInstrumentationPass {
     void linkModuleUtils(llvm::Module& mod) override;
 
     const std::string& getInstrumentedKernelPrefix() const override {
-        // TODO : Adapt to tracing name
-        return instrumented_prefix;
+        return event->getInstrumentedPrefix();
     }
 
   private:
@@ -371,7 +379,8 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
      *
      * \returns Instrumented device stub
      */
-    llvm::Function* addCountersDeviceStub(llvm::Function& f_original) const;
+    static llvm::Function* addCountersDeviceStub(llvm::Function& f_original,
+                                                 CounterType& counter_type);
 
     /** \fn addTracingDeviceStub
      * \brief Copies the device stub and adds additional arguments for the
@@ -381,13 +390,22 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
      *
      * \returns Instrumented device stub
      */
-    llvm::Function* addTracingDeviceStub(llvm::Function& f_original) const;
+    static llvm::Function* addTracingDeviceStub(llvm::Function& f_original,
+                                                TraceType& trace_type);
 
-    llvm::Function*
+    /** \fn duplicateStubWithArgs
+     * \brief Copies the given function with a prefix, and a list of extra
+     * arguments that can be passed
+     */
+    static llvm::Function*
     duplicateStubWithArgs(llvm::Function& f_original, const std::string& prefix,
-                          llvm::ArrayRef<llvm::Type*> new_args) const;
+                          llvm::ArrayRef<llvm::Type*> new_args);
 
-    llvm::Function* replaceStubCall(llvm::Function& stub) const;
+    /** \fn replaceStubCall
+     * \brief Replaces the original kernel stub with calls to the
+     * instrumentation runtime and instrumented stubs
+     */
+    virtual llvm::Function* replaceStubCall(llvm::Function& stub) const;
 
     /** \fn addCountersDeviceStub
      * \brief Replaces the (inlined) device stub call for the
@@ -395,13 +413,13 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
      *
      * \param f_original Original kernel device stub call site
      */
-    void addDeviceStubCall(llvm::Function& f_original) const;
+    void addDeviceStubCall(llvm::Function& f_original);
 
     /** \fn getDeviceStub
      * \brief Returns the device stub of a given kernel symbol (kernel
      * symbols are created for the host but not defined)
      */
-    llvm::Function* getDeviceStub(llvm::GlobalValue* fake_symbol) const;
+    static llvm::Function* getDeviceStub(llvm::GlobalValue* fake_symbol);
 
     /** \fn createKernelSymbol
      * \brief Create the global kernel function symbol for the copied kernel
@@ -411,19 +429,25 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
      * \param suffix suffix added to the kernel name
      *
      */
-    llvm::Constant* createKernelSymbol(llvm::Function& stub,
-                                       llvm::Function& new_stub,
-                                       const std::string& suffix) const;
+    static llvm::Constant* createKernelSymbol(llvm::Function& stub,
+                                              llvm::Function& new_stub,
+                                              const std::string& suffix);
 
     /** \fn kernelNameFromStub
      * \brief Returns the kernel identifier from device stub function
      */
-    std::string kernelNameFromStub(llvm::Function& stub) const;
+    static std::string kernelNameFromStub(llvm::Function& stub);
 
   private:
     bool trace;
     std::unique_ptr<TraceType> trace_type;
     std::unique_ptr<CounterType> counters_type;
 };
+
+struct FullInstrumentationHostPass : public HostPass {};
+
+struct KernelReplayerHostPass : public HostPass {};
+
+struct CounterHostKernelInstrumentationPass : public HostPass {};
 
 } // namespace hip

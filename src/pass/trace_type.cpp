@@ -15,6 +15,9 @@
 #include <string>
 
 namespace hip {
+
+const std::string TraceType::default_tracing_prefix = "tracing_";
+
 namespace {
 
 // ----- Thread or Wave event production mode ----- //
