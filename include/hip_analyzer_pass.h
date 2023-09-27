@@ -401,11 +401,20 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
     duplicateStubWithArgs(llvm::Function& f_original, const std::string& prefix,
                           llvm::ArrayRef<llvm::Type*> new_args);
 
+    /** \fn createInstrumentationStubs
+     * \brief Create copies of the new stub that will accept the new arguments,
+     * and return them
+     */
+    virtual llvm::SmallVector<llvm::Function*, 8>
+    createInstrumentationStubs(llvm::Function& original_stub);
+
     /** \fn replaceStubCall
      * \brief Replaces the original kernel stub with calls to the
      * instrumentation runtime and instrumented stubs
      */
-    virtual llvm::Function* replaceStubCall(llvm::Function& stub) const;
+    virtual llvm::Function* replaceStubCall(
+        llvm::Function& stub,
+        llvm::ArrayRef<llvm::Function*> instrumentation_stubs) const;
 
     /** \fn addCountersDeviceStub
      * \brief Replaces the (inlined) device stub call for the

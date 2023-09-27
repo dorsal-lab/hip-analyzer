@@ -85,19 +85,13 @@ llvm::PreservedAnalyses HostPass::run(llvm::Module& mod,
             llvm::dbgs() << f_original;
 
             // Duplicates the stub and calls the appropriate function
-            auto* stub_counter =
-                addCountersDeviceStub(f_original, *counters_type);
-            llvm::dbgs() << *stub_counter;
 
-            if (trace) {
-                auto* stub_trace =
-                    addTracingDeviceStub(f_original, *trace_type);
-                llvm::dbgs() << *stub_trace;
-            }
+            auto instrumentation_stubs = createInstrumentationStubs(f_original);
 
             // Replaces all call to the original stub with tmp_<stub
             // name>, and add the old function to an erase list
-            if (auto* new_stub = replaceStubCall(f_original)) {
+            if (auto* new_stub =
+                    replaceStubCall(f_original, instrumentation_stubs)) {
                 to_delete.push_back(std::make_pair(&f_original, new_stub));
             }
 
@@ -130,6 +124,16 @@ llvm::PreservedAnalyses HostPass::run(llvm::Module& mod,
 
     // TODO : remove `optnone` and `noinline` attributes, add
     // alwaysinline
+}
+
+llvm::SmallVector<llvm::Function*, 8>
+HostPass::createInstrumentationStubs(llvm::Function& original_stub) {
+    if (trace) {
+        return {{addCountersDeviceStub(original_stub, *counters_type),
+                 addTracingDeviceStub(original_stub, *trace_type)}};
+    } else {
+        return {addCountersDeviceStub(original_stub, *counters_type)};
+    }
 }
 
 llvm::Function* HostPass::addCountersDeviceStub(llvm::Function& f_original,
@@ -249,7 +253,9 @@ HostPass::duplicateStubWithArgs(llvm::Function& f_original,
     return &f;
 }
 
-llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
+llvm::Function* HostPass::replaceStubCall(
+    llvm::Function& stub,
+    llvm::ArrayRef<llvm::Function*> instrumentation_stubs) const {
     auto& mod = *stub.getParent();
     auto& context = mod.getContext();
 
@@ -270,13 +276,9 @@ llvm::Function* HostPass::replaceStubCall(llvm::Function& stub) const {
 
     auto* bb = llvm::BasicBlock::Create(context, "", new_stub);
 
-    auto* counters_stub = &cloneWithPrefix(
-        stub, counters_type->getInstrumentedPrefix(), {ptr_ty});
+    auto* counters_stub = instrumentation_stubs[0];
 
-    auto* tracing_stub =
-        trace ? &cloneWithPrefix(stub, trace_type->getInstrumentedPrefix(),
-                                 {ptr_ty, ptr_ty})
-              : nullptr;
+    auto* tracing_stub = trace ? instrumentation_stubs[1] : nullptr;
 
     llvm::IRBuilder<> builder(bb);
 
