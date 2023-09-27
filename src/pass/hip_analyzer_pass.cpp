@@ -34,7 +34,7 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
                 [&](llvm::StringRef name, llvm::ModulePassManager& mpm,
                     llvm::ArrayRef<llvm::PassBuilder::PipelineElement>) {
                     if (name == "hip-analyzer-host") {
-                        mpm.addPass(hip::HostPass(true));
+                        mpm.addPass(hip::FullInstrumentationHostPass());
                         return true;
                     } else if (name == "hip-analyzer-counters") {
                         mpm.addPass(hip::ThreadCountersInstrumentationPass());
@@ -71,8 +71,14 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
                     wave_counters
                         ? hip::WaveCountersInstrumentationPass::CounterType
                         : hip::ThreadCountersInstrumentationPass::CounterType;
-                pm.addPass(
-                    hip::HostPass(do_trace, cfg_prefix, trace_type.getValue()));
+
+                if (do_trace) {
+                    pm.addPass(hip::FullInstrumentationHostPass(
+                        cfg_prefix, trace_type.getValue()));
+                } else {
+                    pm.addPass(
+                        hip::CounterKernelInstrumentationHostPass(cfg_prefix));
+                }
             });
 
             pb.registerAnalysisRegistrationCallback(

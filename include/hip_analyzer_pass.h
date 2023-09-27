@@ -358,15 +358,6 @@ struct TracingPass : public KernelInstrumentationPass {
  *
  */
 struct HostPass : public llvm::PassInfoMixin<HostPass> {
-    HostPass(bool tracing = false,
-             const std::string& counters_ty =
-                 ThreadCountersInstrumentationPass::CounterType,
-             const std::string& trace_ty = "trace-wavestate")
-        : trace(tracing), counters_type(CounterType::create(counters_ty)) {
-        if (tracing) {
-            trace_type = TraceType::create(trace_ty);
-        }
-    }
 
     llvm::PreservedAnalyses run(llvm::Module& mod,
                                 llvm::ModuleAnalysisManager& modm);
@@ -385,7 +376,7 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
     /** \fn addTracingDeviceStub
      * \brief Copies the device stub and adds additional arguments for the
      * tracing instrumentation
-     *
+     *>
      * \param f_original Original kernel device stub
      *
      * \returns Instrumented device stub
@@ -406,7 +397,7 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
      * and return them
      */
     virtual llvm::SmallVector<llvm::Function*, 8>
-    createInstrumentationStubs(llvm::Function& original_stub);
+    createInstrumentationStubs(llvm::Function& original_stub) = 0;
 
     /** \fn replaceStubCall
      * \brief Replaces the original kernel stub with calls to the
@@ -414,7 +405,7 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
      */
     virtual llvm::Function* replaceStubCall(
         llvm::Function& stub,
-        llvm::ArrayRef<llvm::Function*> instrumentation_stubs) const;
+        llvm::ArrayRef<llvm::Function*> instrumentation_stubs) const = 0;
 
     /** \fn addCountersDeviceStub
      * \brief Replaces the (inlined) device stub call for the
@@ -446,17 +437,45 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
      * \brief Returns the kernel identifier from device stub function
      */
     static std::string kernelNameFromStub(llvm::Function& stub);
+};
+
+struct CounterKernelInstrumentationHostPass : public HostPass {
+    CounterKernelInstrumentationHostPass(
+        const std::string& counters_ty =
+            ThreadCountersInstrumentationPass::CounterType)
+        : counters_type(CounterType::create(counters_ty)) {}
+
+    llvm::SmallVector<llvm::Function*, 8>
+    createInstrumentationStubs(llvm::Function& original_stub) override;
+
+    llvm::Function* replaceStubCall(
+        llvm::Function& stub,
+        llvm::ArrayRef<llvm::Function*> instrumentation_stubs) const override;
 
   private:
-    bool trace;
-    std::unique_ptr<TraceType> trace_type;
     std::unique_ptr<CounterType> counters_type;
 };
 
-struct FullInstrumentationHostPass : public HostPass {};
+struct FullInstrumentationHostPass : public HostPass {
+    FullInstrumentationHostPass(
+        const std::string& counters_ty =
+            ThreadCountersInstrumentationPass::CounterType,
+        const std::string& trace_ty = "trace-wavestate")
+        : counters_type(CounterType::create(counters_ty)),
+          trace_type(TraceType::create(trace_ty)) {}
+
+    llvm::SmallVector<llvm::Function*, 8>
+    createInstrumentationStubs(llvm::Function& original_stub) override;
+
+    llvm::Function* replaceStubCall(
+        llvm::Function& stub,
+        llvm::ArrayRef<llvm::Function*> instrumentation_stubs) const override;
+
+  private:
+    std::unique_ptr<CounterType> counters_type;
+    std::unique_ptr<TraceType> trace_type;
+};
 
 struct KernelReplayerHostPass : public HostPass {};
-
-struct CounterHostKernelInstrumentationPass : public HostPass {};
 
 } // namespace hip
