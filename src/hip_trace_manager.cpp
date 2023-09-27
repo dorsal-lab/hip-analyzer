@@ -401,7 +401,7 @@ loadInstr(const std::string& header, std::ifstream& f) {
     threads.z = parse_u64();
 
     KernelInfo ki(kernel_name, bb, blocks, threads);
-    ki.dump();
+    // ki.dump();
 
     // Read counters
     Instr vec;
@@ -425,10 +425,6 @@ HipTraceManager::Payload HipTraceFile::getNext() {
     // Rewind, and re-run parser
 
     switch (event_kind) {
-    case Kind::Managed:
-        throw std::runtime_error(
-            "HipTraceManager::getNext() : Unexpected header");
-
     case Kind::Counters:
         return loadInstr<HipTraceManager::ThreadCounters>(buffer, input);
     case Kind::WaveCounters:
@@ -436,6 +432,9 @@ HipTraceManager::Payload HipTraceFile::getNext() {
     case Kind::ErrorKind:
         throw std::runtime_error(
             "HipTraceFile::getNext() : Could not parse header " + buffer);
+    default:
+        throw std::runtime_error(
+            "HipTraceManager::getNext() : Unexpected header");
     }
 }
 

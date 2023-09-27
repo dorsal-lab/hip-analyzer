@@ -26,6 +26,11 @@ static llvm::cl::opt<bool>
              llvm::cl::desc("hip-analyzer add to trace kernel values"),
              llvm::cl::init(false));
 
+static llvm::cl::opt<bool>
+    do_replay("hip-replay",
+              llvm::cl::desc("hip-aalyzer load existing counters trace"),
+              llvm::cl::init(false));
+
 llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
     return {
         LLVM_PLUGIN_API_VERSION, "hip-analyzer", LLVM_VERSION_STRING,
@@ -57,7 +62,7 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
                         pm.addPass(hip::ThreadCountersInstrumentationPass());
                     }
 
-                    if (do_trace) {
+                    if (do_trace || do_replay) {
                         pm.addPass(hip::TracingPass(trace_type.getValue()));
                     }
                 });
@@ -72,7 +77,10 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
                         ? hip::WaveCountersInstrumentationPass::CounterType
                         : hip::ThreadCountersInstrumentationPass::CounterType;
 
-                if (do_trace) {
+                if (do_replay) {
+                    pm.addPass(
+                        hip::KernelReplayerHostPass(trace_type.getValue()));
+                } else if (do_trace) {
                     pm.addPass(hip::FullInstrumentationHostPass(
                         cfg_prefix, trace_type.getValue()));
                 } else {

@@ -225,7 +225,7 @@ llvm::FunctionType* getEventCtorType(llvm::LLVMContext& context);
  * \brief Clones a function f with a different name, and eventually additional
  * args
  */
-llvm::Function& cloneWithName(llvm::Function& f, const std::string& name,
+llvm::Function& cloneWithName(llvm::Function& f, std::string_view name,
                               llvm::ArrayRef<llvm::Type*> extra_args = {});
 
 /** \fn optimizeFunction
@@ -239,16 +239,16 @@ void optimizeFunction(llvm::Function& f, llvm::FunctionAnalysisManager& fm);
 constexpr auto cloned_suffix = "__hip_instr_";
 
 inline std::string getClonedName(const std::string& f,
-                                 const std::string& prefix) {
+                                 std::string_view prefix) {
     return llvm::Twine(cloned_suffix).concat(prefix).concat(f).str();
 }
 
 inline std::string getClonedName(const llvm::Function& f,
-                                 const std::string& prefix) {
+                                 std::string_view prefix) {
     return getClonedName(f.getName().str(), prefix);
 }
 
-llvm::Function& cloneWithPrefix(llvm::Function& f, const std::string& prefix,
+llvm::Function& cloneWithPrefix(llvm::Function& f, std::string_view prefix,
                                 llvm::ArrayRef<llvm::Type*> extra_args);
 
 /** \fn pushAdditionalArguments

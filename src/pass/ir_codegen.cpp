@@ -485,7 +485,7 @@ TracingFunctions::TracingFunctions(llvm::Module& mod) {
         getFunction(mod, "_hip_create_wave_event", event_creator_type);
 }
 
-llvm::Function& cloneWithName(llvm::Function& f, const std::string& name,
+llvm::Function& cloneWithName(llvm::Function& f, std::string_view name,
                               llvm::ArrayRef<llvm::Type*> extra_args) {
     auto& mod = *f.getParent();
     auto fun_type = f.getFunctionType();
@@ -512,7 +512,7 @@ void optimizeFunction(llvm::Function& f, llvm::FunctionAnalysisManager& fm) {
     llvm::SimplifyCFGPass().run(f, fm);
 }
 
-llvm::Function& cloneWithPrefix(llvm::Function& f, const std::string& prefix,
+llvm::Function& cloneWithPrefix(llvm::Function& f, std::string_view prefix,
                                 llvm::ArrayRef<llvm::Type*> extra_args) {
 
     return cloneWithName(f, getClonedName(f, prefix), extra_args);

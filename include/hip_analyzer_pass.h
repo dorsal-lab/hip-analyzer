@@ -437,6 +437,9 @@ struct HostPass : public llvm::PassInfoMixin<HostPass> {
      * \brief Returns the kernel identifier from device stub function
      */
     static std::string kernelNameFromStub(llvm::Function& stub);
+
+    static constexpr std::string_view temporary_stub_prefix =
+        "_hip_temporary_stub";
 };
 
 struct CounterKernelInstrumentationHostPass : public HostPass {
@@ -476,6 +479,19 @@ struct FullInstrumentationHostPass : public HostPass {
     std::unique_ptr<TraceType> trace_type;
 };
 
-struct KernelReplayerHostPass : public HostPass {};
+struct KernelReplayerHostPass : public HostPass {
+    KernelReplayerHostPass(const std::string& trace_ty = "trace-wavestate")
+        : trace_type(TraceType::create(trace_ty)) {}
+
+    llvm::SmallVector<llvm::Function*, 8>
+    createInstrumentationStubs(llvm::Function& original_stub) override;
+
+    llvm::Function* replaceStubCall(
+        llvm::Function& stub,
+        llvm::ArrayRef<llvm::Function*> instrumentation_stubs) const override;
+
+  private:
+    std::unique_ptr<TraceType> trace_type;
+};
 
 } // namespace hip
