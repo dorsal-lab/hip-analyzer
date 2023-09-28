@@ -405,7 +405,7 @@ loadInstr(const std::string& header, std::ifstream& f) {
 
     // Read counters
     Instr vec;
-    vec.resize(num_counters * counter_size);
+    vec.resize(num_counters);
     f.read(reinterpret_cast<char*>(vec.data()), num_counters * counter_size);
 
     return {vec, ki, stamp, interval};

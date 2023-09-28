@@ -314,7 +314,7 @@ class WaveCounterInstrumenter : public CounterInstrumenter {
 
     WaveCounterInstrumenter(std::vector<counter_t>&& counters, KernelInfo& ki)
         : CounterInstrumenter(ki), host_counters(counters) {
-        instr_size = ki.wavefrontCount() * sizeof(counter_t);
+        instr_size = ki.wavefrontCount();
         if (host_counters.size() != instr_size) {
             std::cerr << host_counters.size() << " != " << instr_size << '\n';
             throw std::runtime_error(
