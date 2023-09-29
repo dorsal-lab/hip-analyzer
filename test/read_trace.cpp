@@ -16,7 +16,8 @@ static llvm::cl::opt<std::string> input_file(llvm::cl::Positional,
                                              llvm::cl::value_desc("hiptrace"),
                                              llvm::cl::Required);
 
-template <class> inline constexpr bool always_false_v = false;
+static llvm::cl::opt<bool> do_dump("dump-counters",
+                                   llvm::cl::desc("Print counters"));
 
 template <typename T> void visitor(T&&);
 
@@ -27,6 +28,11 @@ void visitor(hip::HipTraceManager::CountersQueuePayload<
 
     auto& [vec, ki, stamp, interval] = payload;
     hip::ThreadCounterInstrumenter instr(std::move(vec), ki);
+    if (do_dump) {
+        for (auto& counter : instr.getVec()) {
+            std::cout << '\t' << static_cast<uint32_t>(counter) << '\n';
+        }
+    }
 }
 
 template <>
@@ -36,6 +42,11 @@ void visitor(hip::HipTraceManager::CountersQueuePayload<
 
     auto& [vec, ki, stamp, interval] = payload;
     hip::WaveCounterInstrumenter instr(std::move(vec), ki);
+    if (do_dump) {
+        for (auto& counter : instr.getVec()) {
+            std::cout << '\t' << static_cast<uint32_t>(counter) << '\n';
+        }
+    }
 }
 
 template <> void visitor(hip::HipTraceManager::EventsQueuePayload&& payload) {
