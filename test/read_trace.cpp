@@ -4,6 +4,7 @@
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */
 
+#include "hip_instrumentation/gpu_queue.hpp"
 #include "hip_instrumentation/hip_instrumentation.hpp"
 #include "hip_instrumentation/hip_trace_manager.hpp"
 
@@ -19,6 +20,10 @@ static llvm::cl::opt<std::string> input_file(llvm::cl::Positional,
 static llvm::cl::opt<bool> do_dump("dump-counters",
                                    llvm::cl::desc("Print counters"));
 
+static llvm::cl::opt<bool>
+    try_alloc("try-alloc",
+              llvm::cl::desc("Try to allocate a queue when given counters"));
+
 template <typename T> void visitor(T&&);
 
 template <>
@@ -28,10 +33,24 @@ void visitor(hip::HipTraceManager::CountersQueuePayload<
 
     auto& [vec, ki, stamp, interval] = payload;
     hip::ThreadCounterInstrumenter instr(std::move(vec), ki);
+
     if (do_dump) {
         for (auto& counter : instr.getVec()) {
             std::cout << '\t' << static_cast<uint32_t>(counter) << '\n';
         }
+    }
+
+    if (try_alloc) {
+        auto queue = hip::QueueInfo::thread<hip::Event>(instr);
+
+        auto* offsets = queue.allocOffsets();
+        auto* buffer = queue.allocBuffer();
+
+        std::cout << "Successfully allocated buffer, size " << queue.totalSize()
+                  << '\n';
+
+        hip::check(hipFree(offsets));
+        hip::check(hipFree(buffer));
     }
 }
 
@@ -42,10 +61,23 @@ void visitor(hip::HipTraceManager::CountersQueuePayload<
 
     auto& [vec, ki, stamp, interval] = payload;
     hip::WaveCounterInstrumenter instr(std::move(vec), ki);
+
     if (do_dump) {
         for (auto& counter : instr.getVec()) {
             std::cout << '\t' << static_cast<uint32_t>(counter) << '\n';
         }
+    }
+
+    if (try_alloc) {
+        auto queue = hip::QueueInfo::wave<hip::WaveState>(instr);
+        auto* offsets = queue.allocOffsets();
+        auto* buffer = queue.allocBuffer();
+
+        std::cout << "Successfully allocated buffer, size " << queue.totalSize()
+                  << '\n';
+
+        hip::check(hipFree(offsets));
+        hip::check(hipFree(buffer));
     }
 }
 
