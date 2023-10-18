@@ -129,7 +129,7 @@ class WaveTrace : public TraceType {
         // Because readfirstlane is only for 32 bit integers, we have to perform
         // two readlanes then assemble the result after a zext
 
-        thread_storage = readFirstLaneI64(builder, vgpr, index_register);
+        thread_storage = readFirstLaneI64(builder, vgpr, index_reg);
         return thread_storage;
     }
 
@@ -161,10 +161,10 @@ class WaveTrace : public TraceType {
 
   protected:
     llvm::Value* thread_storage = nullptr;
-    constexpr static uint8_t index_register = 20u;
+    constexpr static uint8_t index_reg = 20u;
 
-    std::string index_lsb = 's' + std::to_string(index_register);
-    std::string index_msb = 's' + std::to_string(index_register + 1);
+    std::string index_lsb = 's' + std::to_string(index_reg);
+    std::string index_msb = 's' + std::to_string(index_reg + 1);
 
   private:
     std::map<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*>> idx_map;
