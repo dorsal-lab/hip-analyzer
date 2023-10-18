@@ -23,15 +23,19 @@ struct QueueInfo {
      */
     template <class EventType>
     static QueueInfo thread(ThreadCounterInstrumenter& instr,
-                            size_t extra_size = 0u) {
+                            size_t extra_size = 0u, float size_factor = 1.f) {
         static_assert(std::is_trivially_copyable_v<EventType>);
         static_assert(
             std::is_same_v<decltype(EventType::description), std::string>);
         static_assert(std::is_same_v<decltype(EventType::name), std::string>);
 
-        return QueueInfo{
-            instr,           sizeof(EventType), true, EventType::description,
-            EventType::name, extra_size};
+        return QueueInfo{instr,
+                         sizeof(EventType),
+                         true,
+                         EventType::description,
+                         EventType::name,
+                         extra_size,
+                         size_factor};
     }
 
     /** \fn wave
@@ -39,7 +43,7 @@ struct QueueInfo {
      */
     template <class EventType>
     static QueueInfo wave(ThreadCounterInstrumenter& instr,
-                          size_t extra_size = 0u) {
+                          size_t extra_size = 0u, float size_factor = 1.f) {
         static_assert(std::is_trivially_copyable_v<EventType>);
         static_assert(
             std::is_same_v<decltype(EventType::description), std::string>);
@@ -47,21 +51,24 @@ struct QueueInfo {
 
         return QueueInfo{instr,           sizeof(EventType),
                          false,           EventType::description,
-                         EventType::name, extra_size};
+                         EventType::name, extra_size,
+                         size_factor};
     }
 
     /** \fn wave
      * \brief Create a WaveQueue buffer, requiring a WaveCounterInstrumenter
      */
     template <class EventType>
-    static QueueInfo wave(WaveCounterInstrumenter& instr) {
+    static QueueInfo wave(WaveCounterInstrumenter& instr,
+                          size_t extra_size = 0u, float size_factor = 1.f) {
         static_assert(std::is_trivially_copyable_v<EventType>);
         static_assert(
             std::is_same_v<decltype(EventType::description), std::string>);
         static_assert(std::is_same_v<decltype(EventType::name), std::string>);
 
-        return QueueInfo{instr, sizeof(EventType), EventType::description,
-                         EventType::name};
+        return QueueInfo{
+            instr,           sizeof(EventType), EventType::description,
+            EventType::name, extra_size,        size_factor};
     }
 
     QueueInfo(QueueInfo&&) = default;
@@ -154,10 +161,12 @@ struct QueueInfo {
   private:
     QueueInfo(ThreadCounterInstrumenter& instr, size_t elem_size,
               bool is_thread, const std::string& type_desc,
-              const std::string& type_name, size_t extra_size);
+              const std::string& type_name, size_t extra_size,
+              float size_factor);
 
     QueueInfo(WaveCounterInstrumenter& instr, size_t elem_size,
-              const std::string& type_desc, const std::string& type_name);
+              const std::string& type_desc, const std::string& type_name,
+              size_t extra_size, float size_factor);
 
     void computeSizeThreadFromThread();
 
@@ -169,8 +178,11 @@ struct QueueInfo {
     bool is_thread;
     size_t elem_size;
     size_t extra_size;
+    float size_factor;
+
     std::vector<size_t> offsets_vec;
     std::vector<std::byte> cpu_queue;
+
     const std::string& type_desc;
     const std::string& type_name;
 };
