@@ -104,7 +104,7 @@ hip::CounterInstrumenter* hipGetNextInstrumenter() {
     if (__hipPopCallConfiguration(&blocks, &threads, &shared_mem, &stream) !=
         hipSuccess) {
         throw std::runtime_error(
-            "hipNewInstrumenter() : Could not pop call configuration");
+            "hipGetNextInstrumenter() : Could not pop call configuration");
     }
 
     auto next = trace_file->getNext();
@@ -132,6 +132,9 @@ hip::CounterInstrumenter* hipGetNextInstrumenter() {
         },
         next);
 
+    lttng_ust_tracepoint(hip_instrumentation, new_replayer, instr,
+                         instr->kernelInfo().name.c_str());
+
     // Save stream for eventual re-push
     instr->shared_mem = shared_mem;
     instr->stream = stream;
@@ -141,7 +144,7 @@ hip::CounterInstrumenter* hipGetNextInstrumenter() {
     if (__hipPushCallConfiguration(blocks, threads, shared_mem, stream) !=
         hipSuccess) {
         throw std::runtime_error(
-            "hipNewInstrumenter() : Could not push call configuration");
+            "hipGetNextInstrumenter() : Could not push call configuration");
     }
 
     return instr;
