@@ -8,15 +8,20 @@
 
 #include "hip_instrumentation.hpp"
 
+#include <type_traits>
 #include <variant>
 
 namespace hip {
+
+class HipTraceFile;
 
 /** \struct QueueInfo
  * \brief Computes and holds information about a queue to be submitted to the
  * GPU : buffer offset, total size, etc
  */
 struct QueueInfo {
+    friend class HipTraceFile;
+
   public:
     /** \fn thread
      * \brief Creates a ThreadQueue buffer
@@ -167,6 +172,14 @@ struct QueueInfo {
     QueueInfo(WaveCounterInstrumenter& instr, size_t elem_size,
               const std::string& type_desc, const std::string& type_name,
               size_t extra_size, float size_factor);
+
+    QueueInfo(size_t elem_size, const std::string& type_desc,
+              const std::string& type_name, std::vector<size_t>&& offsets_vec,
+              std::vector<std::byte>&& events)
+        : instr(static_cast<WaveCounterInstrumenter*>(nullptr)),
+          is_thread(false), elem_size(elem_size), extra_size(0u),
+          size_factor(1.f), offsets_vec(offsets_vec), cpu_queue(events),
+          type_desc(type_desc), type_name(type_name) {}
 
     void computeSizeThreadFromThread();
 

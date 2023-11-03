@@ -346,6 +346,8 @@ HipTraceFile::Kind HipTraceFile::parseHeader(std::string_view header) {
         return Kind::Counters;
     } else if (header_trimmed == hiptrace_wave_counters_name) {
         return Kind::WaveCounters;
+    } else if (header_trimmed == hiptrace_events_name) {
+        return Kind::Events;
     } else {
         return Kind::ErrorKind;
     }
@@ -411,6 +413,63 @@ loadInstr(const std::string& header, std::ifstream& f) {
     return {vec, ki, stamp, interval};
 }
 
+HipTraceManager::EventsQueuePayload
+HipTraceFile::loadEvents(const std::string& header, std::ifstream& f) const {
+    // Get header, construct queue info
+    std::stringstream ss;
+    ss << header;
+
+    auto get_token = [&]() -> std::string {
+        std::string token;
+        std::getline(ss, token, ',');
+        return token;
+    };
+
+    auto parse_u64 = [&]() -> uint64_t {
+        uint64_t val;
+        std::string token = get_token();
+        if (std::from_chars(token.data(), token.data() + token.length(), val)
+                .ec != std::errc()) {
+            throw std::runtime_error("Could not parse u64 token : " + token);
+        }
+        return val;
+    };
+
+    auto assert_header = [](const std::string& token,
+                            std::string_view expected) {
+        if (token != expected) {
+            throw std::runtime_error("Unexpected header \"" + token +
+                                     "\", expected " + std::string(expected));
+        }
+    };
+
+    auto type_header = get_token();
+    auto event_size = parse_u64();
+    auto num_offsets = parse_u64() + 1;
+    auto event_name = get_token();
+    auto fields_header = get_token();
+
+    assert_header(type_header, hiptrace_events_name);
+    assert_header(fields_header, hiptrace_event_fields);
+
+    // TODO : Check event members & sizes through header
+
+    std::vector<size_t> offsets;
+    offsets.resize(num_offsets);
+    f.read(reinterpret_cast<char*>(offsets.data()),
+           num_offsets * sizeof(size_t));
+
+    auto num_events =
+        offsets.back(); // Last offset is the total number of events
+
+    std::vector<std::byte> events;
+    events.resize(num_events * event_size);
+    f.read(reinterpret_cast<char*>(events.data()), events.size());
+
+    return {nullptr, QueueInfo{event_size, type_header, type_header,
+                               std::move(offsets), std::move(events)}};
+}
+
 HipTraceManager::Payload HipTraceFile::getNext() {
     // Get header
     std::string buffer;
@@ -429,6 +488,8 @@ HipTraceManager::Payload HipTraceFile::getNext() {
         return loadInstr<HipTraceManager::ThreadCounters>(buffer, input);
     case Kind::WaveCounters:
         return loadInstr<HipTraceManager::WaveCounters>(buffer, input);
+    case Kind::Events:
+        return loadEvents(buffer, input);
     case Kind::ErrorKind:
         throw std::runtime_error(
             "HipTraceFile::getNext() : Could not parse header " + buffer);

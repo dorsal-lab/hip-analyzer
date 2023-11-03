@@ -97,7 +97,7 @@ class HipTraceManager {
  */
 class HipTraceFile {
   public:
-    enum class Kind { Managed, Counters, WaveCounters, ErrorKind };
+    enum class Kind { Managed, Counters, WaveCounters, Events, ErrorKind };
 
     /** ctor
      * \brief Constructor. Load a trace file and initialize
@@ -116,6 +116,13 @@ class HipTraceFile {
 
   private:
     Kind parseHeader(std::string_view header);
+
+    /** loadEvents
+     * \brief Needed to be a member function to access a private ctor for
+     * QueueInfo
+     */
+    HipTraceManager::EventsQueuePayload loadEvents(const std::string& header,
+                                                   std::ifstream& f) const;
 
     size_t offset = 0u;
     std::ifstream input;
