@@ -161,7 +161,7 @@ class WaveTrace : public TraceType {
 
   protected:
     llvm::Value* thread_storage = nullptr;
-    constexpr static uint8_t index_reg = 20u;
+    constexpr static uint8_t index_reg = 40u;
 
     std::string index_lsb = 's' + std::to_string(index_reg);
     std::string index_msb = 's' + std::to_string(index_reg + 1);
@@ -275,10 +275,10 @@ class WaveState : public WaveTrace {
         "s_mov_b64 s[26:27], exec\n"              // exec mask
         "s_getreg_b32 s28, hwreg(HW_REG_HW_ID)\n" // hw_id
         "s_mov_b32 s29, $0\n"                     // bb
-
+        "s_waitcnt lgkmcnt(0)\n"
         // Write to mem
-        "s_store_dwordx4 s[24:27], s[20:21], 0\n"
-        "s_store_dwordx2 s[28:29], s[20:21], 16\n"
+        "s_store_dwordx4 s[24:27], s[40:41], 0\n"
+        "s_store_dwordx2 s[28:29], s[40:41], 16\n"
         "s_waitcnt lgkmcnt(0)\n";
     static constexpr auto* wave_event_ctor_constraints =
         "i,~{s24},~{s25},~{s26},~{s27},~{s28},~{s29}"; // Temp values

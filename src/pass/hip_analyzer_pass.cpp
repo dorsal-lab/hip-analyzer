@@ -29,7 +29,7 @@ static llvm::cl::opt<bool>
 static llvm::cl::opt<bool>
     do_replay("hip-replay",
               llvm::cl::desc("hip-aalyzer load existing counters trace"),
-              llvm::cl::init(false));
+              llvm::cl::init(true));
 
 llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
     return {
