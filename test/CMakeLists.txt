@@ -198,10 +198,18 @@ add_library(replace_main SHARED
 target_compile_options(replace_main PRIVATE "-fPIC")
 target_link_libraries(replace_main dl)
 
-# ----- recover_arrays ----- #
+# ----- read_trace ----- #
 
 add_executable(read_trace
     read_trace.cpp
 )
 
 target_link_libraries(read_trace hip_instrumentation LLVMSupport)
+
+# ----- basic_blocks_freq ----- #
+
+add_executable(basic_blocks_freq
+    basic_blocks_freq.cpp
+)
+
+target_link_libraries(basic_blocks_freq hip_instrumentation LLVMSupport)
