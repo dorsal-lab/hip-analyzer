@@ -19,6 +19,9 @@ static llvm::cl::opt<std::string> input_file(llvm::cl::Positional,
                                              llvm::cl::value_desc("hiptrace"),
                                              llvm::cl::Required);
 
+std::map<uint32_t, std::tuple<uint64_t, uint64_t, uint64_t, uint64_t>>
+    occurences;
+
 template <typename T> void visitor(T&&);
 
 template <>
@@ -30,7 +33,7 @@ void visitor(hip::HipTraceManager::CountersQueuePayload<
 template <>
 void visitor(hip::HipTraceManager::CountersQueuePayload<
              hip::HipTraceManager::WaveCounters>&& payload) {
-    std::cout << "Wave counters\n";
+    std::cerr << "Wave counters\n";
 
     auto& [vec, ki, stamp, interval] = payload;
     hip::WaveCounterInstrumenter instr(std::move(vec), ki);
@@ -45,8 +48,6 @@ template <> void visitor(hip::HipTraceManager::EventsQueuePayload&& payload) {
 
     auto num_producers = queue_info.parallelism();
 
-    std::map<uint32_t, std::tuple<uint64_t, uint64_t>> occurences;
-
     for (auto i = 0u; i < num_producers; ++i) {
         std::optional<std::reference_wrapper<const hip::WaveState>> last;
 
@@ -59,32 +60,39 @@ template <> void visitor(hip::HipTraceManager::EventsQueuePayload&& payload) {
                 // Not the first event
                 uint64_t duration = event.stamp - last->get().stamp;
 
+                // std::cout << last->get().bb << ' ' << last->get().stamp << '
+                // '
+                //           << std::popcount(last->get().exec) << '\n';
+
                 if (duration > (1ull << 32)) {
                     // Most probably an error : ignore
-                    std::cout << "BB : " << event.bb << "Ignored, duration "
+                    std::cerr << "BB : " << event.bb << "Ignored, duration "
                               << duration << '\n';
                 } else {
                     auto& bb = occurences[last->get().bb];
 
+                    auto active_threads =
+                        static_cast<uint64_t>(std::popcount(last->get().exec));
+
+                    double weight = 64. / static_cast<double>(active_threads);
+
                     std::get<0>(bb) += duration;
-                    std::get<1>(bb) += std::popcount(last->get().exec);
+                    std::get<1>(bb) += static_cast<uint64_t>(
+                        static_cast<double>(duration) * weight);
+                    std::get<2>(bb) += duration * (65 - active_threads);
+                    std::get<3>(bb) += active_threads;
                 }
             }
 
             last.emplace(event);
         }
     }
-
-    for (auto& [bb, contents] : occurences) {
-        std::cout << bb << " -> " << std::get<0>(contents) << ';'
-                  << std::get<1>(contents) << '\n';
-    }
 }
 
 int main(int argc, char** argv) {
     llvm::cl::ParseCommandLineOptions(argc, argv);
 
-    std::cout << "Reading trace file " << input_file.getValue() << '\n';
+    std::cerr << "Reading trace file " << input_file.getValue() << '\n';
 
     hip::HipTraceFile trace{input_file.getValue()};
 
@@ -92,5 +100,13 @@ int main(int argc, char** argv) {
         auto payload = trace.getNext();
 
         std::visit([](auto&& var) { visitor(std::move(var)); }, payload);
+    }
+
+    std::cout
+        << "bb,duration,weighted_duration,linear_weighted,active_threads\n";
+    for (auto& [bb, contents] : occurences) {
+        std::cout << bb << ',' << std::get<0>(contents) << ','
+                  << std::get<1>(contents) << ',' << std::get<2>(contents)
+                  << ',' << std::get<3>(contents) << '\n';
     }
 }
