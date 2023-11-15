@@ -216,6 +216,15 @@ llvm::InlineAsm* incrementRegisterAsm(llvm::IRBuilder<>& builder,
                                       std::string_view reg, bool carry = false,
                                       std::string_view inc = "1");
 
+/** \fn atomicIncrementAsm
+ * \brief Perform an atomic add operation at the address contained by reg_addr,
+ * returns it in reg_ret
+ */
+llvm::InlineAsm* atomicIncrementAsm(llvm::IRBuilder<>& builder,
+                                    std::string_view reg_addr,
+                                    std::string_view reg_ret,
+                                    std::string_view inc = "1");
+
 /** \fn getEventCtorType
  * \brief Return the generic event constructor type
  */

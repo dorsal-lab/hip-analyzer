@@ -360,6 +360,26 @@ llvm::InlineAsm* incrementRegisterAsm(llvm::IRBuilder<>& builder,
     return llvm::InlineAsm::get(f_ty, instr, constraints, true);
 }
 
+llvm::InlineAsm* atomicIncrementAsm(llvm::IRBuilder<>& builder,
+                                    std::string_view reg_addr,
+                                    std::string_view reg_ret,
+                                    std::string_view inc) {
+    const char* opcode = "s_atomic_add_x2";
+    auto instr = llvm::Twine(opcode)
+                     .concat(reg_addr)
+                     .concat(", ")
+                     .concat(reg_ret)
+                     .concat(", ")
+                     .concat(inc)
+                     .str();
+
+    auto constraints = "~{scc}";
+
+    auto* void_ty = builder.getVoidTy();
+    auto* f_ty = llvm::FunctionType::get(void_ty, {}, false);
+    return llvm::InlineAsm::get(f_ty, instr, constraints, true);
+}
+
 InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
     auto& context = mod.getContext();
 
