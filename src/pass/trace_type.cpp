@@ -117,7 +117,7 @@ class WaveTrace : public TraceType {
 
     llvm::Value* getThreadStorage(llvm::Module& mod, llvm::IRBuilder<>& builder,
                                   llvm::Value* storage_ptr,
-                                  llvm::Value* offsets_ptr) override final {
+                                  llvm::Value* offsets_ptr) override {
 
         auto* i64_ty = builder.getInt64Ty();
 
@@ -137,7 +137,7 @@ class WaveTrace : public TraceType {
 
     llvm::Value* getCounterAndIncrement(llvm::Module& mod,
                                         llvm::IRBuilder<>& builder,
-                                        llvm::Value* counter) override final {
+                                        llvm::Value* counter) override {
         auto* inc_lsb = incrementRegisterAsm(builder, index_lsb, false,
                                              std::to_string(eventSize()));
         auto* inc_msb = incrementRegisterAsm(builder, index_msb, true, "0");
@@ -286,6 +286,130 @@ class WaveState : public WaveTrace {
     static constexpr auto* flush_asm = "s_dcache_wb\n";
 };
 
+class GlobalWaveState : public WaveTrace {
+  public:
+    llvm::Value* getCounterAndIncrement(llvm::Module& mod,
+                                        llvm::IRBuilder<>& builder,
+                                        llvm::Value* counter) override {
+        // Nothing to do : incremented atomically when creating the event
+        return nullptr;
+    }
+
+    llvm::Value* getThreadStorage(llvm::Module& mod, llvm::IRBuilder<>& builder,
+                                  llvm::Value* storage_ptr,
+                                  llvm::Value* offsets_ptr) override {
+
+        // The "storage pointer" in this case is the global tracing pointer
+        thread_storage = readFirstLaneI64(builder, storage_ptr, index_reg);
+
+        // Compute wave id
+
+        TracingFunctions utils{mod};
+        auto* u32_id = builder.CreateCall(utils._hip_wave_id_1d, {});
+        auto* u64_id = builder.CreateZExt(u32_id, builder.getInt64Ty());
+        wave_id = readFirstLaneI64(builder, u64_id);
+
+        return thread_storage;
+    }
+
+    llvm::Type* getEventType(llvm::LLVMContext& context) const override {
+        auto* i64 = llvm::Type::getInt64Ty(context);
+        auto* i32 = llvm::Type::getInt32Ty(context);
+        return llvm::StructType::create(context, {i64, i64, i32, i32, i64},
+                                        "hipWaveStateTag");
+    }
+
+    llvm::Function* getEventCtor(llvm::Module& mod) const override {
+        return getFunction(mod, "_hip_wavestate_ctor",
+                           getEventCtorType(mod.getContext()));
+    }
+
+    virtual llvm::Function* getEventCreator(llvm::Module& mod) const override {
+        return TracingFunctions{mod}._hip_create_wave_event;
+    }
+
+    llvm::Function* getOffsetGetter(llvm::Module& mod) const override {
+        return TracingFunctions{mod}._hip_get_wave_trace_offset;
+    }
+
+    std::pair<llvm::Value*, llvm::Value*>
+    getQueueType(llvm::Module& mod) const override {
+        return getPair(mod.getContext(), 2, 1);
+    }
+
+    void createEvent(llvm::Module& mod, llvm::IRBuilder<>& builder,
+                     llvm::Value* thread_storage, llvm::Value* counter,
+                     uint64_t bb) override {
+        // We are not calling a "simple" device function. This constructor is
+        // handwritten in assembly.
+        auto* int32_ty = builder.getInt32Ty();
+        auto* ctor_ty =
+            llvm::FunctionType::get(builder.getVoidTy(), {int32_ty}, false);
+
+        auto* ctor = llvm::InlineAsm::get(ctor_ty, wave_event_ctor_asm,
+                                          wave_event_ctor_constraints, true);
+
+        // llvm::dbgs() << "Base storage " << *thread_storage << '\n';
+        // llvm::dbgs() << "Counter " << *counter << '\n';
+
+        builder.CreateCall(ctor, {builder.getInt32(eventSize()),
+                                  builder.getInt32(bb), thread_storage});
+    }
+
+    size_t eventSize() const override { return 32; }
+
+    void finalize(llvm::IRBuilder<>& builder) const override {
+        // If a wave writes to scalar cache, it has to be explicitely flushed
+        // at the end of the wave lifetime to ensure the following wave does not
+        // overwrite it. This is hardly explained in the ISA description, and
+        // the compiler is supposed to do it itself but does not for inline
+        // assembly.
+        auto* flush_ty =
+            llvm::FunctionType::get(builder.getVoidTy(), {}, false);
+        auto* flush = llvm::InlineAsm::get(flush_ty, flush_asm, "", true);
+
+        builder.CreateCall(flush, {});
+    }
+
+  private:
+    llvm::Value* wave_id = nullptr;
+
+    constexpr static uint8_t tracing_ptr_reg = 40u;
+
+    // Tracing pointer contains the pointer to the current global tracing index
+    // (uint8_t**)
+
+    std::string tracing_pointer =
+        llvm::Twine("s[")
+            .concat(std::to_string(tracing_ptr_reg))
+            .concat(":")
+            .concat(std::to_string(tracing_ptr_reg + 1))
+            .concat("]")
+            .str();
+
+    static constexpr auto* wave_event_ctor_asm =
+        // Prepare payload
+        "s_atomic_add_x2 s[22:23], s[40:41], $0"  // Atomically increment the
+                                                  // global trace pointer
+        "s_memrealtime s[24:25]\n"                // timestamp
+        "s_mov_b64 s[26:27], exec\n"              // exec mask
+        "s_getreg_b32 s28, hwreg(HW_REG_HW_ID)\n" // hw_id
+        "s_mov_b32 s29, $1\n"                     // bb
+        "s_mov_b64 s[30:31], $2"
+        "s_waitcnt lgkmcnt(0)\n"
+        // Write to mem
+        "s_store_dwordx4 s[24:27], s[22:23], 0\n"
+        "s_store_dwordx4 s[28:31], s[22:23], 16\n"
+        "s_waitcnt lgkmcnt(0)\n";
+    static constexpr auto* wave_event_ctor_constraints =
+        "i,i,s"          // u32 Event size, u32 bb, u32 producer
+        "~{s22},~{s23}," // Trace pointer
+        "~{s24},~{s25},~{s26},~{s27},~{s28},~{s29},~{s30},~{s31}"; // Temp
+                                                                   // values
+
+    static constexpr auto* flush_asm = "s_dcache_wb\n";
+};
+
 } // namespace
 
 std::unique_ptr<TraceType> TraceType::create(const std::string& trace_type) {
@@ -296,6 +420,8 @@ std::unique_ptr<TraceType> TraceType::create(const std::string& trace_type) {
         return std::make_unique<TaggedEvent>();
     } else if (trace_type == "trace-wavestate") {
         return std::make_unique<WaveState>();
+    } else if (trace_type == "trace-globalwavestate") {
+        return std::make_unique<GlobalWaveState>();
     } else {
         return {nullptr};
     }
