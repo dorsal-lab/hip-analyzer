@@ -503,6 +503,10 @@ TracingFunctions::TracingFunctions(llvm::Module& mod) {
 
     _hip_create_wave_event =
         getFunction(mod, "_hip_create_wave_event", event_creator_type);
+
+    _hip_wave_id_1d =
+        getFunction(mod, "_hip_get_wave_id_1d",
+                    llvm::FunctionType::get(uint32_type, {}, false));
 }
 
 llvm::Function& cloneWithName(llvm::Function& f, std::string_view name,

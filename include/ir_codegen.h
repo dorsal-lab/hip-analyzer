@@ -94,6 +94,9 @@ struct CfgFunctions {
 struct TracingFunctions {
     // ----- Tracing functions ----- //
 
+    // Utils
+    llvm::Function* _hip_wave_id_1d;
+
     // ThreadQueue
     llvm::Function *_hip_get_trace_offset, *_hip_create_event;
 
