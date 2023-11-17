@@ -222,6 +222,16 @@ InstrumentedBlock getBlockInfo(const llvm::BasicBlock& bb, unsigned int i) {
     return {i, flops, f_ld, f_st, {}};
 }
 
+llvm::Value* readFirstLane(llvm::IRBuilder<>& builder, llvm::Value* i32_vgpr) {
+    auto* i32_ty = builder.getInt32Ty();
+    auto* f_ty = llvm::FunctionType::get(i32_ty, {i32_ty}, false);
+
+    auto* readfirstlane =
+        llvm::InlineAsm::get(f_ty, "v_readfirstlane_b32 $0, $1", "=s,v", true);
+
+    return builder.CreateCall(readfirstlane, i32_vgpr);
+}
+
 llvm::Value* readFirstLaneI64(llvm::IRBuilder<>& builder,
                               llvm::Value* i64_vgpr) {
     auto* ptr_ty = builder.getPtrTy();
@@ -230,11 +240,6 @@ llvm::Value* readFirstLaneI64(llvm::IRBuilder<>& builder,
 
     auto* double_i32_ty =
         llvm::VectorType::get(i32_ty, llvm::ElementCount::getFixed(2));
-
-    auto* f_ty = llvm::FunctionType::get(i32_ty, {i32_ty}, false);
-
-    auto* readfirstlane =
-        llvm::InlineAsm::get(f_ty, "v_readfirstlane_b32 $0, $1", "=s,v", true);
 
     // Convert to i64 if the value is a pointer
     bool ptr = i64_vgpr->getType()->isPointerTy();
@@ -247,8 +252,8 @@ llvm::Value* readFirstLaneI64(llvm::IRBuilder<>& builder,
     auto* lsb_vgpr = builder.CreateExtractElement(vgpr_pair, 0ul);
     auto* msb_vgpr = builder.CreateExtractElement(vgpr_pair, 1ul);
 
-    auto* lsb_sgpr = builder.CreateCall(readfirstlane, lsb_vgpr);
-    auto* msb_sgpr = builder.CreateCall(readfirstlane, msb_vgpr);
+    auto* lsb_sgpr = readFirstLane(builder, lsb_vgpr);
+    auto* msb_sgpr = readFirstLane(builder, msb_vgpr);
 
     auto* sgpr_pair = builder.CreateInsertElement(
         llvm::UndefValue::get(double_i32_ty), lsb_sgpr, 0ul);

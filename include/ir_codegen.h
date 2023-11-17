@@ -186,6 +186,11 @@ InstrumentedBlock getBlockInfo(const llvm::BasicBlock& block, unsigned int i);
 
 // ----- IR Modifiers ----- //
 
+/** \fn readFirstLane
+ * \brief Converts a vector u32 to a scalar u32
+ */
+llvm::Value* readFirstLane(llvm::IRBuilder<>& builder, llvm::Value* i32_vgpr);
+
 /** \fn readFirstLaneI64
  * \brief Converts an i64 (or ptr) VGPR value to an i64 that will be (hopefully)
  * constrained to be stored in a sgpr
