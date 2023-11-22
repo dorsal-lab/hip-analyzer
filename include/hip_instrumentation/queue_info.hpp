@@ -1,5 +1,5 @@
 /** \file queue_info.hpp
- * \brief GPU Queue host-side handler
+ * \brief GPU Queue host-side handler for precomputed buffers & offsets
  *
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */

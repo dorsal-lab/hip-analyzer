@@ -165,6 +165,7 @@ if(ENABLE_TRACEPOINTS)
         src/gpu_info.cpp
         src/state_recoverer.cpp
         src/hip_instrumentation_cbindings.cpp
+        src/managed_queue_info.cpp
         ${CMAKE_BINARY_DIR}/hip_instrumentation_tracepoint_provider.cpp.o
         ${CMAKE_BINARY_DIR}/gpu_hip_instrumentation.o
         ${CMAKE_BINARY_DIR}/queue_info.o
@@ -177,6 +178,7 @@ else()
         src/gpu_info.cpp
         src/state_recoverer.cpp
         src/hip_instrumentation_cbindings.cpp
+        src/managed_queue_info.cpp
         ${CMAKE_BINARY_DIR}/gpu_hip_instrumentation.o
         ${CMAKE_BINARY_DIR}/queue_info.o
     )
