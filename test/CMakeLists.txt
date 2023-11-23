@@ -213,3 +213,21 @@ add_executable(basic_blocks_freq
 )
 
 target_link_libraries(basic_blocks_freq hip_instrumentation LLVMSupport)
+
+# -----global_atomics_tracing ----- #
+
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/global_atomics_tracing.o
+    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/global_atomics_tracing.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/global_atomics_tracing.o
+    DEPENDS
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/queue_info.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation_cbindings.hpp
+        ${CMAKE_SOURCE_DIR}/test/global_atomics_tracing.cpp
+    VERBATIM
+)
+
+add_executable(global_atomics_tracing ${CMAKE_CURRENT_BINARY_DIR}/global_atomics_tracing.o)
+target_link_libraries(global_atomics_tracing hip_instrumentation)
+set_target_properties(global_atomics_tracing PROPERTIES LINKER_LANGUAGE CXX)
