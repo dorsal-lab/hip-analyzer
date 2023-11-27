@@ -222,7 +222,7 @@ add_custom_command(
     DEPENDS
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
-        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/queue_info.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/managed_queue_info.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation_cbindings.hpp
         ${CMAKE_SOURCE_DIR}/test/global_atomics_tracing.cpp
     VERBATIM

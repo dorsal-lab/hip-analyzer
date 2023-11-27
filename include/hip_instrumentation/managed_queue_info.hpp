@@ -24,7 +24,10 @@ class GlobalMemoryQueueInfo {
 
     GlobalMemoryQueueInfo(size_t elem_size, size_t buffer_size = DEFAULT_SIZE);
 
-    size_t queueLength() const { return cpu_queue.size(); }
+    size_t bufferSize() const { return cpu_queue.size(); }
+    size_t queueLength() const { return cpu_queue.size() / elem_size; }
+    const GlobalMemoryTrace& cpuTrace() const { return cpu_trace; }
+    const std::vector<std::byte>& buffer() const { return cpu_queue; }
 
     /** \fn toDevice
      * \brief Create a global memory trace on the device
@@ -44,6 +47,7 @@ class GlobalMemoryQueueInfo {
   private:
     std::vector<std::byte> cpu_queue;
     GlobalMemoryTrace cpu_trace;
+    size_t elem_size;
 };
 
 } // namespace hip

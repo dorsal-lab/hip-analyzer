@@ -21,9 +21,12 @@ create_n_events(hip::GlobalMemoryQueueInfo::GlobalMemoryTrace* buffer,
                 size_t n) {
     auto tid = threadIdx.x + blockIdx.x * blockDim.x;
 
-    for (auto i = 0ul; i < n; ++n) {
-        auto* ptr = reinterpret_cast<void*>(atomicAdd(
-            reinterpret_cast<size_t*>(buffer->current), sizeof(Event)));
+    auto* trace_pointer = &buffer->current;
+
+    for (auto i = 0ul; i < n; ++i) {
+
+        auto* ptr = reinterpret_cast<void*>(
+            atomicAdd(reinterpret_cast<size_t*>(trace_pointer), sizeof(Event)));
 
         Event* new_event = reinterpret_cast<Event*>(ptr);
         new_event->id = i;
