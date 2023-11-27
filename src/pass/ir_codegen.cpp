@@ -464,6 +464,9 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
 
     hipGlobalMemQueueInfoRecord =
         getFunction(mod, "hipGlobalMemQueueInfoRecord", void_from_ptr_type);
+
+    freeHipGlobalMemoryQueueInfo =
+        getFunction(mod, "freeHipGlobalMemoryQueueInfo", void_from_ptr_type);
 }
 
 CfgFunctions::CfgFunctions(llvm::Module& mod) {
