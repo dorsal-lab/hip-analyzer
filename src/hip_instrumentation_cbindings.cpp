@@ -334,6 +334,25 @@ void hipQueueInfoRecord(hip::QueueInfo* queue_info, void* events,
 
 void freeHipQueueInfo(hip::QueueInfo* q) { delete q; }
 
+hip::GlobalMemoryQueueInfo* newGlobalMemoryQueueInfo(size_t event_size) {
+    return new hip::GlobalMemoryQueueInfo(event_size);
+}
+
+hip::GlobalMemoryQueueInfo::GlobalMemoryTrace*
+hipGlobalMemQueueInfoToDevice(hip::GlobalMemoryQueueInfo* queue) {
+    return queue->toDevice();
+}
+
+void hipGlobalMemQueueInfoRecord(
+    hip::GlobalMemoryQueueInfo* queue,
+    hip::GlobalMemoryQueueInfo::GlobalMemoryTrace* device_ptr) {
+    queue->record(device_ptr);
+}
+
+void freeHipGlobalMemoryQueueInfo(hip::GlobalMemoryQueueInfo* queue) {
+    delete queue;
+}
+
 // ----- Experimental - Kernel timer ----- //
 
 namespace {

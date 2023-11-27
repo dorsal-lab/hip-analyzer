@@ -7,6 +7,7 @@
 #include "hip/hip_runtime.h"
 
 #include "hip_instrumentation/gpu_queue.hpp"
+#include "hip_instrumentation/managed_queue_info.hpp"
 
 extern "C" {
 
@@ -104,6 +105,11 @@ __device__ void* _hip_get_wave_trace_offset(void* storage, size_t* offsets,
     auto* bitcast = reinterpret_cast<uint8_t*>(storage);
 
     return &bitcast[offset * event_size];
+}
+
+__device__ void* _hip_get_global_memory_trace_ptr(
+    hip::GlobalMemoryQueueInfo::GlobalMemoryTrace* device_ptr) {
+    return &device_ptr->current;
 }
 
 // Generic function pointer to : void event_ctor(void* storage, size_t bb);

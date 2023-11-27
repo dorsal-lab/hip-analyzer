@@ -390,6 +390,7 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
 
     auto* void_type = llvm::Type::getVoidTy(context);
     auto* uint32_type = llvm::Type::getInt32Ty(context);
+    auto* uint64_type = llvm::Type::getInt64Ty(context);
     auto* ptr_type = llvm::PointerType::getUnqual(context);
 
     auto void_from_ptr_type =
@@ -453,6 +454,16 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
                         void_type, {ptr_type, ptr_type, ptr_type}, false));
 
     freeHipQueueInfo = getFunction(mod, "freeHipQueueInfo", void_from_ptr_type);
+
+    newGlobalMemoryQueueInfo =
+        getFunction(mod, "newGlobalMemoryQueueInfo",
+                    llvm::FunctionType::get(ptr_type, {uint64_type}, false));
+
+    hipGlobalMemQueueInfoToDevice =
+        getFunction(mod, "hipGlobalMemQueueInfoToDevice", ptr_from_ptr_type);
+
+    hipGlobalMemQueueInfoRecord =
+        getFunction(mod, "hipGlobalMemQueueInfoRecord", void_from_ptr_type);
 }
 
 CfgFunctions::CfgFunctions(llvm::Module& mod) {
@@ -512,6 +523,10 @@ TracingFunctions::TracingFunctions(llvm::Module& mod) {
     _hip_wave_id_1d =
         getFunction(mod, "_hip_get_wave_id_1d",
                     llvm::FunctionType::get(uint32_type, {}, false));
+
+    _hip_get_global_memory_trace_ptr =
+        getFunction(mod, "_hip_get_global_memory_trace_ptr",
+                    llvm::FunctionType::get(ptr_type, {ptr_type}, false));
 }
 
 llvm::Function& cloneWithName(llvm::Function& f, std::string_view name,

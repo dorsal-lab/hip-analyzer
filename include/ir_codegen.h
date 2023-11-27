@@ -71,6 +71,10 @@ struct InstrumentationFunctions {
         *hipQueueInfoAllocBuffer, *hipQueueInfoAllocOffsets,
         *hipQueueInfoRecord;
 
+    // hipManagedQueueInfo
+    llvm::Function *newGlobalMemoryQueueInfo, *hipGlobalMemQueueInfoToDevice,
+        *hipGlobalMemQueueInfoRecord, *freeHipGlobalMemoryQueueInfo;
+
     /** ctor
      * \brief Forward-declare instrumentation functions in the module, and
      * returns pointers to them
@@ -102,6 +106,9 @@ struct TracingFunctions {
 
     // WaveQueue
     llvm::Function *_hip_get_wave_trace_offset, *_hip_create_wave_event;
+
+    // Managed Queue
+    llvm::Function* _hip_get_global_memory_trace_ptr;
 
     /** ctor
      * \brief Forward-declare tracing functions in the module, and
