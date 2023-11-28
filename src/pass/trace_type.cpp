@@ -342,8 +342,8 @@ class GlobalWaveState : public WaveTrace {
         // We are not calling a "simple" device function. This constructor is
         // handwritten in assembly.
         auto* int32_ty = builder.getInt32Ty();
-        auto* ctor_ty =
-            llvm::FunctionType::get(builder.getVoidTy(), {int32_ty}, false);
+        auto* ctor_ty = llvm::FunctionType::get(
+            builder.getVoidTy(), {int32_ty, int32_ty, int32_ty}, false);
 
         auto* ctor = llvm::InlineAsm::get(ctor_ty, wave_event_ctor_asm,
                                           wave_event_ctor_constraints, true);
@@ -352,7 +352,7 @@ class GlobalWaveState : public WaveTrace {
         // llvm::dbgs() << "Counter " << *counter << '\n';
 
         builder.CreateCall(ctor, {builder.getInt32(eventSize()),
-                                  builder.getInt32(bb), thread_storage});
+                                  builder.getInt32(bb), wave_id});
     }
 
     size_t eventSize() const override { return 32; }

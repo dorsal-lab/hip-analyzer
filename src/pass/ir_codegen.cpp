@@ -462,8 +462,9 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
     hipGlobalMemQueueInfoToDevice =
         getFunction(mod, "hipGlobalMemQueueInfoToDevice", ptr_from_ptr_type);
 
-    hipGlobalMemQueueInfoRecord =
-        getFunction(mod, "hipGlobalMemQueueInfoRecord", void_from_ptr_type);
+    hipGlobalMemQueueInfoRecord = getFunction(
+        mod, "hipGlobalMemQueueInfoRecord",
+        llvm::FunctionType::get(void_type, {ptr_type, ptr_type}, false));
 
     freeHipGlobalMemoryQueueInfo =
         getFunction(mod, "freeHipGlobalMemoryQueueInfo", void_from_ptr_type);
@@ -524,7 +525,7 @@ TracingFunctions::TracingFunctions(llvm::Module& mod) {
         getFunction(mod, "_hip_create_wave_event", event_creator_type);
 
     _hip_wave_id_1d =
-        getFunction(mod, "_hip_get_wave_id_1d",
+        getFunction(mod, "_hip_wave_id_1d",
                     llvm::FunctionType::get(uint32_type, {}, false));
 
     _hip_get_global_memory_trace_ptr =
