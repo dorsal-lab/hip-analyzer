@@ -9,16 +9,12 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
-static llvm::cl::opt<std::string>
-    kernel_name("kernel-name", llvm::cl::desc("Specify kernel name"),
-                llvm::cl::value_desc("kernel"));
-
 static llvm::cl::opt<bool>
     wave_counters("wave-counters", llvm::cl::desc("Use wavefront counters"),
                   llvm::cl::init(true));
 
 static llvm::cl::opt<std::string>
-    trace_type("trace_type", llvm::cl::desc("hip-analyzer trace type"),
+    trace_type("trace-type", llvm::cl::desc("hip-analyzer trace type"),
                llvm::cl::init("trace-wavestate"));
 
 static llvm::cl::opt<bool>
@@ -26,10 +22,26 @@ static llvm::cl::opt<bool>
              llvm::cl::desc("hip-analyzer add to trace kernel values"),
              llvm::cl::init(false));
 
-static llvm::cl::opt<bool>
-    do_replay("hip-replay",
-              llvm::cl::desc("hip-aalyzer load existing counters trace"),
-              llvm::cl::init(true));
+enum class TracingType {
+    CountersOnly,
+    LowOverheadTracing,
+    CountersReplayer,
+    GlobalMemory,
+    // TODO : Add new tracing modes
+};
+
+static llvm::cl::opt<TracingType> hip_analyzer_mode(
+    llvm::cl::desc("hip-analyzer tracing type"),
+    llvm::cl::values(
+        clEnumValN(TracingType::CountersOnly, "hip-counters",
+                   "Basic blocks counters only"),
+        clEnumValN(TracingType::LowOverheadTracing, "hip-trace",
+                   "Low-overhead tracing. Separate counters & tracing kernels"),
+        clEnumValN(TracingType::CountersReplayer, "hip-replay",
+                   "Load existing counters trace"),
+        clEnumValN(TracingType::GlobalMemory, "hip-global-mem",
+                   "Concurrent global memory, atomics based tracing")),
+    llvm::cl::init(TracingType::LowOverheadTracing));
 
 llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
     return {
@@ -62,7 +74,7 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
                         pm.addPass(hip::ThreadCountersInstrumentationPass());
                     }
 
-                    if (do_trace || do_replay) {
+                    if (hip_analyzer_mode != TracingType::CountersOnly) {
                         pm.addPass(hip::TracingPass(trace_type.getValue()));
                     }
                 });
@@ -77,15 +89,22 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
                         ? hip::WaveCountersInstrumentationPass::CounterType
                         : hip::ThreadCountersInstrumentationPass::CounterType;
 
-                if (do_replay) {
-                    pm.addPass(
-                        hip::KernelReplayerHostPass(trace_type.getValue()));
-                } else if (do_trace) {
-                    pm.addPass(hip::FullInstrumentationHostPass(
-                        cfg_prefix, trace_type.getValue()));
-                } else {
+                switch (hip_analyzer_mode) {
+                case TracingType::CountersOnly:
                     pm.addPass(
                         hip::CounterKernelInstrumentationHostPass(cfg_prefix));
+                    break;
+                case TracingType::LowOverheadTracing:
+                    pm.addPass(hip::FullInstrumentationHostPass(
+                        cfg_prefix, trace_type.getValue()));
+                    break;
+                case TracingType::CountersReplayer:
+                    pm.addPass(
+                        hip::KernelReplayerHostPass(trace_type.getValue()));
+                    break;
+                case TracingType::GlobalMemory:
+                    pm.addPass(hip::GlobalMemoryQueueHostPass());
+                    break;
                 }
             });
 
