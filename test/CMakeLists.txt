@@ -231,3 +231,21 @@ add_custom_command(
 add_executable(global_atomics_tracing ${CMAKE_CURRENT_BINARY_DIR}/global_atomics_tracing.o)
 target_link_libraries(global_atomics_tracing hip_instrumentation)
 set_target_properties(global_atomics_tracing PROPERTIES LINKER_LANGUAGE CXX)
+
+# -----global_atomics_tracing_asm ----- #
+
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/global_atomics_tracing_asm.o
+    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/global_atomics_tracing_asm.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/global_atomics_tracing_asm.o
+    DEPENDS
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/managed_queue_info.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation_cbindings.hpp
+        ${CMAKE_SOURCE_DIR}/test/global_atomics_tracing_asm.cpp
+    VERBATIM
+)
+
+add_executable(global_atomics_tracing_asm ${CMAKE_CURRENT_BINARY_DIR}/global_atomics_tracing_asm.o)
+target_link_libraries(global_atomics_tracing_asm hip_instrumentation)
+set_target_properties(global_atomics_tracing_asm PROPERTIES LINKER_LANGUAGE CXX)
