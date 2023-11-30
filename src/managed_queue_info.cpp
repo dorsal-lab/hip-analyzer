@@ -34,19 +34,24 @@ void GlobalMemoryQueueInfo::fromDevice(
     hip::check(hipMemcpy(&gpu_trace, device_ptr, sizeof(GlobalMemoryTrace),
                          hipMemcpyDeviceToHost));
 
-    // TODO : Memcpy to cpu_queue
-
     auto size = reinterpret_cast<std::byte*>(gpu_trace.current) -
                 reinterpret_cast<std::byte*>(cpu_trace.current);
 
     cpu_queue.resize(size);
     hip::check(hipMemcpy(cpu_queue.data(), cpu_trace.current, size,
                          hipMemcpyDeviceToHost));
+
+    cpu_trace.end = gpu_trace.current;
 }
 
 void GlobalMemoryQueueInfo::record(
     GlobalMemoryQueueInfo::GlobalMemoryTrace* device_ptr) {
-    throw std::runtime_error("Unimplemented");
+    fromDevice(device_ptr);
+
+    std::cerr << "hip::GlobalMemoryQueueInfo : used "
+              << (reinterpret_cast<std::byte*>(cpu_trace.end) -
+                  reinterpret_cast<std::byte*>(cpu_trace.current))
+              << '\n';
 }
 
 } // namespace hip

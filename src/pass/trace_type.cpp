@@ -298,13 +298,16 @@ class GlobalWaveState : public WaveTrace {
     llvm::Value* getThreadStorage(llvm::Module& mod, llvm::IRBuilder<>& builder,
                                   llvm::Value* storage_ptr,
                                   llvm::Value* offsets_ptr) override {
+        TracingFunctions utils{mod};
 
         // The "storage pointer" in this case is the global tracing pointer
-        thread_storage = readFirstLaneI64(builder, storage_ptr, index_reg);
+        auto global_trace_pointer = builder.CreateCall(
+            utils._hip_get_global_memory_trace_ptr, {storage_ptr});
+        thread_storage =
+            readFirstLaneI64(builder, global_trace_pointer, index_reg);
 
         // Compute wave id
 
-        TracingFunctions utils{mod};
         auto* v_u32_id = builder.CreateCall(utils._hip_wave_id_1d, {});
         wave_id = readFirstLane(builder, v_u32_id);
 
@@ -388,12 +391,13 @@ class GlobalWaveState : public WaveTrace {
 
     static constexpr auto* wave_event_ctor_asm =
         // Prepare payload
-        "s_atomic_add_x2 s[22:23], s[40:41], $0\n" // Atomically increment the
-                                                   // global trace pointer
-        "s_memrealtime s[24:25]\n"                 // timestamp
-        "s_mov_b64 s[26:27], exec\n"               // exec mask
-        "s_getreg_b32 s28, hwreg(HW_REG_HW_ID)\n"  // hw_id
-        "s_mov_b32 s29, $1\n"                      // bb
+        "s_mov_b64 s[22:23], $0"
+        "s_atomic_add_x2 s[22:23], s[40:41]\n"    // Atomically increment the
+                                                  // global trace pointer
+        "s_memrealtime s[24:25]\n"                // timestamp
+        "s_mov_b64 s[26:27], exec\n"              // exec mask
+        "s_getreg_b32 s28, hwreg(HW_REG_HW_ID)\n" // hw_id
+        "s_mov_b32 s29, $1\n"                     // bb
         "s_mov_b32 s30, $2\n" // s31 will be stored as well but that's not an
                               // issue (just ignore in the trace). Not clobbered
         "s_waitcnt lgkmcnt(0)\n"

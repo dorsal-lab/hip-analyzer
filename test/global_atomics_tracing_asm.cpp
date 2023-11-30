@@ -25,13 +25,16 @@ create_n_events(hip::GlobalMemoryQueueInfo::GlobalMemoryTrace* buffer,
     uint32_t lsb = trace_ptr_u64 & 0xffffffff;
     uint32_t msb = trace_ptr_u64 >> 32u;
 
-    asm volatile("v_readfirstlane_b32 s40, %0" : : "v"(lsb));
-    asm volatile("v_readfirstlane_b32 s41, %0" : : "v"(msb));
+    asm volatile("v_readfirstlane_b32 s10, %0" : : "v"(lsb));
+    asm volatile("v_readfirstlane_b32 s11, %0" : : "v"(msb));
 
     for (uint32_t i = 0u; i < n; ++i) {
-        asm volatile(                                  // Prepare payload
-            "s_atomic_add_x2 s[22:23], s[40:41], %0\n" // Atomically increment
-                                                       // the global trace
+        asm volatile( // Prepare payload
+            "s_mov_b64 s[22:23], %0\n"
+            "s_atomic_add_x2 s[22:23], s[10:11] glc\n" // Atomically
+                                                       // increment
+                                                       // the global
+                                                       // trace
                                                        // pointer
             "s_memrealtime s[24:25]\n"                 // timestamp
             "s_mov_b64 s[26:27], exec\n"               // exec mask
@@ -46,7 +49,7 @@ create_n_events(hip::GlobalMemoryQueueInfo::GlobalMemoryTrace* buffer,
             "s_store_dwordx4 s[28:31], s[22:23], 16\n"
             "s_waitcnt lgkmcnt(0)\n"
             :
-            : "i"(28), "s"(i), "s"(tid)
+            : "i"(32), "s"(i), "s"(tid)
             : "s22", "s23", "s24", "s25", "s26", "s27", "s28", "s29", "s30");
     }
 }

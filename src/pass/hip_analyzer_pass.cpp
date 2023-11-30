@@ -15,12 +15,7 @@ static llvm::cl::opt<bool>
 
 static llvm::cl::opt<std::string>
     trace_type("trace-type", llvm::cl::desc("hip-analyzer trace type"),
-               llvm::cl::init("trace-wavestate"));
-
-static llvm::cl::opt<bool>
-    do_trace("hip-trace",
-             llvm::cl::desc("hip-analyzer add to trace kernel values"),
-             llvm::cl::init(false));
+               llvm::cl::init("trace-globalwavestate"));
 
 enum class TracingType {
     CountersOnly,
@@ -41,7 +36,7 @@ static llvm::cl::opt<TracingType> hip_analyzer_mode(
                    "Load existing counters trace"),
         clEnumValN(TracingType::GlobalMemory, "hip-global-mem",
                    "Concurrent global memory, atomics based tracing")),
-    llvm::cl::init(TracingType::LowOverheadTracing));
+    llvm::cl::init(TracingType::GlobalMemory));
 
 llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
     return {

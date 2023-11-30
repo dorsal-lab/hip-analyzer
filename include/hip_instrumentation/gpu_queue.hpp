@@ -224,4 +224,22 @@ struct __attribute__((__packed__)) WaveState {
     static std::string name;
 };
 
+struct __attribute__((__packed__)) GlobalWaveState {
+    __device__ GlobalWaveState() {}
+    __device__ GlobalWaveState(uint32_t bb) : bb(bb) {
+        stamp = gcnasm::get_stamp();
+        exec = gcnasm::get_exec();
+        hw_id = gcnasm::get_hw_id();
+    }
+
+    uint64_t stamp;
+    uint64_t exec;
+    uint32_t hw_id;
+    uint32_t bb;
+    uint64_t producer;
+
+    static std::string description;
+    static std::string name;
+};
+
 } // namespace hip
