@@ -10,7 +10,8 @@
 namespace hip {
 
 GlobalMemoryQueueInfo::GlobalMemoryQueueInfo(size_t elem_size,
-                                             size_t buffer_size) {
+                                             size_t buffer_size)
+    : elem_size(elem_size) {
     cpu_queue.resize(buffer_size);
 }
 
@@ -24,6 +25,9 @@ GlobalMemoryQueueInfo::GlobalMemoryTrace* GlobalMemoryQueueInfo::toDevice() {
     hip::check(hipMemcpy(device_ptr, &cpu_trace, sizeof(GlobalMemoryTrace),
                          hipMemcpyHostToDevice));
 
+    std::cerr << "GlobalMemoryQueueInfo : " << device_ptr << ' '
+              << cpu_trace.current << '\n';
+
     return device_ptr;
 }
 
@@ -36,6 +40,8 @@ void GlobalMemoryQueueInfo::fromDevice(
 
     auto size = reinterpret_cast<std::byte*>(gpu_trace.current) -
                 reinterpret_cast<std::byte*>(cpu_trace.current);
+
+    std::cerr << "Size : " << size << '\n';
 
     cpu_queue.resize(size);
     hip::check(hipMemcpy(cpu_queue.data(), cpu_trace.current, size,

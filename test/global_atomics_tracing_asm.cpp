@@ -52,6 +52,8 @@ create_n_events(hip::GlobalMemoryQueueInfo::GlobalMemoryTrace* buffer,
             : "i"(32), "s"(i), "s"(tid)
             : "s22", "s23", "s24", "s25", "s26", "s27", "s28", "s29", "s30");
     }
+
+    asm volatile("s_dcache_wb\n");
 }
 
 bool test_n_threads(size_t n) {

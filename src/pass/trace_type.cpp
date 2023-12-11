@@ -391,7 +391,7 @@ class GlobalWaveState : public WaveTrace {
 
     static constexpr auto* wave_event_ctor_asm =
         // Prepare payload
-        "s_mov_b64 s[22:23], $0"
+        "s_mov_b64 s[22:23], $0\n"
         "s_atomic_add_x2 s[22:23], s[40:41]\n"    // Atomically increment the
                                                   // global trace pointer
         "s_memrealtime s[24:25]\n"                // timestamp
