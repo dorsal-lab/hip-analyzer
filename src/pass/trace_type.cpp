@@ -392,12 +392,12 @@ class GlobalWaveState : public WaveTrace {
     static constexpr auto* wave_event_ctor_asm =
         // Prepare payload
         "s_mov_b64 s[22:23], $0\n"
-        "s_atomic_add_x2 s[22:23], s[40:41]\n"    // Atomically increment the
-                                                  // global trace pointer
-        "s_memrealtime s[24:25]\n"                // timestamp
-        "s_mov_b64 s[26:27], exec\n"              // exec mask
-        "s_getreg_b32 s28, hwreg(HW_REG_HW_ID)\n" // hw_id
-        "s_mov_b32 s29, $1\n"                     // bb
+        "s_atomic_add_x2 s[22:23], s[40:41] glc\n" // Atomically increment the
+                                                   // global trace pointer
+        "s_memrealtime s[24:25]\n"                 // timestamp
+        "s_mov_b64 s[26:27], exec\n"               // exec mask
+        "s_getreg_b32 s28, hwreg(HW_REG_HW_ID)\n"  // hw_id
+        "s_mov_b32 s29, $1\n"                      // bb
         "s_mov_b32 s30, $2\n" // s31 will be stored as well but that's not an
                               // issue (just ignore in the trace). Not clobbered
         "s_waitcnt lgkmcnt(0)\n"
