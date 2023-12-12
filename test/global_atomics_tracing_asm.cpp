@@ -63,7 +63,7 @@ bool test_n_threads(size_t n) {
     auto* device_ptr = queue.toDevice();
 
     constexpr auto n_iter = 8u;
-    create_n_events<<<1, n>>>(device_ptr, n_iter);
+    create_n_events<<<n, n>>>(device_ptr, n_iter);
 
     hip::check(hipDeviceSynchronize());
 
