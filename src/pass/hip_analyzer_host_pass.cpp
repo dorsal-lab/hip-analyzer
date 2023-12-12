@@ -752,9 +752,9 @@ GlobalMemoryQueueHostPass::createInstrumentationStubs(
     llvm::Function& original_stub) {
 
     // Kind of a hack but technically the same kernel signature
-    auto dummy_counter = CounterType::create("wave-counters");
+    auto dummy_trace = TraceType::create("trace-globalwavestate");
     return {
-        addCountersDeviceStub(original_stub, *dummy_counter),
+        addTracingDeviceStub(original_stub, *dummy_trace),
     };
 }
 
@@ -805,7 +805,7 @@ llvm::Function* GlobalMemoryQueueHostPass::replaceStubCall(
     llvm::Value *queue_info, *events_buffer;
 
     queue_info = builder.CreateCall(instr_handlers.newGlobalMemoryQueueInfo,
-                                    {builder.getInt64(40)});
+                                    {builder.getInt64(32)});
 
     events_buffer = builder.CreateCall(
         instr_handlers.hipGlobalMemQueueInfoToDevice, {queue_info});
@@ -813,6 +813,8 @@ llvm::Function* GlobalMemoryQueueHostPass::replaceStubCall(
     // Launch tracing kernel
 
     args.push_back(events_buffer);
+    args.push_back(llvm::ConstantPointerNull::get(builder.getPtrTy()));
+
     builder.CreateCall(tracing_stub, args);
 
     // Store counters (runtime)

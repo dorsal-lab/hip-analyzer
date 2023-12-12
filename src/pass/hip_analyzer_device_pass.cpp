@@ -392,22 +392,22 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
                                      AnalysisPass::Result& blocks) {
 
     auto& mod = *f.getParent();
-    auto& context = f.getContext();
     TracingFunctions instrumentation_handlers(mod);
 
-    auto* i8_ptr_ty = llvm::Type::getInt8PtrTy(context);
     auto* offsets_ptr = f.getArg(f.arg_size() - 1);
 
     // Add counters
 
     llvm::IRBuilder<> builder(&f.getEntryBlock());
+
+    auto* ptr_ty = builder.getPtrTy();
     setInsertPointPastAllocas(builder, f);
 
     // Create the local counter and initialize it to 0.
     event->initTracingIndices(f);
 
     auto* storage_ptr =
-        builder.CreateBitCast(f.getArg(f.arg_size() - 2), i8_ptr_ty);
+        builder.CreateBitCast(f.getArg(f.arg_size() - 2), ptr_ty);
 
     auto* thread_storage =
         event->getThreadStorage(mod, builder, storage_ptr, offsets_ptr);
