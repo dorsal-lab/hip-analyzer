@@ -16,12 +16,13 @@ GlobalMemoryQueueInfo::GlobalMemoryQueueInfo(size_t elem_size,
 }
 
 GlobalMemoryQueueInfo::GlobalMemoryTrace* GlobalMemoryQueueInfo::toDevice() {
+    GlobalMemoryTrace* device_ptr;
+    hip::check(hipMalloc(&device_ptr, sizeof(GlobalMemoryTrace)));
+
     hip::check(hipMalloc(&cpu_trace.current, cpu_queue.size()));
     cpu_trace.end =
         reinterpret_cast<std::byte*>(cpu_trace.current) + cpu_queue.size();
 
-    GlobalMemoryTrace* device_ptr;
-    hip::check(hipMalloc(&device_ptr, sizeof(GlobalMemoryTrace)));
     hip::check(hipMemcpy(device_ptr, &cpu_trace, sizeof(GlobalMemoryTrace),
                          hipMemcpyHostToDevice));
 
@@ -58,6 +59,8 @@ void GlobalMemoryQueueInfo::record(
               << (reinterpret_cast<std::byte*>(cpu_trace.end) -
                   reinterpret_cast<std::byte*>(cpu_trace.current))
               << '\n';
+
+    // TODO
 }
 
 } // namespace hip
