@@ -15,8 +15,8 @@ namespace hip {
  * tracing.
  */
 class GlobalMemoryQueueInfo {
-    constexpr static size_t DEFAULT_SIZE = 1048576LLU; // 2 Mb
   public:
+    constexpr static size_t DEFAULT_SIZE = 1048576LLU; // 2 Mb
     struct GlobalMemoryTrace {
         void* current; // At init : contains
         void* end;

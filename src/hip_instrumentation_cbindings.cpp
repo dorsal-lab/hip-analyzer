@@ -15,6 +15,7 @@
 #include "hip/hip_runtime_api.h"
 
 #include <atomic>
+#include <charconv>
 #include <chrono>
 #include <cstddef>
 #include <cstdlib>
@@ -335,7 +336,22 @@ void hipQueueInfoRecord(hip::QueueInfo* queue_info, void* events,
 void freeHipQueueInfo(hip::QueueInfo* q) { delete q; }
 
 hip::GlobalMemoryQueueInfo* newGlobalMemoryQueueInfo(size_t event_size) {
-    return new hip::GlobalMemoryQueueInfo(event_size);
+    auto buffer_size = std::getenv("HIPTRACE_BUFFER_SIZE");
+    if (buffer_size == nullptr) {
+        return new hip::GlobalMemoryQueueInfo(event_size);
+    }
+
+    uint64_t val;
+    std::string str{buffer_size};
+    if (std::from_chars(str.data(), str.data() + str.length(), val).ec !=
+        std::errc()) {
+        std::cerr << "Could not parse u64 token : " << str
+                  << ", using default size "
+                  << hip::GlobalMemoryQueueInfo::DEFAULT_SIZE << '\n';
+        return new hip::GlobalMemoryQueueInfo(event_size);
+    }
+
+    return new hip::GlobalMemoryQueueInfo(event_size, val);
 }
 
 hip::GlobalMemoryQueueInfo::GlobalMemoryTrace*
