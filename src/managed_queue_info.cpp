@@ -32,8 +32,8 @@ GlobalMemoryQueueInfo::GlobalMemoryTrace* GlobalMemoryQueueInfo::toDevice() {
     hip::check(hipMemcpy(device_ptr, &cpu_trace, sizeof(GlobalMemoryTrace),
                          hipMemcpyHostToDevice));
 
-    std::cerr << "GlobalMemoryQueueInfo : " << device_ptr << ' '
-              << cpu_trace.current << '\n';
+    // std::cerr << "GlobalMemoryQueueInfo : " << device_ptr << ' '
+    //           << cpu_trace.current << '\n';
 
     return device_ptr;
 }
@@ -48,7 +48,7 @@ void GlobalMemoryQueueInfo::fromDevice(
     auto size = reinterpret_cast<std::byte*>(gpu_trace.current) -
                 reinterpret_cast<std::byte*>(cpu_trace.current);
 
-    std::cerr << "Size : " << size << '\n';
+    // std::cerr << "Size : " << size << '\n';
 
     cpu_queue.resize(size);
     hip::check(hipMemcpy(cpu_queue.data(), cpu_trace.current, size,

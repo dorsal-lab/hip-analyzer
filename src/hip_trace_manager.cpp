@@ -276,10 +276,12 @@ void HipTraceManager::handlePayload(GlobalMemoryEventsQueuePayload&& payload,
 
     auto& cpu_trace = queue_info.cpuTrace();
 
+    /*
     std::cerr << "hip::GlobalMemoryQueueInfo : used "
               << (reinterpret_cast<std::byte*>(cpu_trace.end) -
                   reinterpret_cast<std::byte*>(cpu_trace.current))
               << '\n';
+    */
 
     dumpEventsBin(out, queue_info.getStamp(), queue_info.buffer(),
                   queue_info.elemSize(), queue_info.event_desc,
