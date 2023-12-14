@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "gpu_queue.hpp"
+#include <cstdint>
+#include <string>
 #include <vector>
 
 namespace hip {
@@ -26,6 +29,7 @@ class GlobalMemoryQueueInfo {
 
     size_t bufferSize() const { return cpu_queue.size(); }
     size_t queueLength() const { return cpu_queue.size() / elem_size; }
+    size_t elemSize() const { return elem_size; }
     const GlobalMemoryTrace& cpuTrace() const { return cpu_trace; }
     const std::vector<std::byte>& buffer() const { return cpu_queue; }
 
@@ -44,10 +48,19 @@ class GlobalMemoryQueueInfo {
      */
     void record(GlobalMemoryTrace* device_ptr);
 
+    /** \fn getStamp
+     * \brief Returns the Instrumenter timestamp (construction)
+     */
+    uint64_t getStamp() const { return stamp; }
+
+    const std::string& event_name = hip::GlobalWaveState::name;
+    const std::string& event_desc = hip::GlobalWaveState::description;
+
   private:
     std::vector<std::byte> cpu_queue;
     GlobalMemoryTrace cpu_trace;
     size_t elem_size;
+    uint64_t stamp;
 };
 
 } // namespace hip

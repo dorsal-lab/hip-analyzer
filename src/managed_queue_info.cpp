@@ -12,6 +12,12 @@ namespace hip {
 GlobalMemoryQueueInfo::GlobalMemoryQueueInfo(size_t elem_size,
                                              size_t buffer_size)
     : elem_size(elem_size) {
+    // Get the timestamp for unique identification
+    auto now = std::chrono::steady_clock::now();
+    stamp = std::chrono::duration_cast<std::chrono::microseconds>(
+                now.time_since_epoch())
+                .count();
+
     cpu_queue.resize(buffer_size);
 }
 
@@ -53,14 +59,8 @@ void GlobalMemoryQueueInfo::fromDevice(
 
 void GlobalMemoryQueueInfo::record(
     GlobalMemoryQueueInfo::GlobalMemoryTrace* device_ptr) {
-    fromDevice(device_ptr);
-
-    std::cerr << "hip::GlobalMemoryQueueInfo : used "
-              << (reinterpret_cast<std::byte*>(cpu_trace.end) -
-                  reinterpret_cast<std::byte*>(cpu_trace.current))
-              << '\n';
-
-    // TODO
+    hip::HipTraceManager::getInstance().registerGlobalMemoryQueue(*this,
+                                                                  device_ptr);
 }
 
 } // namespace hip

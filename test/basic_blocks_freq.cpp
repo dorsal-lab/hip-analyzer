@@ -89,6 +89,11 @@ template <> void visitor(hip::HipTraceManager::EventsQueuePayload&& payload) {
     }
 }
 
+template <>
+void visitor(hip::HipTraceManager::GlobalMemoryEventsQueuePayload&& payload) {
+    throw std::runtime_error("Unexpected global memory events");
+}
+
 int main(int argc, char** argv) {
     llvm::cl::ParseCommandLineOptions(argc, argv);
 

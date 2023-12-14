@@ -179,6 +179,11 @@ LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(
     hip_instrumentation, trace_record, hip_instrumentation, register_queue,
     LTTNG_UST_TP_ARGS(const void*, instr, const void*, data, uint64_t, stamp))
 
+LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(
+    hip_instrumentation, trace_record, hip_instrumentation,
+    register_global_memory_queue,
+    LTTNG_UST_TP_ARGS(const void*, instr, const void*, data, uint64_t, stamp))
+
 // Collector thread
 
 LTTNG_UST_TRACEPOINT_EVENT_CLASS(

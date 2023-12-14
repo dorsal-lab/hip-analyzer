@@ -6,6 +6,7 @@
  */
 
 #include "hip_instrumentation.hpp"
+#include "managed_queue_info.hpp"
 #include <hip_instrumentation/hip_instrumentation.hpp>
 #include <hip_instrumentation/queue_info.hpp>
 
@@ -38,10 +39,15 @@ class HipTraceManager {
                                           std::string, std::string>;*/
     using EventsQueuePayload = std::tuple<void*, QueueInfo>;
 
+    using GlobalMemoryEventsQueuePayload =
+        std::tuple<GlobalMemoryQueueInfo::GlobalMemoryTrace*,
+                   GlobalMemoryQueueInfo>;
+
     // Either a counters payload or an events payload
     using Payload =
         std::variant<CountersQueuePayload<ThreadCounters>,
-                     CountersQueuePayload<WaveCounters>, EventsQueuePayload>;
+                     CountersQueuePayload<WaveCounters>, EventsQueuePayload,
+                     GlobalMemoryEventsQueuePayload>;
 
     HipTraceManager(const HipTraceManager&) = delete;
     HipTraceManager operator=(const HipTraceManager&) = delete;
@@ -62,6 +68,10 @@ class HipTraceManager {
                               WaveCounters&& counters);
 
     void registerQueue(QueueInfo& queue, void* queue_data);
+
+    void registerGlobalMemoryQueue(
+        GlobalMemoryQueueInfo& queue,
+        GlobalMemoryQueueInfo::GlobalMemoryTrace* queue_data);
 
     size_t queuedPayloads();
 
@@ -145,6 +155,10 @@ constexpr std::string_view hiptrace_wave_counters_name =
 /** \brief Hiptrace event trace type
  */
 constexpr std::string_view hiptrace_events_name = "hiptrace_events";
+
+/** \brief Hiptrace raw event trace type
+ */
+constexpr std::string_view hiptrace_raw_events_name = "hiptrace_raw_events";
 
 /** \brief Hiptrace begin kernel info
  */
