@@ -55,6 +55,9 @@ void GlobalMemoryQueueInfo::fromDevice(
                          hipMemcpyDeviceToHost));
 
     cpu_trace.end = gpu_trace.current;
+
+    hip::check(hipFree(device_ptr));
+    hip::check(hipFree(cpu_trace.current));
 }
 
 void GlobalMemoryQueueInfo::record(

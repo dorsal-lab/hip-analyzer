@@ -126,6 +126,11 @@ LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity,
                                     hip_instrumentation, queue_record_end,
                                     LTTNG_UST_TP_ARGS(const void*, instr))
 
+LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity,
+                                    hip_instrumentation,
+                                    new_global_memory_queue,
+                                    LTTNG_UST_TP_ARGS(const void*, instr))
+
 // State recoverer
 
 LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity,
