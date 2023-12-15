@@ -406,7 +406,7 @@ class GlobalWaveState : public WaveTrace {
         "s_store_dwordx4 s[28:31], s[22:23], 16\n"
         "s_waitcnt lgkmcnt(0)\n";
     static constexpr auto* wave_event_ctor_constraints =
-        "i,i,s"          // u32 Event size, u32 bb, u32 producer
+        "i,i,s,"         // u32 Event size, u32 bb, u32 producer
         "~{s22},~{s23}," // Trace pointer
         "~{s24},~{s25},~{s26},~{s27},~{s28},~{s29},~{s30}"; // Temp
                                                             // values
