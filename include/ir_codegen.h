@@ -71,6 +71,10 @@ struct InstrumentationFunctions {
         *hipQueueInfoAllocBuffer, *hipQueueInfoAllocOffsets,
         *hipQueueInfoRecord;
 
+    // hipManagedQueueInfo
+    llvm::Function *newGlobalMemoryQueueInfo, *hipGlobalMemQueueInfoToDevice,
+        *hipGlobalMemQueueInfoRecord, *freeHipGlobalMemoryQueueInfo;
+
     /** ctor
      * \brief Forward-declare instrumentation functions in the module, and
      * returns pointers to them
@@ -94,11 +98,17 @@ struct CfgFunctions {
 struct TracingFunctions {
     // ----- Tracing functions ----- //
 
+    // Utils
+    llvm::Function* _hip_wave_id_1d;
+
     // ThreadQueue
     llvm::Function *_hip_get_trace_offset, *_hip_create_event;
 
     // WaveQueue
     llvm::Function *_hip_get_wave_trace_offset, *_hip_create_wave_event;
+
+    // Managed Queue
+    llvm::Function* _hip_get_global_memory_trace_ptr;
 
     /** ctor
      * \brief Forward-declare tracing functions in the module, and
@@ -183,6 +193,11 @@ InstrumentedBlock getBlockInfo(const llvm::BasicBlock& block, unsigned int i);
 
 // ----- IR Modifiers ----- //
 
+/** \fn readFirstLane
+ * \brief Converts a vector u32 to a scalar u32
+ */
+llvm::Value* readFirstLane(llvm::IRBuilder<>& builder, llvm::Value* i32_vgpr);
+
 /** \fn readFirstLaneI64
  * \brief Converts an i64 (or ptr) VGPR value to an i64 that will be (hopefully)
  * constrained to be stored in a sgpr
@@ -215,6 +230,15 @@ llvm::Function* getFunction(llvm::Module& mod, llvm::StringRef name,
 llvm::InlineAsm* incrementRegisterAsm(llvm::IRBuilder<>& builder,
                                       std::string_view reg, bool carry = false,
                                       std::string_view inc = "1");
+
+/** \fn atomicIncrementAsm
+ * \brief Perform an atomic add operation at the address contained by reg_addr,
+ * returns it in reg_ret
+ */
+llvm::InlineAsm* atomicIncrementAsm(llvm::IRBuilder<>& builder,
+                                    std::string_view reg_addr,
+                                    std::string_view reg_ret,
+                                    std::string_view inc = "1");
 
 /** \fn getEventCtorType
  * \brief Return the generic event constructor type

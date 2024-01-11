@@ -15,6 +15,7 @@
 #include "hip/hip_runtime_api.h"
 
 #include <atomic>
+#include <charconv>
 #include <chrono>
 #include <cstddef>
 #include <cstdlib>
@@ -333,6 +334,66 @@ void hipQueueInfoRecord(hip::QueueInfo* queue_info, void* events,
 }
 
 void freeHipQueueInfo(hip::QueueInfo* q) { delete q; }
+
+static std::optional<uint64_t> hiptrace_buffer_size =
+    []() -> std::optional<uint64_t> {
+    auto buffer_size = std::getenv("HIPTRACE_BUFFER_SIZE");
+    if (buffer_size == nullptr) {
+        return std::nullopt;
+    }
+
+    uint64_t val;
+    std::string str{buffer_size};
+    if (std::from_chars(str.data(), str.data() + str.length(), val).ec !=
+        std::errc()) {
+        std::cerr << "Could not parse u64 token : " << str
+                  << ", using default size "
+                  << hip::GlobalMemoryQueueInfo::DEFAULT_SIZE << '\n';
+        return std::nullopt;
+    }
+
+    return val;
+}();
+
+hip::GlobalMemoryQueueInfo* newGlobalMemoryQueueInfo(size_t event_size) {
+    hip::GlobalMemoryQueueInfo* ptr;
+    if (hiptrace_buffer_size.has_value()) {
+        ptr = new hip::GlobalMemoryQueueInfo(event_size, *hiptrace_buffer_size);
+    } else {
+        ptr = new hip::GlobalMemoryQueueInfo(event_size);
+    }
+
+    lttng_ust_tracepoint(hip_instrumentation, new_global_memory_queue, ptr);
+
+    return ptr;
+}
+
+hip::GlobalMemoryQueueInfo::GlobalMemoryTrace*
+hipGlobalMemQueueInfoToDevice(hip::GlobalMemoryQueueInfo* queue) {
+    hip::GlobalMemoryQueueInfo::GlobalMemoryTrace* device_ptr;
+
+    lttng_ust_tracepoint(hip_instrumentation, queue_compute_begin, queue,
+                         queue);
+
+    device_ptr = queue->toDevice();
+
+    lttng_ust_tracepoint(hip_instrumentation, queue_compute_end, queue);
+
+    return device_ptr;
+}
+
+void hipGlobalMemQueueInfoRecord(
+    hip::GlobalMemoryQueueInfo* queue,
+    hip::GlobalMemoryQueueInfo::GlobalMemoryTrace* device_ptr) {
+
+    lttng_ust_tracepoint(hip_instrumentation, queue_record_begin, queue);
+    queue->record(device_ptr);
+    lttng_ust_tracepoint(hip_instrumentation, queue_record_end, queue);
+}
+
+void freeHipGlobalMemoryQueueInfo(hip::GlobalMemoryQueueInfo* queue) {
+    delete queue;
+}
 
 // ----- Experimental - Kernel timer ----- //
 

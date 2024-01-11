@@ -4,6 +4,7 @@
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */
 
+#include "managed_queue_info.hpp"
 #include <cstdint>
 
 namespace hip {
@@ -89,4 +90,15 @@ void* hipQueueInfoAllocBuffer(hip::QueueInfo*);
 void* hipQueueInfoAllocOffsets(hip::QueueInfo*);
 
 void hipQueueInfoRecord(hip::QueueInfo*, void*, void*);
+
+hip::GlobalMemoryQueueInfo* newGlobalMemQueueInfo(size_t event_size);
+
+hip::GlobalMemoryQueueInfo::GlobalMemoryTrace*
+hipGlobalMemQueueInfoToDevice(hip::GlobalMemoryQueueInfo*);
+
+void hipGlobalMemQueueInfoRecord(
+    hip::GlobalMemoryQueueInfo*,
+    hip::GlobalMemoryQueueInfo::GlobalMemoryTrace*);
+
+void freeHipGlobalMemoryQueueInfo(hip::GlobalMemoryQueueInfo*);
 }

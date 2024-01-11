@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <mutex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -136,6 +137,20 @@ std::ostream& dumpEventsBin(std::ostream& out,
     return out;
 }
 
+std::ofstream& dumpEventsBin(std::ofstream& out, uint64_t stamp,
+                             const std::vector<std::byte>& queue_data,
+                             size_t event_size, std::string_view event_desc,
+                             std::string_view event_name) {
+    out << hiptrace_raw_events_name << ',' << stamp << ',' << event_size << ','
+        << queue_data.size() << hiptrace_event_fields << ',' << event_desc
+        << '\n';
+
+    out.write(reinterpret_cast<const char*>(queue_data.data()),
+              queue_data.size());
+
+    return out;
+}
+
 HipTraceManager::HipTraceManager() {
     // Startup thread
     fs_thread = std::make_unique<std::thread>([this]() { runThread(); });
@@ -198,6 +213,21 @@ void HipTraceManager::registerQueue(QueueInfo& queue_info, void* queue_data) {
     cond.notify_one();
 }
 
+void HipTraceManager::registerGlobalMemoryQueue(
+    GlobalMemoryQueueInfo& queue_info,
+    GlobalMemoryQueueInfo::GlobalMemoryTrace* queue_data) {
+    std::lock_guard lock{mutex};
+
+    lttng_ust_tracepoint(hip_instrumentation, register_global_memory_queue,
+                         &queue_info, queue_info.cpuTrace().current,
+                         queue_info.getStamp());
+
+    queue.push(
+        GlobalMemoryEventsQueuePayload{queue_data, std::move(queue_info)});
+
+    cond.notify_one();
+}
+
 template <>
 void HipTraceManager::handlePayload(
     CountersQueuePayload<ThreadCounters>&& payload, std::ofstream& out) {
@@ -236,6 +266,26 @@ void HipTraceManager::handlePayload(EventsQueuePayload&& payload,
                   queue_info.elemSize(), queue_info.getDesc(),
                   queue_info.getName());
     lttng_ust_tracepoint(hip_instrumentation, collector_dump_end, data, stamp);
+}
+
+template <>
+void HipTraceManager::handlePayload(GlobalMemoryEventsQueuePayload&& payload,
+                                    std::ofstream& out) {
+    auto& [device_ptr, queue_info] = payload;
+    queue_info.fromDevice(device_ptr);
+
+    auto& cpu_trace = queue_info.cpuTrace();
+
+    /*
+    std::cerr << "hip::GlobalMemoryQueueInfo : used "
+              << (reinterpret_cast<std::byte*>(cpu_trace.end) -
+                  reinterpret_cast<std::byte*>(cpu_trace.current))
+              << '\n';
+    */
+
+    dumpEventsBin(out, queue_info.getStamp(), queue_info.buffer(),
+                  queue_info.elemSize(), queue_info.event_desc,
+                  queue_info.event_name);
 }
 
 template <class> inline constexpr bool always_false_v = false;

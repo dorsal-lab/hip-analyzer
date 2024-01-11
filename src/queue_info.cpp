@@ -250,4 +250,11 @@ std::string WaveState::description =
 
 std::string WaveState::name = "hip::WaveState";
 
+std::string GlobalWaveState::description = HipEventFields<
+    decltype(GlobalWaveState::stamp), decltype(GlobalWaveState::exec),
+    decltype(GlobalWaveState::hw_id), decltype(GlobalWaveState::bb),
+    decltype(GlobalWaveState::producer)>();
+
+std::string GlobalWaveState::name = "hip::GlobalWaveState";
+
 } // namespace hip
