@@ -6,6 +6,9 @@
 
 #include "hip_instrumentation/managed_queue_info.hpp"
 #include "hip_instrumentation/hip_trace_manager.hpp"
+#include <cstddef>
+#include <memory>
+#include <ostream>
 
 namespace hip {
 
@@ -68,17 +71,16 @@ void GlobalMemoryQueueInfo::record(
 
 // ----- ChunkAllocator ----- //
 
-ChunkAllocator::ChunkAllocator(size_t buffer_count, size_t buffer_size) {
+ChunkAllocator::ChunkAllocator(size_t buffer_count, size_t buffer_size)
+    : last_registry{buffer_count, buffer_size, nullptr, 0ull} {
     size_t alloc_size = buffer_size * buffer_count;
 
-    Registry cpu_registry{buffer_count, buffer_size, nullptr, 0ull};
-
     hip::check(hipMalloc(&buffer_ptr, alloc_size));
-    cpu_registry.begin = buffer_ptr;
+    last_registry.begin = buffer_ptr;
 
     hip::check(hipMalloc(&device_ptr, sizeof(Registry)));
 
-    hip::check(hipMemcpy(device_ptr, &cpu_registry, sizeof(Registry),
+    hip::check(hipMemcpy(device_ptr, &last_registry, sizeof(Registry),
                          hipMemcpyHostToDevice));
 }
 
@@ -87,14 +89,65 @@ ChunkAllocator::~ChunkAllocator() {
     hip::check(hipFree(buffer_ptr));
 }
 
-void ChunkAllocator::record(size_t begin_id) {
+void ChunkAllocator::update() {
+    hip::check(hipMemcpy(&last_registry, device_ptr, sizeof(Registry),
+                         hipMemcpyDeviceToHost));
+}
+
+void ChunkAllocator::record() {
     hip::check(hipDeviceSynchronize());
-    Registry tmp;
+
+    size_t begin_id = last_registry.current_id;
+
+    update();
+
+    std::cerr << "Queue: " << begin_id << ", " << last_registry.current_id
+              << '\n';
+}
+
+std::unique_ptr<std::byte[]> ChunkAllocator::copyBuffer() {
+    update();
+    size_t alloc_size = last_registry.buffer_size * last_registry.buffer_count;
+    auto buf = std::make_unique<std::byte[]>(alloc_size);
 
     hip::check(
-        hipMemcpy(&tmp, device_ptr, sizeof(Registry), hipMemcpyDeviceToHost));
+        hipMemcpy(buf.get(), buffer_ptr, alloc_size, hipMemcpyDeviceToHost));
 
-    std::cerr << "Queue: " << begin_id << ", " << tmp.current_id << '\n';
+    return buf;
+}
+
+std::ostream& ChunkAllocator::printBuffer(std::ostream& out) {
+    update();
+    auto contents = copyBuffer();
+
+    return last_registry.printBuffer(
+        out, reinterpret_cast<SubBuffer*>(contents.get()));
+}
+
+std::ostream& ChunkAllocator::Registry::printBuffer(std::ostream& out,
+                                                    SubBuffer* sbs) {
+    std::cout << "ChunkAllocator " << buffer_count << " SubBuffers of "
+              << buffer_size << " bytes\n";
+
+    for (auto i = 0ul; i < buffer_count; ++i) {
+        if (i == (current_id % buffer_count)) {
+            out << "=>";
+        } else {
+            out << "  ";
+        }
+
+        std::byte* ptr = reinterpret_cast<std::byte*>(sbs) + buffer_size * i;
+        SubBuffer* sb = reinterpret_cast<SubBuffer*>(ptr);
+
+        out << "SubBuffer " << i << ", owner : " << sb->owner << "\n    "
+            << std::hex;
+        for (auto j = 0; j < buffer_size - offsetof(SubBuffer, data); ++j) {
+            out << "0x" << static_cast<unsigned int>(sb->data[j]) << ' ';
+        }
+        out << std::dec << '\n';
+    }
+
+    return out;
 }
 
 } // namespace hip

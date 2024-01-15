@@ -87,7 +87,7 @@ class ChunkAllocator {
                 reinterpret_cast<std::byte*>(sb) + buffer_size);
         }
 
-        __device__ SubBuffer* alloc() {
+        __device__ SubBuffer* alloc(size_t id) {
 #ifdef __HIPCC__
             auto next = atomicAdd(&current_id, 1);
 
@@ -95,28 +95,43 @@ class ChunkAllocator {
             next = (next * buffer_size) % buffer_count;
             std::byte* ptr = reinterpret_cast<std::byte*>(begin) + next;
 
-            return reinterpret_cast<SubBuffer*>(ptr);
+            auto sb = reinterpret_cast<SubBuffer*>(ptr);
+            sb->owner = id;
+
+            return sb;
 #else
             return nullptr;
 #endif
         }
 
-        __device__ void tracepoint(SubBuffer** sb, size_t offset,
-                                   std::byte buffer[], size_t size) {
-            if (offset + size > buffer_size) {
-                *sb = alloc();
+        __device__ void tracepoint(SubBuffer** sb, size_t* offset,
+                                   const std::byte buffer[], size_t size,
+                                   size_t id) {
+            if (*offset + size > buffer_size) {
+                *sb = alloc(id);
+                offset = 0;
             }
 
-            memcpy((*sb)->data + offset, buffer, size);
+            memcpy((*sb)->data + *offset, buffer, size);
+            *offset += size;
         }
+
+        std::ostream& printBuffer(std::ostream& out, SubBuffer* sb);
     };
 
     ChunkAllocator(size_t buffer_count, size_t buffer_size);
     ~ChunkAllocator();
 
-    void record(size_t begin_id);
+    Registry* toDevice() { return device_ptr; }
+
+    void record();
+
+    std::unique_ptr<std::byte[]> copyBuffer();
+    std::ostream& printBuffer(std::ostream& out);
 
   private:
+    void update();
+
     Registry* device_ptr;
     SubBuffer* buffer_ptr;
     Registry last_registry;
