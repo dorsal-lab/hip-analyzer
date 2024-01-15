@@ -66,4 +66,35 @@ void GlobalMemoryQueueInfo::record(
                                                                   device_ptr);
 }
 
+// ----- ChunkAllocator ----- //
+
+ChunkAllocator::ChunkAllocator(size_t buffer_count, size_t buffer_size) {
+    size_t alloc_size = buffer_size * buffer_count;
+
+    Registry cpu_registry{buffer_count, buffer_size, nullptr, 0ull};
+
+    hip::check(hipMalloc(&buffer_ptr, alloc_size));
+    cpu_registry.begin = buffer_ptr;
+
+    hip::check(hipMalloc(&device_ptr, sizeof(Registry)));
+
+    hip::check(hipMemcpy(device_ptr, &cpu_registry, sizeof(Registry),
+                         hipMemcpyHostToDevice));
+}
+
+ChunkAllocator::~ChunkAllocator() {
+    hip::check(hipFree(device_ptr));
+    hip::check(hipFree(buffer_ptr));
+}
+
+void ChunkAllocator::record(size_t begin_id) {
+    hip::check(hipDeviceSynchronize());
+    Registry tmp;
+
+    hip::check(
+        hipMemcpy(&tmp, device_ptr, sizeof(Registry), hipMemcpyDeviceToHost));
+
+    std::cerr << "Queue: " << begin_id << ", " << tmp.current_id << '\n';
+}
+
 } // namespace hip

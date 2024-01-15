@@ -63,4 +63,63 @@ class GlobalMemoryQueueInfo {
     uint64_t stamp;
 };
 
+class ChunkAllocator {
+  public:
+    struct SubBuffer {
+        size_t owner;
+        std::byte data[];
+    };
+
+    struct Registry {
+        /** \brief Number of SubBuffers in the global ring buffer
+         */
+        size_t buffer_count;
+
+        /** \brief Size of the SubBuffers
+         */
+        size_t buffer_size;
+
+        SubBuffer* begin;
+        size_t current_id; // To be atomically incremented
+
+        __device__ __host__ SubBuffer* bufferEnd(SubBuffer* sb) {
+            return reinterpret_cast<SubBuffer*>(
+                reinterpret_cast<std::byte*>(sb) + buffer_size);
+        }
+
+        __device__ SubBuffer* alloc() {
+#ifdef __HIPCC__
+            auto next = atomicAdd(&current_id, 1);
+
+            // Computing an address
+            next = (next * buffer_size) % buffer_count;
+            std::byte* ptr = reinterpret_cast<std::byte*>(begin) + next;
+
+            return reinterpret_cast<SubBuffer*>(ptr);
+#else
+            return nullptr;
+#endif
+        }
+
+        __device__ void tracepoint(SubBuffer** sb, size_t offset,
+                                   std::byte buffer[], size_t size) {
+            if (offset + size > buffer_size) {
+                *sb = alloc();
+            }
+
+            memcpy((*sb)->data + offset, buffer, size);
+        }
+    };
+
+    ChunkAllocator(size_t buffer_count, size_t buffer_size);
+    ~ChunkAllocator();
+
+    void record(size_t begin_id);
+
+  private:
+    Registry* device_ptr;
+    SubBuffer* buffer_ptr;
+    Registry last_registry;
+};
+
 } // namespace hip

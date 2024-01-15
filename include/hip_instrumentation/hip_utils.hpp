@@ -34,6 +34,19 @@ inline std::unique_ptr<hipDeviceProp_t> init(int device = 0) {
     return properties;
 }
 
+#ifdef __HIPCC__
+template <class F, class... Args>
+__device__ inline std::invoke_result_t<F, Args...> scalar(F&& f,
+                                                          Args&&... args) {
+    uint64_t exec = 0u;
+    asm volatile("s_mov_b64 %0, exec" : "=s"(exec) :);
+    uint64_t thread = __lastbit_u32_u64(exec);
+    if (threadIdx.x % warpSize == thread) {
+        std::invoke(f, args...);
+    }
+}
+#endif
+
 } // namespace hip
 
 #endif
