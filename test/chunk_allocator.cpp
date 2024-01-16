@@ -43,8 +43,6 @@ bool test_n_threads(size_t n) {
 
     hip::check(hipDeviceSynchronize());
 
-    allocator.record();
-
     allocator.printBuffer(std::cout);
 
     return true;

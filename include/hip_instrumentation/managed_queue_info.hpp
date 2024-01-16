@@ -92,7 +92,7 @@ class ChunkAllocator {
             auto next = atomicAdd(&current_id, 1);
 
             // Computing an address
-            next = (next * buffer_size) % buffer_count;
+            next = (next % buffer_count) * buffer_size;
             std::byte* ptr = reinterpret_cast<std::byte*>(begin) + next;
 
             auto sb = reinterpret_cast<SubBuffer*>(ptr);
@@ -107,9 +107,9 @@ class ChunkAllocator {
         __device__ void tracepoint(SubBuffer** sb, size_t* offset,
                                    const std::byte buffer[], size_t size,
                                    size_t id) {
-            if (*offset + size > buffer_size) {
+            if (*offset + size > buffer_size - offsetof(SubBuffer, data)) {
                 *sb = alloc(id);
-                offset = 0;
+                *offset = 0;
             }
 
             memcpy((*sb)->data + *offset, buffer, size);
