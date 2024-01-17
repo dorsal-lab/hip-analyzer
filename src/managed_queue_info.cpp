@@ -6,9 +6,11 @@
 
 #include "hip_instrumentation/managed_queue_info.hpp"
 #include "hip_instrumentation/hip_trace_manager.hpp"
+#include <bit>
 #include <cstddef>
 #include <memory>
 #include <ostream>
+#include <stdexcept>
 
 namespace hip {
 
@@ -73,6 +75,12 @@ void GlobalMemoryQueueInfo::record(
 
 ChunkAllocator::ChunkAllocator(size_t buffer_count, size_t buffer_size)
     : last_registry{buffer_count, buffer_size, nullptr, 0ull} {
+
+    if (std::popcount(buffer_count) != 1) {
+        throw std::runtime_error("ChunkAllocator::ChunckAllocator() : "
+                                 "buffer_count must be a power of two");
+    }
+
     size_t alloc_size = buffer_size * buffer_count;
 
     hip::check(hipMalloc(&buffer_ptr, alloc_size));

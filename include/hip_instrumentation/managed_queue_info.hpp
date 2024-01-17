@@ -71,7 +71,8 @@ class ChunkAllocator {
     };
 
     struct Registry {
-        /** \brief Number of SubBuffers in the global ring buffer
+        /** \brief Number of SubBuffers in the global ring buffer. Must be a
+         * power of two
          */
         size_t buffer_count;
 
