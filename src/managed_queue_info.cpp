@@ -98,8 +98,15 @@ ChunkAllocator::~ChunkAllocator() {
 }
 
 void ChunkAllocator::update() {
+    Registry old{last_registry};
+
     hip::check(hipMemcpy(&last_registry, device_ptr, sizeof(Registry),
                          hipMemcpyDeviceToHost));
+
+    auto diff = last_registry.current_id - old.current_id;
+    if (diff > old.buffer_count) {
+        std::cout << "ChunkAllocator::update() : Overflow detected\n";
+    }
 }
 
 void ChunkAllocator::record() {
