@@ -505,4 +505,15 @@ struct GlobalMemoryQueueHostPass : public HostPass {
         llvm::ArrayRef<llvm::Function*> instrumentation_stubs) const override;
 };
 
+struct ChunkAllocatorHostPass : public HostPass {
+    ChunkAllocatorHostPass() {}
+
+    llvm::SmallVector<llvm::Function*, 8>
+    createInstrumentationStubs(llvm::Function& original_stub) override;
+
+    llvm::Function* replaceStubCall(
+        llvm::Function& stub,
+        llvm::ArrayRef<llvm::Function*> instrumentation_stubs) const override;
+};
+
 } // namespace hip

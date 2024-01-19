@@ -604,7 +604,7 @@ std::unique_ptr<TraceType> TraceType::create(const std::string& trace_type) {
         return std::make_unique<WaveState>();
     } else if (trace_type == "trace-globalwavestate") {
         return std::make_unique<GlobalWaveState>();
-    } else if (trace_type == "trace-chunkallocator-wavestate") {
+    } else if (trace_type == "trace-wavestate-chunkallocator") {
         return std::make_unique<ChunkAllocatorWaveTrace>();
     } else {
         return {nullptr};
