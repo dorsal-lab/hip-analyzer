@@ -426,26 +426,18 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
     llvm::Value* getThreadStorage(llvm::Module& mod, llvm::IRBuilder<>& builder,
                                   llvm::Value* storage_ptr,
                                   llvm::Value* offsets_ptr) override {
-        TracingFunctions utils{mod};
-
-        // The "storage pointer" in this case is the global tracing pointer
-        auto global_trace_pointer = builder.CreateCall(
-            utils._hip_get_global_memory_trace_ptr, {storage_ptr});
-        thread_storage =
-            readFirstLaneI64(builder, global_trace_pointer, index_reg);
-
-        // Compute wave id
-
-        auto* v_u32_id = builder.CreateCall(utils._hip_wave_id_1d, {});
-        wave_id = readFirstLane(builder, v_u32_id);
-
-        return thread_storage;
+        readFirstLaneI64(builder, storage_ptr, registry_ptr_reg);
+        initializeSGPR64(builder, 0, tracing_pointer);
+        initializeSGPR64(
+            builder, 24,
+            tracing_pointer_end); // Will force allocation on the first event
+        return storage_ptr;
     }
 
     llvm::Type* getEventType(llvm::LLVMContext& context) const override {
         auto* i64 = llvm::Type::getInt64Ty(context);
         auto* i32 = llvm::Type::getInt32Ty(context);
-        return llvm::StructType::create(context, {i64, i64, i32, i32, i64},
+        return llvm::StructType::create(context, {i64, i64, i32, i32},
                                         "hipWaveState");
     }
 
@@ -486,7 +478,7 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
                                   builder.getInt32(bb), wave_id});
     }
 
-    size_t eventSize() const override { return 32; }
+    size_t eventSize() const override { return 24; }
 
     void finalize(llvm::IRBuilder<>& builder) const override {
         // If a wave writes to scalar cache, it has to be explicitely flushed
@@ -612,6 +604,8 @@ std::unique_ptr<TraceType> TraceType::create(const std::string& trace_type) {
         return std::make_unique<WaveState>();
     } else if (trace_type == "trace-globalwavestate") {
         return std::make_unique<GlobalWaveState>();
+    } else if (trace_type == "trace-chunkallocator-wavestate") {
+        return std::make_unique<ChunkAllocatorWaveTrace>();
     } else {
         return {nullptr};
     }
