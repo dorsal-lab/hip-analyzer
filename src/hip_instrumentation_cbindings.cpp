@@ -395,6 +395,20 @@ void freeHipGlobalMemoryQueueInfo(hip::GlobalMemoryQueueInfo* queue) {
     delete queue;
 }
 
+hip::ChunkAllocator* newHipChunkAllocator(size_t buffer_count,
+                                          size_t buffer_size) {
+    return new hip::ChunkAllocator(buffer_count, buffer_size);
+}
+
+hip::ChunkAllocator::Registry*
+hipChunkAllocatorToDevice(hip::ChunkAllocator* ca) {
+    return ca->toDevice();
+}
+
+void hipChunkAllocatorRecord(hip::ChunkAllocator* ca) { ca->record(); }
+
+void freeChunkAllocator(hip::ChunkAllocator* ca) { delete ca; }
+
 // ----- Experimental - Kernel timer ----- //
 
 namespace {

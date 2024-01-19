@@ -101,4 +101,13 @@ void hipGlobalMemQueueInfoRecord(
     hip::GlobalMemoryQueueInfo::GlobalMemoryTrace*);
 
 void freeHipGlobalMemoryQueueInfo(hip::GlobalMemoryQueueInfo*);
+
+hip::ChunkAllocator* newHipChunkAllocator(size_t buffer_count,
+                                          size_t buffer_size);
+
+hip::ChunkAllocator::Registry* hipChunkAllocatorToDevice(hip::ChunkAllocator*);
+
+void hipChunkAllocatorRecord(hip::ChunkAllocator*);
+
+void freeChunkAllocator(hip::ChunkAllocator*);
 }
