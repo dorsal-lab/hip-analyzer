@@ -75,6 +75,10 @@ struct InstrumentationFunctions {
     llvm::Function *newGlobalMemoryQueueInfo, *hipGlobalMemQueueInfoToDevice,
         *hipGlobalMemQueueInfoRecord, *freeHipGlobalMemoryQueueInfo;
 
+    // hipChunkAllocator
+    llvm::Function *newHipChunkAllocator, *hipChunkAllocatorToDevice,
+        *hipChunkAllocatorRecord, *freeChunkAllocator;
+
     /** ctor
      * \brief Forward-declare instrumentation functions in the module, and
      * returns pointers to them
