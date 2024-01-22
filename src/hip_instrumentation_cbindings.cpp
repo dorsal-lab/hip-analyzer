@@ -397,7 +397,28 @@ void freeHipGlobalMemoryQueueInfo(hip::GlobalMemoryQueueInfo* queue) {
 
 hip::ChunkAllocator* newHipChunkAllocator(size_t buffer_count,
                                           size_t buffer_size) {
-    return new hip::ChunkAllocator(buffer_count, buffer_size);
+
+    dim3 blocks, threads;
+    size_t shared_mem;
+    hipStream_t stream;
+
+    // Get the pushed call configuration
+    if (__hipPopCallConfiguration(&blocks, &threads, &shared_mem, &stream) !=
+        hipSuccess) {
+        throw std::runtime_error(
+            "hipNewInstrumenter() : Could not pop call configuration");
+    }
+
+    hip::ChunkAllocator* alloc = hip::ChunkAllocator::getStreamAllocator(
+        stream, buffer_count, buffer_size);
+
+    if (__hipPushCallConfiguration(blocks, threads, shared_mem, stream) !=
+        hipSuccess) {
+        throw std::runtime_error(
+            "hipNewInstrumenter() : Could not push call configuration");
+    }
+
+    return alloc;
 }
 
 hip::ChunkAllocator::Registry*

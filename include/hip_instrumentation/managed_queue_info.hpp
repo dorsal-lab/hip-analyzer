@@ -8,6 +8,7 @@
 
 #include "gpu_queue.hpp"
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -130,12 +131,22 @@ class ChunkAllocator {
     std::unique_ptr<std::byte[]> copyBuffer();
     std::ostream& printBuffer(std::ostream& out);
 
+    /**
+     *
+     */
+    static ChunkAllocator* getStreamAllocator(hipStream_t stream,
+                                              size_t buffer_count,
+                                              size_t buffer_size);
+
   private:
     void update();
 
     Registry* device_ptr;
     SubBuffer* buffer_ptr;
     Registry last_registry;
+
+    // Singleton map of allocators
+    static std::map<hipStream_t, ChunkAllocator> allocators;
 };
 
 } // namespace hip

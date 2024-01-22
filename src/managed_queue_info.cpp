@@ -165,4 +165,14 @@ std::ostream& ChunkAllocator::Registry::printBuffer(std::ostream& out,
     return out;
 }
 
+std::map<hipStream_t, hip::ChunkAllocator> hip::ChunkAllocator::allocators;
+
+ChunkAllocator* ChunkAllocator::getStreamAllocator(hipStream_t stream,
+                                                   size_t buffer_count,
+                                                   size_t buffer_size) {
+    allocators.try_emplace(stream, buffer_count, buffer_size);
+
+    return &allocators.at(stream);
+}
+
 } // namespace hip

@@ -894,7 +894,7 @@ llvm::Function* ChunkAllocatorHostPass::replaceStubCall(
 
     alloc =
         builder.CreateCall(instr_handlers.newHipChunkAllocator,
-                           {builder.getInt64(8192), builder.getInt64(8192)});
+                           {builder.getInt64(1048576), builder.getInt64(4096)});
 
     gpu_registry =
         builder.CreateCall(instr_handlers.hipChunkAllocatorToDevice, {alloc});
@@ -909,7 +909,7 @@ llvm::Function* ChunkAllocatorHostPass::replaceStubCall(
     // Store counters (runtime)
     builder.CreateCall(instr_handlers.hipChunkAllocatorRecord, {alloc});
 
-    builder.CreateCall(instr_handlers.freeChunkAllocator, {alloc});
+    // builder.CreateCall(instr_handlers.freeChunkAllocator, {alloc});
 
     builder.CreateRetVoid();
 
