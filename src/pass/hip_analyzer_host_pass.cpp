@@ -907,10 +907,9 @@ llvm::Function* ChunkAllocatorHostPass::replaceStubCall(
     builder.CreateCall(tracing_stub, args);
 
     // Store counters (runtime)
-    builder.CreateCall(instr_handlers.hipGlobalMemQueueInfoRecord,
-                       {alloc, gpu_registry});
+    builder.CreateCall(instr_handlers.hipChunkAllocatorRecord, {alloc});
 
-    builder.CreateCall(instr_handlers.freeHipGlobalMemoryQueueInfo, {alloc});
+    builder.CreateCall(instr_handlers.freeChunkAllocator, {alloc});
 
     builder.CreateRetVoid();
 

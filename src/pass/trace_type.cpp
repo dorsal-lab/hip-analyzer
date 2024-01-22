@@ -431,7 +431,7 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         readFirstLaneI64(builder, storage_ptr, registry_ptr_reg);
         initializeSGPR64(builder, 0, tracing_pointer);
         initializeSGPR64(
-            builder, 24,
+            builder, 23,
             tracing_pointer_end); // Will force allocation on the first event
 
         auto* v_u32_id = builder.CreateCall(utils._hip_wave_id_1d, {});
@@ -539,12 +539,12 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
 
     static constexpr auto* wave_event_ctor_asm =
         // Check ptr + size > ptr_end
-        "s_add_u32 s22, s40, $0\n" // So maybe + 1? see below
-        "s_addc_u32 s23, s41, 0\n"
+        "s_add_u32 s40, s40, $0\n"
+        "s_addc_u32 s41, s41, 0\n"
         "s_sub_u32 s24, s42, s40\n"
         "s_subb_u32 s24, s43, s41\n"
         "s_cbranch_scc0 1f\n" // Jump to prepare payload if ptr + size <= end
-                              // (TODO CHECK <= or <)
+
         // New allocation (ChunkAllocator::Registry::alloc)
         //// Atomic add, load values
         "s_mov_b64 s[28:29], 1\n"
@@ -575,6 +575,7 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         "s_addc_u32 s41, s27, 0\n"   // ptr_hi
         "s_add_u32 s42, s26, s24\n"  // ptr_end_lo
         "s_addc_u32 s43, s27, s25\n" // ptr_end_hi
+        "s_sub_u32 s42, s42, 1\n"
 
         // Prepare payload
         "1:\n"
