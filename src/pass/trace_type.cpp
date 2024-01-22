@@ -426,11 +426,17 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
     llvm::Value* getThreadStorage(llvm::Module& mod, llvm::IRBuilder<>& builder,
                                   llvm::Value* storage_ptr,
                                   llvm::Value* offsets_ptr) override {
+        TracingFunctions utils{mod};
+
         readFirstLaneI64(builder, storage_ptr, registry_ptr_reg);
         initializeSGPR64(builder, 0, tracing_pointer);
         initializeSGPR64(
             builder, 24,
             tracing_pointer_end); // Will force allocation on the first event
+
+        auto* v_u32_id = builder.CreateCall(utils._hip_wave_id_1d, {});
+        wave_id = readFirstLane(builder, v_u32_id);
+
         return storage_ptr;
     }
 

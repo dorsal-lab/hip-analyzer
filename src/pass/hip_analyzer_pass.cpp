@@ -15,7 +15,7 @@ static llvm::cl::opt<bool>
 
 static llvm::cl::opt<std::string>
     trace_type("trace-type", llvm::cl::desc("hip-analyzer trace type"),
-               llvm::cl::init("trace-globalwavestate"));
+               llvm::cl::init("trace-wavestate-chunkallocator"));
 
 enum class TracingType {
     CountersOnly,
