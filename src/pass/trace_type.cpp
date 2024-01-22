@@ -539,11 +539,12 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
 
     static constexpr auto* wave_event_ctor_asm =
         // Check ptr + size > ptr_end
-        "s_add_u64 s[22:23], s[40:41], $0\n" // So maybe + 1? see below
+        "s_add_u32 s22, s40, $0\n" // So maybe + 1? see below
+        "s_addc_u32 s23, s41, 0\n"
         "s_sub_u32 s24, s42, s40\n"
         "s_subb_u32 s24, s43, s41\n"
-        "s_cbranch_sccnz 1f\n" // Jump to prepare payload if ptr + size <= end
-                               // (TODO CHECK <= or <)
+        "s_cbranch_scc0 1f\n" // Jump to prepare payload if ptr + size <= end
+                              // (TODO CHECK <= or <)
         // New allocation (ChunkAllocator::Registry::alloc)
         //// Atomic add, load values
         "s_mov_b64 s[28:29], 1\n"
@@ -563,7 +564,7 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         /// result in s[22:23])
         "s_mul_hi_u32 s22, s29, s24\n"
         "s_mul_hi_u32 s23, s28, s25\n"
-        "s_mul_u32 s28, s28, s24\n"
+        "s_mul_i32 s28, s28, s24\n"
         "s_add_u32 s29, s22, s23\n"
         ///// ptr = begin + next
         "s_add_u32 s26, s26, s28\n"
