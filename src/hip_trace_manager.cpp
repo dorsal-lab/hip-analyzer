@@ -317,10 +317,12 @@ void HipTraceManager::handlePayload(ChunkAllocatorEventsQueuePayload&& payload,
                                     std::ofstream& out) {
     auto& [allocator, stamp, registry, begin] = payload;
 
-    auto buf = allocator->slice(begin, registry.current_id);
+    auto end = registry.current_id;
+
+    auto buf = allocator->slice(begin, end);
 
     dumpEventsBin(out, stamp, buf, ChunkAllocator::event_desc,
-                  ChunkAllocator::event_name, registry.buffer_count,
+                  ChunkAllocator::event_name, end - begin,
                   registry.buffer_size);
 }
 
