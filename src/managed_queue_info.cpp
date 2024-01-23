@@ -116,8 +116,8 @@ void ChunkAllocator::record() {
 
     update();
 
-    std::cerr << "Queue: " << begin_id << ", " << last_registry.current_id
-              << '\n';
+    hip::HipTraceManager::getInstance().registerChunkAllocatorEvents(
+        this, last_registry, begin_id);
 }
 
 std::unique_ptr<std::byte[]> ChunkAllocator::copyBuffer() {

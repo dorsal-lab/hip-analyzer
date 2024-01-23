@@ -90,6 +90,11 @@ void visitor(hip::HipTraceManager::GlobalMemoryEventsQueuePayload&& payload) {
     std::cout << "Global memory events\n";
 }
 
+template <>
+void visitor(hip::HipTraceManager::ChunkAllocatorEventsQueuePayload&& payload) {
+    std::cout << "Global memory events\n";
+}
+
 int main(int argc, char** argv) {
     llvm::cl::ParseCommandLineOptions(argc, argv);
 

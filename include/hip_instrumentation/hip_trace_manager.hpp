@@ -43,11 +43,16 @@ class HipTraceManager {
         std::tuple<GlobalMemoryQueueInfo::GlobalMemoryTrace*,
                    GlobalMemoryQueueInfo>;
 
+    // <allocator> - <end registry> - <'currend_id' at launch>
+    using ChunkAllocatorEventsQueuePayload =
+        std::tuple<ChunkAllocator*, ChunkAllocator::Registry, size_t>;
+
     // Either a counters payload or an events payload
     using Payload =
         std::variant<CountersQueuePayload<ThreadCounters>,
                      CountersQueuePayload<WaveCounters>, EventsQueuePayload,
-                     GlobalMemoryEventsQueuePayload>;
+                     GlobalMemoryEventsQueuePayload,
+                     ChunkAllocatorEventsQueuePayload>;
 
     HipTraceManager(const HipTraceManager&) = delete;
     HipTraceManager operator=(const HipTraceManager&) = delete;
@@ -72,6 +77,10 @@ class HipTraceManager {
     void registerGlobalMemoryQueue(
         GlobalMemoryQueueInfo& queue,
         GlobalMemoryQueueInfo::GlobalMemoryTrace* queue_data);
+
+    void registerChunkAllocatorEvents(ChunkAllocator* alloc,
+                                      ChunkAllocator::Registry end_registry,
+                                      size_t begin_offset);
 
     size_t queuedPayloads();
 

@@ -228,6 +228,17 @@ void HipTraceManager::registerGlobalMemoryQueue(
     cond.notify_one();
 }
 
+void HipTraceManager::registerChunkAllocatorEvents(
+    ChunkAllocator* alloc, ChunkAllocator::Registry end_registry,
+    size_t begin_offset) {
+    std::lock_guard lock{mutex};
+
+    queue.push(
+        ChunkAllocatorEventsQueuePayload{alloc, end_registry, begin_offset});
+
+    cond.notify_one();
+}
+
 template <>
 void HipTraceManager::handlePayload(
     CountersQueuePayload<ThreadCounters>&& payload, std::ofstream& out) {
@@ -274,8 +285,6 @@ void HipTraceManager::handlePayload(GlobalMemoryEventsQueuePayload&& payload,
     auto& [device_ptr, queue_info] = payload;
     queue_info.fromDevice(device_ptr);
 
-    auto& cpu_trace = queue_info.cpuTrace();
-
     /*
     std::cerr << "hip::GlobalMemoryQueueInfo : used "
               << (reinterpret_cast<std::byte*>(cpu_trace.end) -
@@ -286,6 +295,12 @@ void HipTraceManager::handlePayload(GlobalMemoryEventsQueuePayload&& payload,
     dumpEventsBin(out, queue_info.getStamp(), queue_info.buffer(),
                   queue_info.elemSize(), queue_info.event_desc,
                   queue_info.event_name);
+}
+
+template <>
+void HipTraceManager::handlePayload(ChunkAllocatorEventsQueuePayload&& payload,
+                                    std::ofstream& out) {
+    throw std::runtime_error("Unimplemented");
 }
 
 template <class> inline constexpr bool always_false_v = false;
