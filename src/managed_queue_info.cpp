@@ -145,9 +145,9 @@ std::unique_ptr<std::byte[]> ChunkAllocator::slice(size_t begin, size_t end) {
     auto buf = std::make_unique<std::byte[]>(size * reg.buffer_size);
 
     size_t begin_wrap = begin % reg.buffer_count;
-    size_t end_wrap = begin % reg.buffer_count;
+    size_t end_wrap = end % reg.buffer_count;
 
-    if (begin_wrap > end_wrap) {
+    if (begin_wrap < end_wrap) {
         // Easiest : contiguous copy
         std::byte* begin = reinterpret_cast<std::byte*>(reg.begin) +
                            begin_wrap * reg.buffer_size;
