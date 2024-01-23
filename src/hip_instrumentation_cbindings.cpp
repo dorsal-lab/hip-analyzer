@@ -28,6 +28,13 @@
 
 extern "C" {
 
+uint64_t rocmStamp() {
+    auto now = std::chrono::steady_clock::now();
+    return std::chrono::duration_cast<std::chrono::microseconds>(
+               now.time_since_epoch())
+        .count();
+}
+
 // ----- Instrumenter ----- //
 
 hip::CounterInstrumenter* hipNewInstrumenter(const char* kernel_name,
@@ -426,7 +433,9 @@ hipChunkAllocatorToDevice(hip::ChunkAllocator* ca) {
     return ca->toDevice();
 }
 
-void hipChunkAllocatorRecord(hip::ChunkAllocator* ca) { ca->record(); }
+void hipChunkAllocatorRecord(hip::ChunkAllocator* ca, uint64_t stamp) {
+    ca->record(stamp);
+}
 
 void freeChunkAllocator(hip::ChunkAllocator* ca) { delete ca; }
 

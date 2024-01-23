@@ -57,6 +57,8 @@ struct InstrumentedBlock {
 struct InstrumentationFunctions {
     // ----- C instrumentation API ----- //
 
+    llvm::Function* rocmStamp;
+
     // hipInstrumenter
     llvm::Function *hipNewInstrumenter, *hipInstrumenterToDevice,
         *hipInstrumenterFromDevice, *hipInstrumenterRecord,

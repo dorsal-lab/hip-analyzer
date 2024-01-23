@@ -126,7 +126,7 @@ class ChunkAllocator {
 
     Registry* toDevice() { return device_ptr; }
 
-    void record();
+    void record(uint64_t stamp);
 
     std::unique_ptr<std::byte[]> copyBuffer();
     std::unique_ptr<std::byte[]> slice(size_t begin, size_t end);
@@ -138,6 +138,9 @@ class ChunkAllocator {
     static ChunkAllocator* getStreamAllocator(hipStream_t stream,
                                               size_t buffer_count,
                                               size_t buffer_size);
+
+    static const std::string& event_desc;
+    static const std::string& event_name;
 
   private:
     void update();

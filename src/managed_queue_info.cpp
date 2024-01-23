@@ -109,7 +109,7 @@ void ChunkAllocator::update() {
     }
 }
 
-void ChunkAllocator::record() {
+void ChunkAllocator::record(uint64_t stamp) {
     hip::check(hipDeviceSynchronize());
 
     size_t begin_id = last_registry.current_id;
@@ -117,7 +117,7 @@ void ChunkAllocator::record() {
     update();
 
     hip::HipTraceManager::getInstance().registerChunkAllocatorEvents(
-        this, last_registry, begin_id);
+        this, stamp, last_registry, begin_id);
 }
 
 std::unique_ptr<std::byte[]> ChunkAllocator::copyBuffer() {
@@ -206,6 +206,9 @@ std::ostream& ChunkAllocator::Registry::printBuffer(std::ostream& out,
 }
 
 std::map<hipStream_t, hip::ChunkAllocator> hip::ChunkAllocator::allocators;
+const std::string& hip::ChunkAllocator::event_desc =
+    hip::WaveState::description;
+const std::string& hip::ChunkAllocator::event_name = hip::WaveState::name;
 
 ChunkAllocator* ChunkAllocator::getStreamAllocator(hipStream_t stream,
                                                    size_t buffer_count,

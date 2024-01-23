@@ -142,11 +142,26 @@ std::ofstream& dumpEventsBin(std::ofstream& out, uint64_t stamp,
                              size_t event_size, std::string_view event_desc,
                              std::string_view event_name) {
     out << hiptrace_raw_events_name << ',' << stamp << ',' << event_size << ','
-        << queue_data.size() << hiptrace_event_fields << ',' << event_desc
-        << '\n';
+        << queue_data.size() << ',' << event_name << ','
+        << hiptrace_event_fields << ',' << event_desc << '\n';
 
     out.write(reinterpret_cast<const char*>(queue_data.data()),
               queue_data.size());
+
+    return out;
+}
+
+std::ofstream& dumpEventsBin(std::ofstream& out, uint64_t stamp,
+                             const std::unique_ptr<std::byte[]>& queue_data,
+                             std::string_view event_desc,
+                             std::string_view event_name, size_t buffer_count,
+                             size_t buffer_size) {
+    out << hiptrace_chunk_events_name << ',' << stamp << ',' << buffer_count
+        << ',' << buffer_size << ',' << event_name << ','
+        << hiptrace_event_fields << event_desc << '\n';
+
+    out.write(reinterpret_cast<const char*>(queue_data.get()),
+              buffer_count * buffer_size);
 
     return out;
 }
@@ -229,12 +244,12 @@ void HipTraceManager::registerGlobalMemoryQueue(
 }
 
 void HipTraceManager::registerChunkAllocatorEvents(
-    ChunkAllocator* alloc, ChunkAllocator::Registry end_registry,
-    size_t begin_offset) {
+    ChunkAllocator* alloc, uint64_t stamp,
+    ChunkAllocator::Registry end_registry, size_t begin_offset) {
     std::lock_guard lock{mutex};
 
-    queue.push(
-        ChunkAllocatorEventsQueuePayload{alloc, end_registry, begin_offset});
+    queue.push(ChunkAllocatorEventsQueuePayload{alloc, stamp, end_registry,
+                                                begin_offset});
 
     cond.notify_one();
 }
@@ -300,7 +315,13 @@ void HipTraceManager::handlePayload(GlobalMemoryEventsQueuePayload&& payload,
 template <>
 void HipTraceManager::handlePayload(ChunkAllocatorEventsQueuePayload&& payload,
                                     std::ofstream& out) {
-    throw std::runtime_error("Unimplemented");
+    auto& [allocator, stamp, registry, begin] = payload;
+
+    auto buf = allocator->slice(begin, registry.current_id);
+
+    dumpEventsBin(out, stamp, buf, ChunkAllocator::event_desc,
+                  ChunkAllocator::event_name, registry.buffer_count,
+                  registry.buffer_size);
 }
 
 template <class> inline constexpr bool always_false_v = false;

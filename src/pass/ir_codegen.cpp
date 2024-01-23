@@ -415,6 +415,9 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
 
     // This is tedious, but now way around it
 
+    rocmStamp = getFunction(mod, "rocmStamp",
+                            llvm::FunctionType::get(uint64_type, {}, false));
+
     freeHipInstrumenter =
         getFunction(mod, "freeHipInstrumenter", void_from_ptr_type);
 
@@ -490,8 +493,9 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
     hipChunkAllocatorToDevice =
         getFunction(mod, "hipChunkAllocatorToDevice", ptr_from_ptr_type);
 
-    hipChunkAllocatorRecord =
-        getFunction(mod, "hipChunkAllocatorRecord", void_from_ptr_type);
+    hipChunkAllocatorRecord = getFunction(
+        mod, "hipChunkAllocatorRecord",
+        llvm::FunctionType::get(void_type, {ptr_type, uint64_type}, false));
 
     freeChunkAllocator =
         getFunction(mod, "freeChunkAllocator", void_from_ptr_type);

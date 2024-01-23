@@ -890,7 +890,7 @@ llvm::Function* ChunkAllocatorHostPass::replaceStubCall(
         ++stub_arg_it;
     }
 
-    llvm::Value *alloc, *gpu_registry;
+    llvm::Value *alloc, *gpu_registry, *stamp;
 
     alloc =
         builder.CreateCall(instr_handlers.newHipChunkAllocator,
@@ -904,10 +904,12 @@ llvm::Function* ChunkAllocatorHostPass::replaceStubCall(
     args.push_back(gpu_registry);
     args.push_back(llvm::ConstantPointerNull::get(builder.getPtrTy()));
 
+    stamp = builder.CreateCall(instr_handlers.rocmStamp, {});
+
     builder.CreateCall(tracing_stub, args);
 
     // Store counters (runtime)
-    builder.CreateCall(instr_handlers.hipChunkAllocatorRecord, {alloc});
+    builder.CreateCall(instr_handlers.hipChunkAllocatorRecord, {alloc, stamp});
 
     // builder.CreateCall(instr_handlers.freeChunkAllocator, {alloc});
 

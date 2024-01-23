@@ -43,9 +43,9 @@ class HipTraceManager {
         std::tuple<GlobalMemoryQueueInfo::GlobalMemoryTrace*,
                    GlobalMemoryQueueInfo>;
 
-    // <allocator> - <end registry> - <'currend_id' at launch>
+    // <allocator> - <stamp> - <end registry> - <'currend_id' at launch>
     using ChunkAllocatorEventsQueuePayload =
-        std::tuple<ChunkAllocator*, ChunkAllocator::Registry, size_t>;
+        std::tuple<ChunkAllocator*, uint64_t, ChunkAllocator::Registry, size_t>;
 
     // Either a counters payload or an events payload
     using Payload =
@@ -78,7 +78,7 @@ class HipTraceManager {
         GlobalMemoryQueueInfo& queue,
         GlobalMemoryQueueInfo::GlobalMemoryTrace* queue_data);
 
-    void registerChunkAllocatorEvents(ChunkAllocator* alloc,
+    void registerChunkAllocatorEvents(ChunkAllocator* alloc, uint64_t stamp,
                                       ChunkAllocator::Registry end_registry,
                                       size_t begin_offset);
 
@@ -168,6 +168,10 @@ constexpr std::string_view hiptrace_events_name = "hiptrace_events";
 /** \brief Hiptrace raw event trace type
  */
 constexpr std::string_view hiptrace_raw_events_name = "hiptrace_raw_events";
+
+/** \brief Hiptrace chunk-allocated events
+ */
+constexpr std::string_view hiptrace_chunk_events_name = "hiptrace_chunks";
 
 /** \brief Hiptrace begin kernel info
  */
