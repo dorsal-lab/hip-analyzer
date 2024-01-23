@@ -131,6 +131,46 @@ std::unique_ptr<std::byte[]> ChunkAllocator::copyBuffer() {
     return buf;
 }
 
+std::unique_ptr<std::byte[]> ChunkAllocator::slice(size_t begin, size_t end) {
+    // No update needed
+    auto& reg = last_registry;
+
+    size_t size = end - begin;
+
+    if (size > reg.buffer_count) {
+        throw std::runtime_error("ChunkAllocator::slice() : Requesting a slice "
+                                 "larger than buffer_count");
+    }
+
+    auto buf = std::make_unique<std::byte[]>(size * reg.buffer_size);
+
+    size_t begin_wrap = begin % reg.buffer_count;
+    size_t end_wrap = begin % reg.buffer_count;
+
+    if (begin_wrap > end_wrap) {
+        // Easiest : contiguous copy
+        std::byte* begin = reinterpret_cast<std::byte*>(reg.begin) +
+                           begin_wrap * reg.buffer_size;
+
+        hip::check(hipMemcpy(buf.get(), begin, size * reg.buffer_size,
+                             hipMemcpyDeviceToHost));
+    } else {
+        // Have to do two copies
+        std::byte* begin = reinterpret_cast<std::byte*>(reg.begin) +
+                           begin_wrap * reg.buffer_size;
+        size_t size_slice = (reg.buffer_count - begin_wrap) * reg.buffer_size;
+
+        hip::check(
+            hipMemcpy(buf.get(), begin, size_slice, hipMemcpyDeviceToHost));
+
+        hip::check(hipMemcpy(buf.get() + size_slice, reg.begin,
+                             end_wrap * reg.buffer_size,
+                             hipMemcpyDeviceToHost));
+    }
+
+    return buf;
+}
+
 std::ostream& ChunkAllocator::printBuffer(std::ostream& out) {
     update();
     auto contents = copyBuffer();

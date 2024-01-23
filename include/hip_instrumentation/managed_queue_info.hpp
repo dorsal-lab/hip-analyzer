@@ -129,6 +129,7 @@ class ChunkAllocator {
     void record();
 
     std::unique_ptr<std::byte[]> copyBuffer();
+    std::unique_ptr<std::byte[]> slice(size_t begin, size_t end);
     std::ostream& printBuffer(std::ostream& out);
 
     /**
