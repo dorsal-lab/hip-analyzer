@@ -425,19 +425,35 @@ hip::ChunkAllocator* newHipChunkAllocator(size_t buffer_count,
             "hipNewInstrumenter() : Could not push call configuration");
     }
 
+    lttng_ust_tracepoint(hip_instrumentation, new_chunk_allocator, alloc,
+                         buffer_count, buffer_size, alloc->toDevice());
+
     return alloc;
 }
 
 hip::ChunkAllocator::Registry*
 hipChunkAllocatorToDevice(hip::ChunkAllocator* ca) {
-    return ca->toDevice();
+    lttng_ust_tracepoint(hip_instrumentation, instr_to_device_begin, ca);
+
+    auto* ptr = ca->toDevice();
+
+    lttng_ust_tracepoint(hip_instrumentation, instr_to_device_end, ca, ptr);
+
+    return ptr;
 }
 
 void hipChunkAllocatorRecord(hip::ChunkAllocator* ca, uint64_t stamp) {
+    lttng_ust_tracepoint(hip_instrumentation, queue_record_begin, ca);
+
     ca->record(stamp);
+
+    lttng_ust_tracepoint(hip_instrumentation, queue_record_end, ca);
 }
 
-void freeChunkAllocator(hip::ChunkAllocator* ca) { delete ca; }
+void freeChunkAllocator(hip::ChunkAllocator* ca) {
+    lttng_ust_tracepoint(hip_instrumentation, delete_instrumenter, ca);
+    delete ca;
+}
 
 // ----- Experimental - Kernel timer ----- //
 

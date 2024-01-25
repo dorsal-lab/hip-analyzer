@@ -7,6 +7,7 @@
 #pragma once
 
 #include "gpu_queue.hpp"
+#include <atomic>
 #include <cstdint>
 #include <map>
 #include <string>
@@ -132,6 +133,15 @@ class ChunkAllocator {
     std::unique_ptr<std::byte[]> slice(size_t begin, size_t end);
     std::ostream& printBuffer(std::ostream& out);
 
+    /** \fn doneProcessing
+     * \brief To be called by the trace manager thread to signal the
+     * ChunkAllocator that it's done processing a record() request.
+     *
+     * \details This mechanism is needed to ensure the buffer isn't freed by the
+     * time the trace processor reaches the last record() payload
+     */
+    void notifyDoneProcessing() { --process_count; }
+
     /**
      *
      */
@@ -151,6 +161,7 @@ class ChunkAllocator {
 
     // Singleton map of allocators
     static std::map<hipStream_t, ChunkAllocator> allocators;
+    std::atomic<unsigned int> process_count{0u};
 };
 
 } // namespace hip

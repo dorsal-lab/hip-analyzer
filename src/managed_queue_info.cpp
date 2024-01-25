@@ -7,10 +7,12 @@
 #include "hip_instrumentation/managed_queue_info.hpp"
 #include "hip_instrumentation/hip_trace_manager.hpp"
 #include <bit>
+#include <chrono>
 #include <cstddef>
 #include <memory>
 #include <ostream>
 #include <stdexcept>
+#include <thread>
 
 namespace hip {
 
@@ -93,6 +95,9 @@ ChunkAllocator::ChunkAllocator(size_t buffer_count, size_t buffer_size)
 }
 
 ChunkAllocator::~ChunkAllocator() {
+    while (process_count > 0) {
+        std::this_thread::sleep_for(std::chrono::microseconds(1));
+    }
     hip::check(hipFree(device_ptr));
     hip::check(hipFree(buffer_ptr));
 }
@@ -116,6 +121,7 @@ void ChunkAllocator::record(uint64_t stamp) {
 
     update();
 
+    ++process_count;
     hip::HipTraceManager::getInstance().registerChunkAllocatorEvents(
         this, stamp, last_registry, begin_id);
 }

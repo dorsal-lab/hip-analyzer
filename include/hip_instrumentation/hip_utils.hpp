@@ -13,15 +13,24 @@
 
 // Std includes
 
+#include <execinfo.h>
 #include <iostream>
 #include <memory>
+#include <unistd.h>
 
 namespace hip {
 
 inline void check(hipError_t err) {
     if (err != hipSuccess) {
         std::cerr << "error : " << hipGetErrorString(err) << " (" << err
-                  << ")\n";
+                  << ")\nBacktrace :\n";
+
+        void* fds[32];
+        size_t size;
+
+        size = backtrace(fds, 32);
+        backtrace_symbols_fd(fds, size, STDERR_FILENO);
+
         throw std::runtime_error(std::string("Encountered hip error ") +
                                  hipGetErrorString(err));
     }

@@ -248,6 +248,9 @@ void HipTraceManager::registerChunkAllocatorEvents(
     ChunkAllocator::Registry end_registry, size_t begin_offset) {
     std::lock_guard lock{mutex};
 
+    lttng_ust_tracepoint(hip_instrumentation, register_chunk_allocator_events,
+                         alloc, stamp, begin_offset, end_registry.current_id);
+
     queue.push(ChunkAllocatorEventsQueuePayload{alloc, stamp, end_registry,
                                                 begin_offset});
 
@@ -278,7 +281,7 @@ void HipTraceManager::handlePayload(EventsQueuePayload&& payload,
     [[maybe_unused]] const auto* data = queue_info.events().data();
     [[maybe_unused]] auto stamp = queue_info.getInstrumenter()->getStamp();
 
-    lttng_ust_tracepoint(hip_instrumentation, collector_dump_wave, &out, data,
+    lttng_ust_tracepoint(hip_instrumentation, collector_dump_queue, &out, data,
                          stamp);
     queue_info.fromDevice(events);
 
@@ -298,6 +301,9 @@ template <>
 void HipTraceManager::handlePayload(GlobalMemoryEventsQueuePayload&& payload,
                                     std::ofstream& out) {
     auto& [device_ptr, queue_info] = payload;
+
+    lttng_ust_tracepoint(hip_instrumentation, collector_dump_queue, &out,
+                         device_ptr, queue_info.getStamp());
     queue_info.fromDevice(device_ptr);
 
     /*
@@ -310,12 +316,18 @@ void HipTraceManager::handlePayload(GlobalMemoryEventsQueuePayload&& payload,
     dumpEventsBin(out, queue_info.getStamp(), queue_info.buffer(),
                   queue_info.elemSize(), queue_info.event_desc,
                   queue_info.event_name);
+
+    lttng_ust_tracepoint(hip_instrumentation, collector_dump_end, device_ptr,
+                         queue_info.getStamp());
 }
 
 template <>
 void HipTraceManager::handlePayload(ChunkAllocatorEventsQueuePayload&& payload,
                                     std::ofstream& out) {
     auto& [allocator, stamp, registry, begin] = payload;
+
+    lttng_ust_tracepoint(hip_instrumentation, collector_dump_queue, &out,
+                         registry.begin, stamp);
 
     auto end = registry.current_id;
 
@@ -324,6 +336,9 @@ void HipTraceManager::handlePayload(ChunkAllocatorEventsQueuePayload&& payload,
     dumpEventsBin(out, stamp, buf, ChunkAllocator::event_desc,
                   ChunkAllocator::event_name, end - begin,
                   registry.buffer_size);
+    allocator->notifyDoneProcessing();
+    lttng_ust_tracepoint(hip_instrumentation, collector_dump_end,
+                         registry.begin, stamp);
 }
 
 template <class> inline constexpr bool always_false_v = false;
