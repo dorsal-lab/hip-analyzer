@@ -159,8 +159,6 @@ class ChunkAllocator {
     SubBuffer* buffer_ptr;
     Registry last_registry;
 
-    // Singleton map of allocators
-    static std::map<hipStream_t, ChunkAllocator> allocators;
     std::atomic<unsigned int> process_count{0u};
 };
 

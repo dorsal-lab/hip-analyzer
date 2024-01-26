@@ -4,8 +4,6 @@
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */
 
-#include "hip_instrumentation/managed_queue_info.hpp"
-#include "hip_instrumentation/hip_trace_manager.hpp"
 #include <bit>
 #include <chrono>
 #include <cstddef>
@@ -13,6 +11,10 @@
 #include <ostream>
 #include <stdexcept>
 #include <thread>
+
+#include "hip_instrumentation/hip_trace_manager.hpp"
+#include "hip_instrumentation/managed_queue_info.hpp"
+#include "hip_instrumentation/state_recoverer.hpp"
 
 namespace hip {
 
@@ -211,7 +213,6 @@ std::ostream& ChunkAllocator::Registry::printBuffer(std::ostream& out,
     return out;
 }
 
-std::map<hipStream_t, hip::ChunkAllocator> hip::ChunkAllocator::allocators;
 const std::string& hip::ChunkAllocator::event_desc =
     hip::WaveState::description;
 const std::string& hip::ChunkAllocator::event_name = hip::WaveState::name;
@@ -219,6 +220,7 @@ const std::string& hip::ChunkAllocator::event_name = hip::WaveState::name;
 ChunkAllocator* ChunkAllocator::getStreamAllocator(hipStream_t stream,
                                                    size_t buffer_count,
                                                    size_t buffer_size) {
+    auto& allocators = HipMemoryManager::getInstance().allocators();
     allocators.try_emplace(stream, buffer_count, buffer_size);
 
     return &allocators.at(stream);

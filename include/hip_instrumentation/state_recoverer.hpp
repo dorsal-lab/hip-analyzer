@@ -16,6 +16,7 @@
 #include <iostream>
 
 #include "hip/hip_runtime.h"
+#include "managed_queue_info.hpp"
 
 namespace hip {
 
@@ -151,11 +152,17 @@ class HipMemoryManager {
         }
     }
 
+    std::map<hipStream_t, ChunkAllocator>& allocators() {
+        return allocators_map;
+    }
+
   private:
     HipMemoryManager();
 
     hipError_t hipMallocWrapper(void** ptr, size_t size, size_t el_size);
     hipError_t hipFreeWrapper(void* ptr);
+
+    std::map<void*, TaggedPointer> alloc_map;
 
     std::mutex mutex;
 
@@ -164,7 +171,10 @@ class HipMemoryManager {
     hipError_t (*hipFreeHandler)(void* ptr);
 
     static std::unique_ptr<HipMemoryManager> instance;
-    std::map<void*, TaggedPointer> alloc_map;
+
+    // Singleton map of allocators, need to be owned by the HipMemoryManager to
+    // enforce proper order of destruction
+    std::map<hipStream_t, ChunkAllocator> allocators_map;
 };
 
 template <typename T>
