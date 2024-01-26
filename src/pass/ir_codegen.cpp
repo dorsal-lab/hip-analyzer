@@ -562,6 +562,10 @@ TracingFunctions::TracingFunctions(llvm::Module& mod) {
     _hip_get_global_memory_trace_ptr =
         getFunction(mod, "_hip_get_global_memory_trace_ptr",
                     llvm::FunctionType::get(ptr_type, {ptr_type}, false));
+
+    _hip_chunk_allocator_alloc =
+        getFunction(mod, "_hip_chunk_allocator_alloc",
+                    llvm::FunctionType::get(void_type, {}, false));
 }
 
 llvm::Function& cloneWithName(llvm::Function& f, std::string_view name,

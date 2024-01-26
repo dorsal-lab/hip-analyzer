@@ -116,6 +116,8 @@ struct TracingFunctions {
     // Managed Queue
     llvm::Function* _hip_get_global_memory_trace_ptr;
 
+    llvm::Function* _hip_chunk_allocator_alloc;
+
     /** ctor
      * \brief Forward-declare tracing functions in the module, and
      * returns pointers to them
