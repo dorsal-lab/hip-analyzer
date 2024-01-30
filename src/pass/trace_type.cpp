@@ -472,7 +472,8 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         // handwritten in assembly.
         auto* int32_ty = builder.getInt32Ty();
         auto* ctor_ty = llvm::FunctionType::get(
-            builder.getVoidTy(), {int32_ty, int32_ty, int32_ty}, false);
+            builder.getVoidTy(), {int32_ty, int32_ty, int32_ty, int32_ty},
+            false);
 
         auto* ctor = llvm::InlineAsm::get(ctor_ty, wave_event_ctor_asm,
                                           wave_event_ctor_constraints, true);
@@ -480,8 +481,9 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         // llvm::dbgs() << "Base storage " << *thread_storage << '\n';
         // llvm::dbgs() << "Counter " << *counter << '\n';
 
-        builder.CreateCall(ctor, {builder.getInt32(eventSize()),
-                                  builder.getInt32(bb), wave_id});
+        builder.CreateCall(ctor,
+                           {builder.getInt32(eventSize()), builder.getInt32(bb),
+                            wave_id, builder.getInt32(eventSize() - 1)});
     }
 
     size_t eventSize() const override { return 24; }
@@ -575,7 +577,8 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         "s_addc_u32 s41, s27, 0\n"   // ptr_hi
         "s_add_u32 s42, s26, s24\n"  // ptr_end_lo
         "s_addc_u32 s43, s27, s25\n" // ptr_end_hi
-        "s_sub_u32 s42, s42, 1\n"
+        "s_sub_u32 s42, s42, $3\n"
+        "s_waitcnt lgkmcnt(0)\n"
 
         // Prepare payload
         "1:\n"
@@ -590,8 +593,8 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         "s_waitcnt lgkmcnt(0)\n";
 
     static constexpr auto* wave_event_ctor_constraints =
-        "i,i,s,"         // u32 Event size, u32 bb, u32
-                         // producer
+        "i,i,s,i,"       // u32 Event size, u32 bb, u32
+                         // producer, u32 Event size - 1
         "~{s22},~{s23}," // Trace pointer
         "~{s24},~{s25},~{s26},~{s27},~{s28},~{"
         "s29},~{s30},~{s31},~{scc}"; // Temp
