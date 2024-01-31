@@ -104,7 +104,8 @@ void hipGlobalMemQueueInfoRecord(
 
 void freeHipGlobalMemoryQueueInfo(hip::GlobalMemoryQueueInfo*);
 
-hip::ChunkAllocator* newHipChunkAllocator(size_t buffer_count,
+hip::ChunkAllocator* newHipChunkAllocator(const char* kernel_name,
+                                          size_t buffer_count,
                                           size_t buffer_size);
 
 hip::ChunkAllocator::Registry* hipChunkAllocatorToDevice(hip::ChunkAllocator*);

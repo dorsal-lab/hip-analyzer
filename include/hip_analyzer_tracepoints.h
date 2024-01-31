@@ -133,16 +133,18 @@ LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity,
 
 LTTNG_UST_TRACEPOINT_EVENT(
     hip_instrumentation, new_chunk_allocator,
-    LTTNG_UST_TP_ARGS(const void*, alloc, size_t, buffer_count, size_t,
-                      buffer_size, const void*, device_ptr),
+    LTTNG_UST_TP_ARGS(const void*, alloc, const char*, kernel, size_t,
+                      buffer_count, size_t, buffer_size, const void*,
+                      device_ptr),
     LTTNG_UST_TP_FIELDS(
         lttng_ust_field_integer_hex(uintptr_t, alloc,
                                     reinterpret_cast<uintptr_t>(alloc))
-            lttng_ust_field_integer(size_t, buffer_count, buffer_count)
-                lttng_ust_field_integer(size_t, buffer_size, buffer_size)
-                    lttng_ust_field_integer_hex(
-                        uintptr_t, device_ptr,
-                        reinterpret_cast<uintptr_t>(device_ptr))))
+            lttng_ust_field_string(kernel, kernel)
+                lttng_ust_field_integer(size_t, buffer_count, buffer_count)
+                    lttng_ust_field_integer(size_t, buffer_size, buffer_size)
+                        lttng_ust_field_integer_hex(
+                            uintptr_t, device_ptr,
+                            reinterpret_cast<uintptr_t>(device_ptr))))
 
 // State recoverer
 

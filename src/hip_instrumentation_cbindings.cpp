@@ -402,7 +402,8 @@ void freeHipGlobalMemoryQueueInfo(hip::GlobalMemoryQueueInfo* queue) {
     delete queue;
 }
 
-hip::ChunkAllocator* newHipChunkAllocator(size_t buffer_count,
+hip::ChunkAllocator* newHipChunkAllocator(const char* kernel_name,
+                                          size_t buffer_count,
                                           size_t buffer_size) {
 
     dim3 blocks, threads;
@@ -426,7 +427,8 @@ hip::ChunkAllocator* newHipChunkAllocator(size_t buffer_count,
     }
 
     lttng_ust_tracepoint(hip_instrumentation, new_chunk_allocator, alloc,
-                         buffer_count, buffer_size, alloc->toDevice());
+                         kernel_name, buffer_count, buffer_size,
+                         alloc->toDevice());
 
     return alloc;
 }
@@ -448,6 +450,7 @@ void hipChunkAllocatorRecord(hip::ChunkAllocator* ca, uint64_t stamp) {
     ca->record(stamp);
 
     lttng_ust_tracepoint(hip_instrumentation, queue_record_end, ca);
+    lttng_ust_tracepoint(hip_instrumentation, delete_instrumenter, ca);
 }
 
 void freeChunkAllocator(hip::ChunkAllocator* ca) {
