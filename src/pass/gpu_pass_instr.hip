@@ -142,6 +142,45 @@ __device__ void _hip_create_wave_event(void* storage, uint32_t* idx,
     }
 }
 
+ __attribute__((naked)) __device__ void _hip_chunk_allocator_alloc(){
+    // Input parameters :
+    // - s[44:45] : pointer to registry
+    // - s40 : producer_id
+    asm volatile(
+        // New allocation (ChunkAllocator::Registry::alloc)
+        //// Atomic add, load values
+        "s_mov_b64 s[28:29], 1\n"
+        "s_atomic_add_x2 s[28:29], s[44:45], 24 glc\n"
+        "s_load_dwordx2 s[22:23], s[44:45], 0\n"  // Load buffer_count
+        "s_load_dwordx2 s[24:25], s[44:45], 8\n"  // Load buffer_size
+        "s_load_dwordx2 s[26:27], s[44:45], 16\n" // Load begin
+        "s_waitcnt lgkmcnt(0)\n"
+        //// Compute new ptr, ptr_end
+        ///// next %= buffer_count. Assume buffer_count is a power of two, so
+        /// just retrieve the `buffer_count` lsb from s[28:29]
+        "s_ff1_i32_b64 s22, s[22:23]\n" // log2(s[28:29])
+        "s_bfm_b64 s[22:23], s22, 0\n"
+        "s_and_b64 s[28:29], s[28:29], s[22:23]\n"
+
+        ///// next *= buffer_size (multiply s[28:29] * s[24:25], intermediate
+        /// result in s[22:23])
+        "s_mul_hi_u32 s22, s29, s24\n"
+        "s_mul_hi_u32 s23, s28, s25\n"
+        "s_mul_i32 s28, s28, s24\n"
+        "s_add_u32 s29, s22, s23\n"
+        ///// ptr = begin + next
+        "s_add_u32 s26, s26, s28\n"
+        "s_addc_u32 s27, s27, s29\n"
+        "s_mov_b32 s30, s40\n"
+        "s_store_dwordx2 s[30:31], s[26:27]\n"
+        "s_add_u32 s40, s26, 8\n"    // ptr_lo
+        "s_addc_u32 s41, s27, 0\n"   // ptr_hi
+        "s_add_u32 s42, s26, s24\n"  // ptr_end_lo
+        "s_addc_u32 s43, s27, s25\n" // ptr_end_hi
+        "s_sub_u32 s42, s42, 1\n"
+    );
+}
+
 // ----- Events constructors ----- //
 
 __device__ void _hip_event_ctor(void* buf, uint32_t bb) {

@@ -131,6 +131,21 @@ LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity,
                                     new_global_memory_queue,
                                     LTTNG_UST_TP_ARGS(const void*, instr))
 
+LTTNG_UST_TRACEPOINT_EVENT(
+    hip_instrumentation, new_chunk_allocator,
+    LTTNG_UST_TP_ARGS(const void*, alloc, const char*, kernel, size_t,
+                      buffer_count, size_t, buffer_size, const void*,
+                      device_ptr),
+    LTTNG_UST_TP_FIELDS(
+        lttng_ust_field_integer_hex(uintptr_t, alloc,
+                                    reinterpret_cast<uintptr_t>(alloc))
+            lttng_ust_field_string(kernel, kernel)
+                lttng_ust_field_integer(size_t, buffer_count, buffer_count)
+                    lttng_ust_field_integer(size_t, buffer_size, buffer_size)
+                        lttng_ust_field_integer_hex(
+                            uintptr_t, device_ptr,
+                            reinterpret_cast<uintptr_t>(device_ptr))))
+
 // State recoverer
 
 LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(hip_instrumentation, instr_activity,
@@ -188,6 +203,17 @@ LTTNG_UST_TRACEPOINT_EVENT_INSTANCE(
     hip_instrumentation, trace_record, hip_instrumentation,
     register_global_memory_queue,
     LTTNG_UST_TP_ARGS(const void*, instr, const void*, data, uint64_t, stamp))
+
+LTTNG_UST_TRACEPOINT_EVENT(
+    hip_instrumentation, register_chunk_allocator_events,
+    LTTNG_UST_TP_ARGS(const void*, instr, uint64_t, stamp, uint64_t,
+                      begin_offset, uint64_t, end_offset),
+    LTTNG_UST_TP_FIELDS(
+        lttng_ust_field_integer_hex(uintptr_t, instr,
+                                    reinterpret_cast<uintptr_t>(instr))
+            lttng_ust_field_integer(uint64_t, stamp, stamp)
+                lttng_ust_field_integer(uint64_t, begin_offset, begin_offset)
+                    lttng_ust_field_integer(uint64_t, end_offset, end_offset)))
 
 // Collector thread
 

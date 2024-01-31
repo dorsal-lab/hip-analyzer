@@ -19,6 +19,8 @@ extern "C" {
 
 enum class CounterType : uint32_t { Thread = 0u, Wave = 1u };
 
+uint64_t rocmStamp();
+
 /** \fn hipNewInstrumenter
  * \brief Create a new instrumenter from the (mangled) kernel name
  */
@@ -101,4 +103,14 @@ void hipGlobalMemQueueInfoRecord(
     hip::GlobalMemoryQueueInfo::GlobalMemoryTrace*);
 
 void freeHipGlobalMemoryQueueInfo(hip::GlobalMemoryQueueInfo*);
+
+hip::ChunkAllocator* newHipChunkAllocator(const char* kernel_name,
+                                          size_t buffer_count,
+                                          size_t buffer_size);
+
+hip::ChunkAllocator::Registry* hipChunkAllocatorToDevice(hip::ChunkAllocator*);
+
+void hipChunkAllocatorRecord(hip::ChunkAllocator*, uint64_t stamp);
+
+void freeChunkAllocator(hip::ChunkAllocator*);
 }

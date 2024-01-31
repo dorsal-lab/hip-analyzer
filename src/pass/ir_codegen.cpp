@@ -334,6 +334,20 @@ llvm::Value* initializeSGPR(llvm::IRBuilder<>& builder, uint32_t initializer,
     return builder.CreateCall(mov_b32, {init_val});
 }
 
+llvm::Value* initializeSGPR64(llvm::IRBuilder<>& builder, uint64_t initializer,
+                              std::string_view reg) {
+    auto* i64_ty = builder.getInt64Ty();
+    auto init_val = builder.getInt64(initializer);
+
+    auto* f_ty = llvm::FunctionType::get(builder.getVoidTy(), {i64_ty}, false);
+
+    auto instr = llvm::Twine("s_mov_b64 ").concat(reg).concat(", $0").str();
+    auto constraints = "i";
+
+    auto* mov_b64 = llvm::InlineAsm::get(f_ty, instr, constraints, true);
+
+    return builder.CreateCall(mov_b64, {init_val});
+}
 llvm::Function* getFunction(llvm::Module& mod, llvm::StringRef name,
                             llvm::FunctionType* type) {
     auto callee = mod.getOrInsertFunction(name, type);
@@ -400,6 +414,9 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
         llvm::FunctionType::get(ptr_type, {ptr_type}, false);
 
     // This is tedious, but now way around it
+
+    rocmStamp = getFunction(mod, "rocmStamp",
+                            llvm::FunctionType::get(uint64_type, {}, false));
 
     freeHipInstrumenter =
         getFunction(mod, "freeHipInstrumenter", void_from_ptr_type);
@@ -468,6 +485,21 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
 
     freeHipGlobalMemoryQueueInfo =
         getFunction(mod, "freeHipGlobalMemoryQueueInfo", void_from_ptr_type);
+
+    newHipChunkAllocator =
+        getFunction(mod, "newHipChunkAllocator",
+                    llvm::FunctionType::get(
+                        ptr_type, {ptr_type, uint64_type, uint64_type}, false));
+
+    hipChunkAllocatorToDevice =
+        getFunction(mod, "hipChunkAllocatorToDevice", ptr_from_ptr_type);
+
+    hipChunkAllocatorRecord = getFunction(
+        mod, "hipChunkAllocatorRecord",
+        llvm::FunctionType::get(void_type, {ptr_type, uint64_type}, false));
+
+    freeChunkAllocator =
+        getFunction(mod, "freeChunkAllocator", void_from_ptr_type);
 }
 
 CfgFunctions::CfgFunctions(llvm::Module& mod) {
@@ -531,6 +563,10 @@ TracingFunctions::TracingFunctions(llvm::Module& mod) {
     _hip_get_global_memory_trace_ptr =
         getFunction(mod, "_hip_get_global_memory_trace_ptr",
                     llvm::FunctionType::get(ptr_type, {ptr_type}, false));
+
+    _hip_chunk_allocator_alloc =
+        getFunction(mod, "_hip_chunk_allocator_alloc",
+                    llvm::FunctionType::get(void_type, {}, false));
 }
 
 llvm::Function& cloneWithName(llvm::Function& f, std::string_view name,

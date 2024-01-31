@@ -94,6 +94,11 @@ void visitor(hip::HipTraceManager::GlobalMemoryEventsQueuePayload&& payload) {
     throw std::runtime_error("Unexpected global memory events");
 }
 
+template <>
+void visitor(hip::HipTraceManager::ChunkAllocatorEventsQueuePayload&& payload) {
+    throw std::runtime_error("Unexpected chunk allocator events");
+}
+
 int main(int argc, char** argv) {
     llvm::cl::ParseCommandLineOptions(argc, argv);
 

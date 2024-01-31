@@ -249,3 +249,21 @@ add_custom_command(
 add_executable(global_atomics_tracing_asm ${CMAKE_CURRENT_BINARY_DIR}/global_atomics_tracing_asm.o)
 target_link_libraries(global_atomics_tracing_asm hip_instrumentation)
 set_target_properties(global_atomics_tracing_asm PROPERTIES LINKER_LANGUAGE CXX)
+
+# ----- chunk_allocator ----- #
+
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/chunk_allocator.o
+    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/chunk_allocator.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/chunk_allocator.o
+    DEPENDS
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/managed_queue_info.hpp
+        ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation_cbindings.hpp
+        ${CMAKE_SOURCE_DIR}/test/chunk_allocator.cpp
+    VERBATIM
+)
+
+add_executable(chunk_allocator ${CMAKE_CURRENT_BINARY_DIR}/chunk_allocator.o)
+target_link_libraries(chunk_allocator hip_instrumentation)
+set_target_properties(chunk_allocator PROPERTIES LINKER_LANGUAGE CXX)

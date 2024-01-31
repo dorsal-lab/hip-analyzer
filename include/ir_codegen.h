@@ -57,6 +57,8 @@ struct InstrumentedBlock {
 struct InstrumentationFunctions {
     // ----- C instrumentation API ----- //
 
+    llvm::Function* rocmStamp;
+
     // hipInstrumenter
     llvm::Function *hipNewInstrumenter, *hipInstrumenterToDevice,
         *hipInstrumenterFromDevice, *hipInstrumenterRecord,
@@ -74,6 +76,10 @@ struct InstrumentationFunctions {
     // hipManagedQueueInfo
     llvm::Function *newGlobalMemoryQueueInfo, *hipGlobalMemQueueInfoToDevice,
         *hipGlobalMemQueueInfoRecord, *freeHipGlobalMemoryQueueInfo;
+
+    // hipChunkAllocator
+    llvm::Function *newHipChunkAllocator, *hipChunkAllocatorToDevice,
+        *hipChunkAllocatorRecord, *freeChunkAllocator;
 
     /** ctor
      * \brief Forward-declare instrumentation functions in the module, and
@@ -109,6 +115,8 @@ struct TracingFunctions {
 
     // Managed Queue
     llvm::Function* _hip_get_global_memory_trace_ptr;
+
+    llvm::Function* _hip_chunk_allocator_alloc;
 
     /** ctor
      * \brief Forward-declare tracing functions in the module, and
@@ -217,6 +225,12 @@ llvm::Value* readFirstLaneI64(llvm::IRBuilder<>& builder, llvm::Value* i64_vgpr,
  */
 llvm::Value* initializeSGPR(llvm::IRBuilder<>& builder, uint32_t initializer,
                             std::string_view reg);
+
+/** \fn initializeSGPR64
+ * \brief Initializes a i64 SGPR to the given value
+ */
+llvm::Value* initializeSGPR64(llvm::IRBuilder<>& builder, uint64_t initializer,
+                              std::string_view reg);
 
 /** \fn getFunction
  * \brief Util to get the handle to a function in LLVM IR

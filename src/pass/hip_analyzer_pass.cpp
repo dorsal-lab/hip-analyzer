@@ -15,13 +15,20 @@ static llvm::cl::opt<bool>
 
 static llvm::cl::opt<std::string>
     trace_type("trace-type", llvm::cl::desc("hip-analyzer trace type"),
-               llvm::cl::init("trace-globalwavestate"));
+               llvm::cl::init([]() -> std::string {
+                   if (auto* env = std::getenv("HIP_ANALYZER_TRACE_TYPE")) {
+                       return env;
+                   } else {
+                       return "trace-wavestate-chunkallocator";
+                   }
+               }()));
 
 enum class TracingType {
     CountersOnly,
     LowOverheadTracing,
     CountersReplayer,
     GlobalMemory,
+    ChunkAllocator
     // TODO : Add new tracing modes
 };
 
@@ -35,8 +42,10 @@ static llvm::cl::opt<TracingType> hip_analyzer_mode(
         clEnumValN(TracingType::CountersReplayer, "hip-replay",
                    "Load existing counters trace"),
         clEnumValN(TracingType::GlobalMemory, "hip-global-mem",
-                   "Concurrent global memory, atomics based tracing")),
-    llvm::cl::init(TracingType::GlobalMemory));
+                   "Concurrent global memory, atomics based tracing"),
+        clEnumValN(TracingType::ChunkAllocator, "hip-chunk-allocator",
+                   "Concurrent buffer based tracing")),
+    llvm::cl::init(TracingType::ChunkAllocator));
 
 llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
     return {
@@ -99,6 +108,9 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
                     break;
                 case TracingType::GlobalMemory:
                     pm.addPass(hip::GlobalMemoryQueueHostPass());
+                    break;
+                case TracingType::ChunkAllocator:
+                    pm.addPass(hip::ChunkAllocatorHostPass());
                     break;
                 }
             });

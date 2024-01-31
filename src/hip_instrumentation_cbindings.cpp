@@ -28,6 +28,13 @@
 
 extern "C" {
 
+uint64_t rocmStamp() {
+    auto now = std::chrono::steady_clock::now();
+    return std::chrono::duration_cast<std::chrono::microseconds>(
+               now.time_since_epoch())
+        .count();
+}
+
 // ----- Instrumenter ----- //
 
 hip::CounterInstrumenter* hipNewInstrumenter(const char* kernel_name,
@@ -393,6 +400,62 @@ void hipGlobalMemQueueInfoRecord(
 
 void freeHipGlobalMemoryQueueInfo(hip::GlobalMemoryQueueInfo* queue) {
     delete queue;
+}
+
+hip::ChunkAllocator* newHipChunkAllocator(const char* kernel_name,
+                                          size_t buffer_count,
+                                          size_t buffer_size) {
+
+    dim3 blocks, threads;
+    size_t shared_mem;
+    hipStream_t stream;
+
+    // Get the pushed call configuration
+    if (__hipPopCallConfiguration(&blocks, &threads, &shared_mem, &stream) !=
+        hipSuccess) {
+        throw std::runtime_error(
+            "hipNewInstrumenter() : Could not pop call configuration");
+    }
+
+    hip::ChunkAllocator* alloc = hip::ChunkAllocator::getStreamAllocator(
+        stream, buffer_count, buffer_size);
+
+    if (__hipPushCallConfiguration(blocks, threads, shared_mem, stream) !=
+        hipSuccess) {
+        throw std::runtime_error(
+            "hipNewInstrumenter() : Could not push call configuration");
+    }
+
+    lttng_ust_tracepoint(hip_instrumentation, new_chunk_allocator, alloc,
+                         kernel_name, buffer_count, buffer_size,
+                         alloc->toDevice());
+
+    return alloc;
+}
+
+hip::ChunkAllocator::Registry*
+hipChunkAllocatorToDevice(hip::ChunkAllocator* ca) {
+    lttng_ust_tracepoint(hip_instrumentation, instr_to_device_begin, ca);
+
+    auto* ptr = ca->toDevice();
+
+    lttng_ust_tracepoint(hip_instrumentation, instr_to_device_end, ca, ptr);
+
+    return ptr;
+}
+
+void hipChunkAllocatorRecord(hip::ChunkAllocator* ca, uint64_t stamp) {
+    lttng_ust_tracepoint(hip_instrumentation, queue_record_begin, ca);
+
+    ca->record(stamp);
+
+    lttng_ust_tracepoint(hip_instrumentation, queue_record_end, ca);
+    lttng_ust_tracepoint(hip_instrumentation, delete_instrumenter, ca);
+}
+
+void freeChunkAllocator(hip::ChunkAllocator* ca) {
+    lttng_ust_tracepoint(hip_instrumentation, delete_instrumenter, ca);
+    delete ca;
 }
 
 // ----- Experimental - Kernel timer ----- //
