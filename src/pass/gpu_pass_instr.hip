@@ -180,7 +180,6 @@ __device__ void _hip_create_wave_event(void* storage, uint32_t* idx,
         "s_sub_u32 s42, s42, s41\n"
         "s_add_u32 s40, s26, 8\n"    // ptr_lo
         "s_addc_u32 s41, s27, 0\n"   // ptr_hi
-        "s_waitcnt lgkmcnt(0)\n"
         "s_setpc_b64 s[46:47]\n"
     );
 }
