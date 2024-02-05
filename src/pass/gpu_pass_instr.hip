@@ -146,6 +146,8 @@ __device__ void _hip_create_wave_event(void* storage, uint32_t* idx,
     // Input parameters :
     // - s[44:45] : pointer to registry
     // - s40 : producer_id
+    // - s41 : event_size - 1
+    // - s[46:47] : return address
     asm volatile(
         // New allocation (ChunkAllocator::Registry::alloc)
         //// Atomic add, load values
@@ -173,11 +175,13 @@ __device__ void _hip_create_wave_event(void* storage, uint32_t* idx,
         "s_addc_u32 s27, s27, s29\n"
         "s_mov_b32 s30, s40\n"
         "s_store_dwordx2 s[30:31], s[26:27]\n"
-        "s_add_u32 s40, s26, 8\n"    // ptr_lo
-        "s_addc_u32 s41, s27, 0\n"   // ptr_hi
         "s_add_u32 s42, s26, s24\n"  // ptr_end_lo
         "s_addc_u32 s43, s27, s25\n" // ptr_end_hi
-        "s_sub_u32 s42, s42, 1\n"
+        "s_sub_u32 s42, s42, s41\n"
+        "s_add_u32 s40, s26, 8\n"    // ptr_lo
+        "s_addc_u32 s41, s27, 0\n"   // ptr_hi
+        "s_waitcnt lgkmcnt(0)\n"
+        "s_setpc_b64 s[46:47]\n"
     );
 }
 

@@ -471,9 +471,11 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         // We are not calling a "simple" device function. This constructor is
         // handwritten in assembly.
         auto* int32_ty = builder.getInt32Ty();
+        auto* ptr_type = llvm::PointerType::getUnqual(mod.getContext());
+
         auto* ctor_ty = llvm::FunctionType::get(
-            builder.getVoidTy(), {int32_ty, int32_ty, int32_ty, int32_ty},
-            false);
+            builder.getVoidTy(),
+            {int32_ty, int32_ty, int32_ty, int32_ty, ptr_type}, false);
 
         auto* ctor = llvm::InlineAsm::get(ctor_ty, wave_event_ctor_asm,
                                           wave_event_ctor_constraints, true);
@@ -481,9 +483,13 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         // llvm::dbgs() << "Base storage " << *thread_storage << '\n';
         // llvm::dbgs() << "Counter " << *counter << '\n';
 
+        auto* alloc = getFunction(
+            mod, "_hip_chunk_allocator_alloc",
+            llvm::FunctionType::get(builder.getVoidTy(), {}, false));
+
         builder.CreateCall(ctor,
                            {builder.getInt32(eventSize()), builder.getInt32(bb),
-                            wave_id, builder.getInt32(eventSize() - 1)});
+                            wave_id, builder.getInt32(eventSize() - 1), alloc});
     }
 
     size_t eventSize() const override { return 24; }
@@ -543,42 +549,19 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         // Check ptr + size > ptr_end
         "s_add_u32 s40, s40, $0\n"
         "s_addc_u32 s41, s41, 0\n"
+        "s_getpc_b64 s[46:47]\n"
+        "s_add_u32 s46, s46, 1f\n"
+        "s_addc_u32 s47, s47, 0\n"
+        "s_mov_b64 s[22:23], $4\n"
         "s_sub_u32 s24, s42, s40\n"
-        "s_subb_u32 s24, s43, s41\n"
-        "s_cbranch_scc0 1f\n" // Jump to prepare payload if ptr + size <= end
-
-        // New allocation (ChunkAllocator::Registry::alloc)
-        //// Atomic add, load values
-        "s_mov_b64 s[28:29], 1\n"
-        "s_atomic_add_x2 s[28:29], s[44:45], 24 glc\n"
-        "s_load_dwordx2 s[22:23], s[44:45], 0\n"  // Load buffer_count
-        "s_load_dwordx2 s[24:25], s[44:45], 8\n"  // Load buffer_size
-        "s_load_dwordx2 s[26:27], s[44:45], 16\n" // Load begin
-        "s_waitcnt lgkmcnt(0)\n"
-        //// Compute new ptr, ptr_end
-        ///// next %= buffer_count. Assume buffer_count is a power of two, so
-        /// just retrieve the `buffer_count` lsb from s[28:29]
-        "s_ff1_i32_b64 s22, s[22:23]\n" // log2(s[28:29])
-        "s_bfm_b64 s[22:23], s22, 0\n"
-        "s_and_b64 s[28:29], s[28:29], s[22:23]\n"
-
-        ///// next *= buffer_size (multiply s[28:29] * s[24:25], intermediate
-        /// result in s[22:23])
-        "s_mul_hi_u32 s22, s29, s24\n"
-        "s_mul_hi_u32 s23, s28, s25\n"
-        "s_mul_i32 s28, s28, s24\n"
-        "s_add_u32 s29, s22, s23\n"
-        ///// ptr = begin + next
-        "s_add_u32 s26, s26, s28\n"
-        "s_addc_u32 s27, s27, s29\n"
-        "s_mov_b32 s30, $2\n"
-        "s_store_dwordx2 s[30:31], s[26:27]\n"
-        "s_add_u32 s40, s26, 8\n"    // ptr_lo
-        "s_addc_u32 s41, s27, 0\n"   // ptr_hi
-        "s_add_u32 s42, s26, s24\n"  // ptr_end_lo
-        "s_addc_u32 s43, s27, s25\n" // ptr_end_hi
-        "s_sub_u32 s42, s42, $3\n"
-        "s_waitcnt lgkmcnt(0)\n"
+        "s_subb_u32 s24, s43, s41\n" // At this point, SCC holds whether or not
+                                     // to jump
+        "s_cselect_b32 s40, $2, s40\n" // Prepare (potential) arguments for
+                                       // allocation function
+        "s_cselect_b32 s41, $3, s41\n"
+        "s_cselect_b64 s[46:47], s[22:23], s[46:47]\n"
+        "s_swappc_b64 s[46:47], s[46:47]\n" // Jump to prepare payload if ptr +
+                                            // size <= end
 
         // Prepare payload
         "1:\n"
@@ -593,12 +576,13 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         "s_waitcnt lgkmcnt(0)\n";
 
     static constexpr auto* wave_event_ctor_constraints =
-        "i,i,s,i,"       // u32 Event size, u32 bb, u32
-                         // producer, u32 Event size - 1
+        "i,i,s,i,s,"     // u32 Event size, u32 bb, u32
+                         // producer, u32 Event size - 1, u64
+                         // _hip_chunk_allocator_alloc address
         "~{s22},~{s23}," // Trace pointer
         "~{s24},~{s25},~{s26},~{s27},~{s28},~{"
-        "s29},~{s30},~{s31},~{scc}"; // Temp
-                                     // values
+        "s29},~{s30},~{s31},~{s46},~{s47},~{scc}"; // Temp
+                                                   // values
 
     static constexpr auto* flush_asm = "s_dcache_wb\n";
 };
