@@ -562,7 +562,7 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         "s_sub_u32 s24, s42, s40\n"
         "s_subb_u32 s25, s43, s41\n" // At this point, SCC holds whether or not
                                      // to jump
-        "s_cbranch_scc1 trampoline\n"
+        "s_cbranch_scc1 0b\n"
 
         // Prepare payload
         "s_memrealtime s[24:25]\n"                // timestamp
@@ -586,9 +586,9 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
 
     static constexpr auto* trampoline_asm =
         // Always skip this section except if you've jumped to `trampoline`
-        "s_branch cont_trampoline\n"
+        "s_branch 1f\n"
         // Prepare call to alloc
-        "trampoline:\n"
+        "0:\n"
         // Compute return address, s[46:47] holds PC before the substraction
         "s_add_u32 s46, s46, 12\n"
         "s_addc_u32 s47, s47, 0\n"
@@ -598,7 +598,7 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         "s_mov_b32 s41, $2\n"
         // Jump to the address
         "s_branch _hip_chunk_allocator_alloc\n"
-        "cont_trampoline:";
+        "1:";
 
     static constexpr auto* trampoline_constraints =
         // _hip_chunk_allocator_alloc address, producer_id, event_size - 1
