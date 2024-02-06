@@ -428,6 +428,9 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
                                   llvm::Value* offsets_ptr) override {
         TracingFunctions utils{mod};
 
+        auto* int32_ty = builder.getInt32Ty();
+        auto* ptr_ty = llvm::PointerType::getUnqual(mod.getContext());
+
         readFirstLaneI64(builder, storage_ptr, registry_ptr_reg);
         initializeSGPR64(builder, 0, tracing_pointer);
         initializeSGPR64(
@@ -436,6 +439,14 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
 
         auto* v_u32_id = builder.CreateCall(utils._hip_wave_id_1d, {});
         wave_id = readFirstLane(builder, v_u32_id);
+
+        auto trampoline_ty = llvm::FunctionType::get(
+            builder.getVoidTy(), {ptr_ty, int32_ty, int32_ty}, false);
+        auto trampoline = llvm::InlineAsm::get(trampoline_ty, trampoline_asm,
+                                               trampoline_constraints, true);
+        builder.CreateCall(trampoline,
+                           {utils._hip_chunk_allocator_alloc, wave_id,
+                            builder.getInt32(eventSize() - 1)});
 
         return storage_ptr;
     }
@@ -471,11 +482,10 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         // We are not calling a "simple" device function. This constructor is
         // handwritten in assembly.
         auto* int32_ty = builder.getInt32Ty();
-        auto* ptr_type = llvm::PointerType::getUnqual(mod.getContext());
+        auto* ptr_ty = llvm::PointerType::getUnqual(mod.getContext());
 
         auto* ctor_ty = llvm::FunctionType::get(
-            builder.getVoidTy(),
-            {int32_ty, int32_ty, int32_ty, int32_ty, ptr_type}, false);
+            builder.getVoidTy(), {int32_ty, int32_ty, ptr_ty, int32_ty}, false);
 
         auto* ctor = llvm::InlineAsm::get(ctor_ty, wave_event_ctor_asm,
                                           wave_event_ctor_constraints, true);
@@ -487,19 +497,18 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
             mod, "_hip_chunk_allocator_alloc",
             llvm::FunctionType::get(builder.getVoidTy(), {}, false));
 
-        builder.CreateCall(ctor,
-                           {builder.getInt32(eventSize()), builder.getInt32(bb),
-                            wave_id, builder.getInt32(eventSize() - 1), alloc});
+        builder.CreateCall(ctor, {builder.getInt32(eventSize()),
+                                  builder.getInt32(bb), alloc, wave_id});
     }
 
     size_t eventSize() const override { return 24; }
 
     void finalize(llvm::IRBuilder<>& builder) const override {
-        // If a wave writes to scalar cache, it has to be explicitely flushed
-        // at the end of the wave lifetime to ensure the following wave does not
-        // overwrite it. This is hardly explained in the ISA description, and
-        // the compiler is supposed to do it itself but does not for inline
-        // assembly.
+        // If a wave writes to scalar cache, it has to be explicitely
+        // flushed at the end of the wave lifetime to ensure the following
+        // wave does not overwrite it. This is hardly explained in the ISA
+        // description, and the compiler is supposed to do it itself but
+        // does not for inline assembly.
         auto* flush_ty =
             llvm::FunctionType::get(builder.getVoidTy(), {}, false);
         auto* flush = llvm::InlineAsm::get(flush_ty, flush_asm, "", true);
@@ -550,23 +559,14 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         "s_add_u32 s40, s40, $0\n"
         "s_addc_u32 s41, s41, 0\n"
         "s_getpc_b64 s[46:47]\n"
-        "s_add_u32 s46, s46, 1f\n"
-        "s_addc_u32 s47, s47, 0\n"
-        "s_mov_b64 s[22:23], $4\n"
         "s_sub_u32 s24, s42, s40\n"
-        "s_subb_u32 s24, s43, s41\n" // At this point, SCC holds whether or not
+        "s_subb_u32 s25, s43, s41\n" // At this point, SCC holds whether or not
                                      // to jump
-        "s_cselect_b32 s40, $2, s40\n" // Prepare (potential) arguments for
-                                       // allocation function
-        "s_cselect_b32 s41, $3, s41\n"
-        "s_cselect_b64 s[46:47], s[22:23], s[46:47]\n"
-        "s_swappc_b64 s[46:47], s[46:47]\n" // Jump to prepare payload if ptr +
-                                            // size <= end
+        "s_cbranch_scc1 trampoline\n"
 
         // Prepare payload
-        "1:\n"
         "s_memrealtime s[24:25]\n"                // timestamp
-        "s_mov_b64 s[26:27], exec\n"              // exec mask
+        "s_mov_b64 s[26:27], exec\n"              // exec mask*
         "s_getreg_b32 s28, hwreg(HW_REG_HW_ID)\n" // hw_id
         "s_mov_b32 s29, $1\n"                     // bb
         "s_waitcnt lgkmcnt(0)\n"
@@ -576,13 +576,33 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         "s_waitcnt lgkmcnt(0)\n";
 
     static constexpr auto* wave_event_ctor_constraints =
-        "i,i,s,i,s,"     // u32 Event size, u32 bb, u32
+        "i,i,s,s"        // u32 Event size, u32 bb, u32
                          // producer, u32 Event size - 1, u64
                          // _hip_chunk_allocator_alloc address
         "~{s22},~{s23}," // Trace pointer
         "~{s24},~{s25},~{s26},~{s27},~{s28},~{"
         "s29},~{s30},~{s31},~{s46},~{s47},~{scc}"; // Temp
                                                    // values
+
+    static constexpr auto* trampoline_asm =
+        // Always skip this section except if you've jumped to `trampoline`
+        "s_branch cont_trampoline\n"
+        // Prepare call to alloc
+        "trampoline:\n"
+        // Compute return address, s[46:47] holds PC before the substraction
+        "s_add_u32 s46, s46, 12\n"
+        "s_addc_u32 s47, s47, 0\n"
+        // Set "args"
+        "s_mov_b64 s[22:23], $0\n"
+        "s_mov_b32 s40, $1\n"
+        "s_mov_b32 s41, $2\n"
+        // Jump to the address
+        "s_branch _hip_chunk_allocator_alloc\n"
+        "cont_trampoline:";
+
+    static constexpr auto* trampoline_constraints =
+        // _hip_chunk_allocator_alloc address, producer_id, event_size - 1
+        "s,s,i";
 
     static constexpr auto* flush_asm = "s_dcache_wb\n";
 };
