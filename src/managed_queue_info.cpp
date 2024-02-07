@@ -77,7 +77,8 @@ void GlobalMemoryQueueInfo::record(
 
 // ----- ChunkAllocator ----- //
 
-ChunkAllocator::ChunkAllocator(size_t buffer_count, size_t buffer_size)
+ChunkAllocator::ChunkAllocator(size_t buffer_count, size_t buffer_size,
+                               bool alloc_gpu)
     : last_registry{buffer_count, buffer_size, nullptr, 0ull} {
 
     if (std::popcount(buffer_count) != 1) {
@@ -87,13 +88,15 @@ ChunkAllocator::ChunkAllocator(size_t buffer_count, size_t buffer_size)
 
     size_t alloc_size = buffer_size * buffer_count;
 
-    hip::check(hipMalloc(&buffer_ptr, alloc_size));
-    last_registry.begin = buffer_ptr;
+    if (alloc_gpu) {
+        hip::check(hipMalloc(&buffer_ptr, alloc_size));
+        last_registry.begin = buffer_ptr;
 
-    hip::check(hipMalloc(&device_ptr, sizeof(Registry)));
+        hip::check(hipMalloc(&device_ptr, sizeof(Registry)));
 
-    hip::check(hipMemcpy(device_ptr, &last_registry, sizeof(Registry),
-                         hipMemcpyHostToDevice));
+        hip::check(hipMemcpy(device_ptr, &last_registry, sizeof(Registry),
+                             hipMemcpyHostToDevice));
+    }
 }
 
 ChunkAllocator::~ChunkAllocator() {

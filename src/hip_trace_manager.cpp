@@ -451,6 +451,8 @@ HipTraceFile::Kind HipTraceFile::parseHeader(std::string_view header) {
         return Kind::WaveCounters;
     } else if (header_trimmed == hiptrace_events_name) {
         return Kind::Events;
+    } else if (header_trimmed == hiptrace_chunk_events_name) {
+        return Kind::ChunkAlloc;
     } else {
         return Kind::ErrorKind;
     }
@@ -573,6 +575,45 @@ HipTraceFile::loadEvents(const std::string& header, std::ifstream& f) const {
                                std::move(offsets), std::move(events)}};
 }
 
+HipTraceManager::ChunkAllocatorEventsQueuePayload
+loadChunkAlloc(const std::string& header, std::ifstream& f) {
+    // Get header, construct kernel info
+    std::stringstream ss;
+    ss << header;
+
+    auto get_token = [&]() -> std::string {
+        std::string token;
+        std::getline(ss, token, ',');
+        return token;
+    };
+
+    auto parse_u64 = [&]() -> uint64_t {
+        uint64_t val;
+        std::string token = get_token();
+        if (std::from_chars(token.data(), token.data() + token.length(), val)
+                .ec != std::errc()) {
+            throw std::runtime_error("Could not parse u64 token : " + token);
+        }
+        return val;
+    };
+
+    auto type_header = get_token(); // Ignore for now
+    auto stamp = parse_u64();
+    auto buffer_count = parse_u64();
+    auto buffer_size = parse_u64();
+    auto event_name = get_token();
+    auto fields_header = get_token();
+
+    // TODO do something with the fields
+
+    // Instantiate a new chunk alloc & copy to buffer
+    auto* alloc = new ChunkAllocator(buffer_count, buffer_size);
+    f.read(reinterpret_cast<char*>(alloc->cpuBuffer()),
+           buffer_count * buffer_size);
+
+    return {alloc, stamp, alloc->getRegistry(), 0ull};
+}
+
 HipTraceManager::Payload HipTraceFile::getNext() {
     // Get header
     std::string buffer;
@@ -593,6 +634,8 @@ HipTraceManager::Payload HipTraceFile::getNext() {
         return loadInstr<HipTraceManager::WaveCounters>(buffer, input);
     case Kind::Events:
         return loadEvents(buffer, input);
+    case Kind::ChunkAlloc:
+        return loadChunkAlloc(buffer, input);
     case Kind::ErrorKind:
         throw std::runtime_error(
             "HipTraceFile::getNext() : Could not parse header " + buffer);

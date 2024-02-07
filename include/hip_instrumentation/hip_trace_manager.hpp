@@ -116,7 +116,14 @@ class HipTraceManager {
  */
 class HipTraceFile {
   public:
-    enum class Kind { Managed, Counters, WaveCounters, Events, ErrorKind };
+    enum class Kind {
+        Managed,
+        Counters,
+        WaveCounters,
+        Events,
+        ChunkAlloc,
+        ErrorKind
+    };
 
     /** ctor
      * \brief Constructor. Load a trace file and initialize

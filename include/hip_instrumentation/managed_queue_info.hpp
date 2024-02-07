@@ -122,12 +122,16 @@ class ChunkAllocator {
         std::ostream& printBuffer(std::ostream& out, SubBuffer* sb);
     };
 
-    ChunkAllocator(size_t buffer_count, size_t buffer_size);
+    ChunkAllocator(size_t buffer_count, size_t buffer_size,
+                   bool alloc_gpu = true);
     ~ChunkAllocator();
 
     Registry* toDevice() { return device_ptr; }
 
     void record(uint64_t stamp);
+
+    SubBuffer* cpuBuffer() { return buffer_ptr; }
+    Registry getRegistry() const { return last_registry; }
 
     std::unique_ptr<std::byte[]> copyBuffer();
     std::unique_ptr<std::byte[]> slice(size_t begin, size_t end);

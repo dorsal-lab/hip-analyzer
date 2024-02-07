@@ -92,7 +92,8 @@ void visitor(hip::HipTraceManager::GlobalMemoryEventsQueuePayload&& payload) {
 
 template <>
 void visitor(hip::HipTraceManager::ChunkAllocatorEventsQueuePayload&& payload) {
-    std::cout << "Global memory events\n";
+    std::cout << "Chunk allocator events\n";
+    delete std::get<0>(payload);
 }
 
 int main(int argc, char** argv) {
