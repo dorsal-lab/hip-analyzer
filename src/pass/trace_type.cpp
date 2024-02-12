@@ -576,10 +576,11 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         "s_waitcnt lgkmcnt(0)\n";
 
     static constexpr auto* wave_event_ctor_constraints =
-        "i,i,s,s"        // u32 Event size, u32 bb, u32
-                         // producer, u32 Event size - 1, u64
-                         // _hip_chunk_allocator_alloc address
-        "~{s22},~{s23}," // Trace pointer
+        "i,i,s,s" // u32 Event size, u32 bb
+                  // u32 producer, u64 _hip_chunk_allocator_alloc address. Last
+                  // two are "unused" but force the compiler to extend the
+                  // lifetime of the values (due to the jump to 0b)
+        "~{s22},~{s23},"
         "~{s24},~{s25},~{s26},~{s27},~{s28},~{"
         "s29},~{s30},~{s31},~{s46},~{s47},~{scc}"; // Temp
                                                    // values
@@ -602,7 +603,7 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
 
     static constexpr auto* trampoline_constraints =
         // _hip_chunk_allocator_alloc address, producer_id, event_size - 1
-        "s,s,i";
+        "s,s,i,~{scc}";
 
     static constexpr auto* flush_asm = "s_dcache_wb\n";
 };
