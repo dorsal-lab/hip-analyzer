@@ -20,6 +20,23 @@ const std::string TraceType::default_tracing_prefix = "tracing_";
 
 namespace {
 
+struct Register {
+    Register(uint8_t id)
+        : id(id), name(llvm::Twine("s[")
+                           .concat(std::to_string(id))
+                           .concat(":")
+                           .concat(std::to_string(id + 1))
+                           .concat("]")
+                           .str()),
+          lo("s" + std::to_string(id)), hi("s" + std::to_string(id + 1)) {}
+
+    uint8_t id;
+    std::string name;
+
+    std::string lo;
+    std::string hi;
+};
+
 // ----- Thread or Wave event production mode ----- //
 
 class ThreadTrace : public TraceType {
@@ -129,7 +146,7 @@ class WaveTrace : public TraceType {
         // Because readfirstlane is only for 32 bit integers, we have to perform
         // two readlanes then assemble the result after a zext
 
-        thread_storage = readFirstLaneI64(builder, vgpr, index_reg);
+        thread_storage = readFirstLaneI64(builder, vgpr, index.id);
         return thread_storage;
     }
 
@@ -138,9 +155,9 @@ class WaveTrace : public TraceType {
     llvm::Value* getCounterAndIncrement(llvm::Module& mod,
                                         llvm::IRBuilder<>& builder,
                                         llvm::Value* counter) override {
-        auto* inc_lsb = incrementRegisterAsm(builder, index_lsb, false,
+        auto* inc_lsb = incrementRegisterAsm(builder, index.lo, false,
                                              std::to_string(eventSize()));
-        auto* inc_msb = incrementRegisterAsm(builder, index_msb, true, "0");
+        auto* inc_msb = incrementRegisterAsm(builder, index.hi, true, "0");
 
         auto* incremented = builder.CreateCall(inc_lsb, {});
         builder.CreateCall(inc_msb, {});
@@ -163,8 +180,7 @@ class WaveTrace : public TraceType {
     llvm::Value* thread_storage = nullptr;
     constexpr static uint8_t index_reg = 40u;
 
-    std::string index_lsb = 's' + std::to_string(index_reg);
-    std::string index_msb = 's' + std::to_string(index_reg + 1);
+    const Register index{40};
 
   private:
     std::map<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*>> idx_map;
@@ -376,19 +392,6 @@ class GlobalWaveState : public WaveTrace {
   private:
     llvm::Value* wave_id = nullptr;
 
-    constexpr static uint8_t tracing_ptr_reg = 40u;
-
-    // Tracing pointer contains the pointer to the current global tracing index
-    // (uint8_t**)
-
-    std::string tracing_pointer =
-        llvm::Twine("s[")
-            .concat(std::to_string(tracing_ptr_reg))
-            .concat(":")
-            .concat(std::to_string(tracing_ptr_reg + 1))
-            .concat("]")
-            .str();
-
     static constexpr auto* wave_event_ctor_asm =
         // Prepare payload
         "s_mov_b64 s[22:23], $0\n"
@@ -429,24 +432,22 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         TracingFunctions utils{mod};
 
         auto* int32_ty = builder.getInt32Ty();
-        auto* ptr_ty = llvm::PointerType::getUnqual(mod.getContext());
 
-        readFirstLaneI64(builder, storage_ptr, registry_ptr_reg);
-        initializeSGPR64(builder, 0, tracing_pointer);
+        readFirstLaneI64(builder, storage_ptr, register_ptr.id);
+        initializeSGPR64(builder, 0, index.name);
         initializeSGPR64(
             builder, 23,
-            tracing_pointer_end); // Will force allocation on the first event
+            index_end.name); // Will force allocation on the first event
 
         auto* v_u32_id = builder.CreateCall(utils._hip_wave_id_1d, {});
         wave_id = readFirstLane(builder, v_u32_id);
 
         auto trampoline_ty = llvm::FunctionType::get(
-            builder.getVoidTy(), {ptr_ty, int32_ty, int32_ty}, false);
+            builder.getVoidTy(), {int32_ty, int32_ty}, false);
         auto trampoline = llvm::InlineAsm::get(trampoline_ty, trampoline_asm,
                                                trampoline_constraints, true);
         builder.CreateCall(trampoline,
-                           {utils._hip_chunk_allocator_alloc, wave_id,
-                            builder.getInt32(eventSize() - 1)});
+                           {wave_id, builder.getInt32(eventSize() - 1)});
 
         return storage_ptr;
     }
@@ -519,40 +520,12 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
   private:
     llvm::Value* wave_id = nullptr;
 
-    // Tracing pointer contains the pointer to the current global tracing index
-    // (uint8_t**)
-    constexpr static uint8_t tracing_ptr_reg = 40u;
-
     // Tracing pointer_end contains the pointer to the end of the current buffer
-    constexpr static uint8_t tracing_ptr_end_reg = 42u;
+    const Register index_end{42u};
 
     // Registry pointer contains the pointer to the global, shared
     // ChunkAllocator::Registry.
-    constexpr static uint8_t registry_ptr_reg = 44u;
-
-    std::string tracing_pointer =
-        llvm::Twine("s[")
-            .concat(std::to_string(tracing_ptr_reg))
-            .concat(":")
-            .concat(std::to_string(tracing_ptr_reg + 1))
-            .concat("]")
-            .str();
-
-    std::string tracing_pointer_end =
-        llvm::Twine("s[")
-            .concat(std::to_string(tracing_ptr_end_reg))
-            .concat(":")
-            .concat(std::to_string(tracing_ptr_end_reg + 1))
-            .concat("]")
-            .str();
-
-    std::string registry_pointer =
-        llvm::Twine("s[")
-            .concat(std::to_string(tracing_ptr_end_reg))
-            .concat(":")
-            .concat(std::to_string(tracing_ptr_end_reg + 1))
-            .concat("]")
-            .str();
+    const Register register_ptr{44u};
 
     static constexpr auto* wave_event_ctor_asm =
         // Check ptr + size > ptr_end
@@ -566,7 +539,7 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
 
         // Prepare payload
         "s_memrealtime s[24:25]\n"                // timestamp
-        "s_mov_b64 s[26:27], exec\n"              // exec mask*
+        "s_mov_b64 s[26:27], exec\n"              // exec mask
         "s_getreg_b32 s28, hwreg(HW_REG_HW_ID)\n" // hw_id
         "s_mov_b32 s29, $1\n"                     // bb
         "s_waitcnt lgkmcnt(0)\n"
@@ -580,10 +553,8 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
                   // u32 producer, u64 _hip_chunk_allocator_alloc address. Last
                   // two are "unused" but force the compiler to extend the
                   // lifetime of the values (due to the jump to 0b)
-        "~{s22},~{s23},"
-        "~{s24},~{s25},~{s26},~{s27},~{s28},~{"
-        "s29},~{s30},~{s31},~{s46},~{s47},~{scc}"; // Temp
-                                                   // values
+        "~{s22},~{s23},~{s24},~{s25},~{s26},~{s27},~{s28},~{s29},~{s30},~{s31},"
+        "~{s46},~{s47},~{scc}";
 
     static constexpr auto* trampoline_asm =
         // Always skip this section except if you've jumped to `trampoline`
@@ -594,16 +565,15 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         "s_add_u32 s46, s46, 12\n"
         "s_addc_u32 s47, s47, 0\n"
         // Set "args"
-        "s_mov_b64 s[22:23], $0\n"
-        "s_mov_b32 s40, $1\n"
-        "s_mov_b32 s41, $2\n"
+        "s_mov_b32 s40, $0\n"
+        "s_mov_b32 s41, $1\n"
         // Jump to the address
         "s_branch _hip_chunk_allocator_alloc\n"
         "1:";
 
     static constexpr auto* trampoline_constraints =
-        // _hip_chunk_allocator_alloc address, producer_id, event_size - 1
-        "s,s,i,~{scc}";
+        // producer_id, event_size - 1
+        "s,i,~{scc}";
 
     static constexpr auto* flush_asm = "s_dcache_wb\n";
 };
