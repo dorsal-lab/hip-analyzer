@@ -161,6 +161,7 @@ __device__ void _hip_create_wave_event(void* storage, uint32_t* idx,
         ///// next %= buffer_count. Assume buffer_count is a power of two, so
         /// just retrieve the `buffer_count` lsb from s[28:29]
         "s_ff1_i32_b64 s22, s[22:23]\n" // log2(s[28:29])
+        "s_add_u32 s22, s22, 1\n"
         "s_bfm_b64 s[22:23], s22, 0\n"
         "s_and_b64 s[28:29], s[28:29], s[22:23]\n"
 
@@ -173,13 +174,15 @@ __device__ void _hip_create_wave_event(void* storage, uint32_t* idx,
         ///// ptr = begin + next
         "s_add_u32 s26, s26, s28\n"
         "s_addc_u32 s27, s27, s29\n"
+        // Store producer id
         "s_mov_b32 s30, s40\n"
+        "s_sub_u32 s24, s24, s41\n" // Reasonable to expect event_size <<< 2^32, so no carry
         "s_store_dwordx2 s[30:31], s[26:27]\n"
         "s_add_u32 s42, s26, s24\n"  // ptr_end_lo
         "s_addc_u32 s43, s27, s25\n" // ptr_end_hi
-        "s_sub_u32 s42, s42, s41\n"
         "s_add_u32 s40, s26, 8\n"    // ptr_lo
         "s_addc_u32 s41, s27, 0\n"   // ptr_hi
+        "s_waitcnt lgkmcnt(0)\n"
         "s_setpc_b64 s[46:47]\n"
     );
 }
