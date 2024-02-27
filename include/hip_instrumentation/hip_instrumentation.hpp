@@ -213,8 +213,6 @@ class CounterInstrumenter {
 
     static std::unordered_map<std::string, std::vector<hip::BasicBlock>>
         known_blocks;
-
-    static bool rocprofiler_initializer;
 };
 
 /** \class ThreadCounterInstrumenter

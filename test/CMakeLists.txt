@@ -61,7 +61,7 @@ target_link_libraries(recover_arrays hip_instrumentation)
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gpu_enqueue.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/gpu_enqueue.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/gpu_enqueue.o
+    COMMAND ${ROCM_PATH}/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/gpu_enqueue.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/gpu_enqueue.o
     DEPENDS 
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation_cbindings.hpp
@@ -79,7 +79,7 @@ set_target_properties(gpu_enqueue PROPERTIES LINKER_LANGUAGE CXX)
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/queue_info.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/queue_info.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/queue_info.o
+    COMMAND ${ROCM_PATH}/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/queue_info.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/queue_info.o
     DEPENDS 
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation_cbindings.hpp
@@ -99,7 +99,7 @@ set_target_properties(queue_info PROPERTIES LINKER_LANGUAGE CXX)
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_thread.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/gpu_queue_thread.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_thread.o
+    COMMAND ${ROCM_PATH}/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/gpu_queue_thread.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_thread.o
     DEPENDS 
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation_cbindings.hpp
@@ -118,7 +118,7 @@ set_target_properties(gpu_queue_thread PROPERTIES LINKER_LANGUAGE CXX)
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_wave.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/gpu_queue_wave.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_wave.o
+    COMMAND ${ROCM_PATH}/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/gpu_queue_wave.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/gpu_queue_wave.o
     DEPENDS 
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation_cbindings.hpp
@@ -137,7 +137,7 @@ set_target_properties(gpu_queue_wave PROPERTIES LINKER_LANGUAGE CXX)
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/wavestate.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/wavestate.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/wavestate.o
+    COMMAND ${ROCM_PATH}/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/wavestate.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/wavestate.o
     DEPENDS
         ${CMAKE_SOURCE_DIR}/src/pass/gpu_pass_instr.hip
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
@@ -156,7 +156,7 @@ set_target_properties(wavestate PROPERTIES LINKER_LANGUAGE CXX)
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/wavestate_asm.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/wavestate_asm.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/wavestate_asm.o
+    COMMAND ${ROCM_PATH}/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/wavestate_asm.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/wavestate_asm.o
     DEPENDS
         ${CMAKE_SOURCE_DIR}/src/pass/gpu_pass_instr.hip
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
@@ -175,7 +175,7 @@ set_target_properties(wavestate_asm PROPERTIES LINKER_LANGUAGE CXX)
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/get_wave_trace_offset.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include -O3 ${CMAKE_SOURCE_DIR}/test/get_wave_trace_offset.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/get_wave_trace_offset.o
+    COMMAND ${ROCM_PATH}/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include -O3 ${CMAKE_SOURCE_DIR}/test/get_wave_trace_offset.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/get_wave_trace_offset.o
     DEPENDS
         ${CMAKE_SOURCE_DIR}/src/pass/gpu_pass_instr.hip
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
@@ -218,7 +218,7 @@ target_link_libraries(basic_blocks_freq hip_instrumentation LLVMSupport)
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/global_atomics_tracing.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/global_atomics_tracing.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/global_atomics_tracing.o
+    COMMAND ${ROCM_PATH}/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/global_atomics_tracing.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/global_atomics_tracing.o
     DEPENDS
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
@@ -236,7 +236,7 @@ set_target_properties(global_atomics_tracing PROPERTIES LINKER_LANGUAGE CXX)
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/global_atomics_tracing_asm.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/global_atomics_tracing_asm.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/global_atomics_tracing_asm.o
+    COMMAND ${ROCM_PATH}/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/global_atomics_tracing_asm.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/global_atomics_tracing_asm.o
     DEPENDS
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp
@@ -254,7 +254,7 @@ set_target_properties(global_atomics_tracing_asm PROPERTIES LINKER_LANGUAGE CXX)
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/chunk_allocator.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/chunk_allocator.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/chunk_allocator.o
+    COMMAND ${ROCM_PATH}/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test/chunk_allocator.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/chunk_allocator.o
     DEPENDS
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_utils.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/gpu_queue.hpp

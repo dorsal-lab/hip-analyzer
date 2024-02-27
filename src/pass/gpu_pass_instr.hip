@@ -172,17 +172,16 @@ __device__ void _hip_create_wave_event(void* storage, uint32_t* idx,
         "s_mul_i32 s28, s28, s24\n"
         "s_add_u32 s29, s22, s23\n"
         ///// ptr = begin + next
-        "s_add_u32 s26, s26, s28\n"
-        "s_addc_u32 s27, s27, s29\n"
+        "s_add_u32 s22, s26, s28\n"
+        "s_addc_u32 s23, s27, s29\n"
         // Store producer id
         "s_mov_b32 s30, s40\n"
         "s_sub_u32 s24, s24, s41\n" // Reasonable to expect event_size <<< 2^32, so no carry
-        "s_store_dwordx2 s[30:31], s[26:27]\n"
-        "s_add_u32 s42, s26, s24\n"  // ptr_end_lo
-        "s_addc_u32 s43, s27, s25\n" // ptr_end_hi
-        "s_add_u32 s40, s26, 8\n"    // ptr_lo
-        "s_addc_u32 s41, s27, 0\n"   // ptr_hi
-        "s_waitcnt lgkmcnt(0)\n"
+        "s_store_dwordx2 s[30:31], s[22:23]\n"
+        "s_add_u32 s42, s22, s24\n"  // ptr_end_lo
+        "s_addc_u32 s43, s23, s25\n" // ptr_end_hi
+        "s_add_u32 s40, s22, 8\n"    // ptr_lo
+        "s_addc_u32 s41, s23, 0\n"   // ptr_hi
         "s_setpc_b64 s[46:47]\n"
     );
 }

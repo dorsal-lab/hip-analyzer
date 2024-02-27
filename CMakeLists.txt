@@ -67,7 +67,7 @@ endif()
 
 add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/gpu_hip_instrumentation.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/gpu_functions.cpp -std=c++20 -o ${CMAKE_BINARY_DIR}/gpu_hip_instrumentation.o
+    COMMAND ${ROCM_PATH}/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/gpu_functions.cpp -std=c++20 -o ${CMAKE_BINARY_DIR}/gpu_hip_instrumentation.o
     DEPENDS 
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/reduction_kernels.hpp
@@ -78,7 +78,7 @@ add_custom_command(
 
 add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/queue_info.o
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/queue_info.cpp -std=c++20 -o ${CMAKE_BINARY_DIR}/queue_info.o ${ENABLE_TRACEPOINTS_FLAGS}
+    COMMAND ${ROCM_PATH}/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/queue_info.cpp -std=c++20 -o ${CMAKE_BINARY_DIR}/queue_info.o ${ENABLE_TRACEPOINTS_FLAGS}
     DEPENDS 
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/hip_instrumentation.hpp
         ${CMAKE_SOURCE_DIR}/include/hip_instrumentation/queue_info.hpp
@@ -92,7 +92,7 @@ add_custom_command(
 
 add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/gpu_pass_instr.ll
-    COMMAND ${ROCM_PATH}/hip/bin/hipcc -c -S -emit-llvm ${CMAKE_SOURCE_DIR}/src/pass/gpu_pass_instr.hip --cuda-device-only -O0 -o gpu_pass_instr.ll -Wno-unused-command-line-argument -I${CMAKE_SOURCE_DIR}/include -std=c++20
+    COMMAND ${ROCM_PATH}/bin/hipcc -c -S -emit-llvm ${CMAKE_SOURCE_DIR}/src/pass/gpu_pass_instr.hip --cuda-device-only -O0 -o gpu_pass_instr.ll -Wno-unused-command-line-argument -I${CMAKE_SOURCE_DIR}/include -std=c++20
     DEPENDS
         ${CMAKE_SOURCE_DIR}/src/pass/gpu_pass_instr.hip
     VERBATIM
@@ -144,7 +144,7 @@ add_library(hip_instrumentation
 target_link_libraries(hip_instrumentation
     hip::host
     jsoncpp
-    rocprofiler64v2
+    rocprofiler-sdk
     dl
     pthread
 )

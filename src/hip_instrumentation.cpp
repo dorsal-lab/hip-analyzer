@@ -4,6 +4,8 @@
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */
 
+#define USE_PROF_API 1
+
 #include "hip_instrumentation/hip_instrumentation.hpp"
 #include "hip_instrumentation/hip_trace_manager.hpp"
 #include "hip_instrumentation/hip_utils.hpp"
@@ -21,7 +23,8 @@
 
 #include <json/json.h>
 
-#include "rocprofiler/v2/rocprofiler.h"
+#include "hip/hip_runtime.h"
+#include "rocprofiler-sdk/rocprofiler.h"
 
 namespace hip {
 
@@ -95,18 +98,12 @@ uint32_t KernelInfo::wavefrontCount() const {
 std::unordered_map<std::string, std::vector<hip::BasicBlock>>
     CounterInstrumenter::known_blocks;
 
-bool CounterInstrumenter::rocprofiler_initializer = false;
-
 CounterInstrumenter::CounterInstrumenter(KernelInfo& ki)
     : CounterInstrumenter() {
     kernel_info.emplace(ki);
 }
 
 CounterInstrumenter::CounterInstrumenter() {
-    if (!rocprofiler_initializer) {
-        rocprofiler_initialize();
-        rocprofiler_initializer = true;
-    }
     // Get the timestamp for unique identification
     auto now = std::chrono::steady_clock::now();
     stamp = std::chrono::duration_cast<std::chrono::microseconds>(
@@ -122,10 +119,10 @@ uint64_t getRoctracerStamp() {
         throw std::runtime_error(
             std::string(
                 "hip::Instrumenter::toDevice() : Could not get timestamp") +
-            rocprofiler_error_str(err));
+            rocprofiler_get_status_name(err));
     }
 
-    return rt_timestamp.value;
+    return rt_timestamp;
 }
 
 void* CounterInstrumenter::toDevice(size_t size) {
