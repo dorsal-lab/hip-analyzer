@@ -7,7 +7,6 @@
 #include "hip_analyzer_pass.h"
 
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 static llvm::cl::opt<bool>
     wave_counters("wave-counters", llvm::cl::desc("Use wavefront counters"),
