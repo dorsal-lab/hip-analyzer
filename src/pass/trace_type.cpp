@@ -531,7 +531,7 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         // Check ptr + size > ptr_end
         "s_add_u32 s40, s40, $0\n"
         "s_addc_u32 s41, s41, 0\n"
-        "s_getpc_b64 s[46:47]\n"
+        "s_getpc_b64 s[28:29]\n"
         "s_sub_u32 s24, s42, s40\n"
         "s_subb_u32 s25, s43, s41\n" // At this point, SCC holds whether or not
                                      // to jump
@@ -554,7 +554,7 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
                    // two are "unused" but force the compiler to extend the
                    // lifetime of the values (due to the jump to 0b)
         "~{s22},~{s23},~{s24},~{s25},~{s26},~{s27},~{s28},~{s29},~{s30},~{s31},"
-        "~{s46},~{s47},~{scc}";
+        "~{scc}";
 
     static constexpr auto* trampoline_asm =
         // Always skip this section except if you've jumped to `trampoline`
@@ -563,14 +563,11 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         "0:\n"
         // New allocation (ChunkAllocator::Registry::alloc)
         //// Atomic add, load values
-        "s_mov_b64 s[28:29], 1\n"
-        "s_atomic_add_x2 s[28:29], s[44:45], 24 glc\n"
+        "s_mov_b64 s[40:41], 1\n"
+        "s_atomic_add_x2 s[40:41], s[44:45], 24 glc\n"
         "s_load_dwordx2 s[22:23], s[44:45], 0\n"  // Load buffer_count
         "s_load_dwordx2 s[24:25], s[44:45], 8\n"  // Load buffer_size
         "s_load_dwordx2 s[26:27], s[44:45], 16\n" // Load begin
-        // Set "args"
-        "s_mov_b32 s40, $0\n"
-        "s_mov_b32 s41, $1\n"
         // Compute return address, s[46:47] holds PC before the substraction
         "s_add_u32 s46, s46, 12\n"
         "s_addc_u32 s47, s47, 0\n"
@@ -578,31 +575,31 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         "s_waitcnt lgkmcnt(0)\n"
         //// Compute new ptr, ptr_end
         ///// next %= buffer_count. Assume buffer_count is a power of two, so
-        /// just retrieve the `buffer_count` lsb from s[28:29]
-        "s_ff1_i32_b64 s22, s[22:23]\n" // log2(s[28:29])
+        /// just retrieve the `buffer_count` lsb from s[40:41]
+        "s_ff1_i32_b64 s22, s[22:23]\n" // log2(s[40:41])
         "s_add_u32 s22, s22, 1\n"
         "s_bfm_b64 s[22:23], s22, 0\n"
-        "s_and_b64 s[28:29], s[28:29], s[22:23]\n"
+        "s_and_b64 s[40:41], s[40:41], s[22:23]\n"
 
-        ///// next *= buffer_size (multiply s[28:29] * s[24:25], intermediate
+        ///// next *= buffer_size (multiply s[40:41] * s[24:25], intermediate
         /// result in s[22:23])
-        "s_mul_hi_u32 s22, s29, s24\n"
-        "s_mul_hi_u32 s23, s28, s25\n"
-        "s_mul_i32 s28, s28, s24\n"
-        "s_add_u32 s29, s22, s23\n"
+        "s_mul_hi_u32 s22, s41, s24\n"
+        "s_mul_hi_u32 s23, s40, s25\n"
+        "s_mul_i32 s40, s40, s24\n"
+        "s_add_u32 s41, s22, s23\n"
         ///// ptr = begin + next
-        "s_add_u32 s22, s26, s28\n"
-        "s_addc_u32 s23, s27, s29\n"
+        "s_add_u32 s22, s26, s40\n"
+        "s_addc_u32 s23, s27, s41\n"
         // Store producer id
-        "s_mov_b32 s30, s40\n"
-        "s_sub_u32 s24, s24, s41\n" // Reasonable to expect event_size <<< 2^32,
-                                    // so no carry
+        "s_mov_b32 s30, $0\n"
+        "s_sub_u32 s24, s24, $1\n" // Reasonable to expect event_size <<< 2^32,
+                                   // so no carry
         "s_store_dwordx2 s[30:31], s[22:23]\n"
         "s_add_u32 s42, s22, s24\n"  // ptr_end_lo
         "s_addc_u32 s43, s23, s25\n" // ptr_end_hi
         "s_add_u32 s40, s22, 8\n"    // ptr_lo
         "s_addc_u32 s41, s23, 0\n"   // ptr_hi
-        "s_setpc_b64 s[46:47]\n"
+        "s_setpc_b64 s[28:29]\n"
 
         "1:";
 
