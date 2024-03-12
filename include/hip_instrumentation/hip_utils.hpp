@@ -15,7 +15,6 @@
 
 #include <execinfo.h>
 #include <iostream>
-#include <memory>
 #include <unistd.h>
 
 namespace hip {
@@ -41,6 +40,20 @@ inline std::unique_ptr<hipDeviceProp_t> init(int device = 0) {
     check(hipSetDevice(device));
     check(hipGetDeviceProperties(properties.get(), device));
     return properties;
+}
+
+/** \fn getNumberCUs
+ * \brief Returns the number of Physical Compute Units on the current
+ * device
+ */
+inline int getNumberCUs() {
+    int device_id;
+    hip::check(hipGetDevice(&device_id));
+
+    int val;
+    hip::check(hipDeviceGetAttribute(
+        &val, hipDeviceAttributePhysicalMultiProcessorCount, device_id));
+    return val;
 }
 
 #ifdef __HIPCC__

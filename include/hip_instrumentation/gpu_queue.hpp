@@ -176,6 +176,22 @@ inline __device__ uint64_t get_stamp() {
     return stamp;
 }
 
+inline __device__ uint32_t get_cu_id() {
+    static constexpr uint32_t CU_PER_SH = 14u;
+    static constexpr uint32_t SH_PER_SE = 2u;
+    static constexpr uint32_t CU_PER_SE = CU_PER_SH * SH_PER_SE;
+
+    uint64_t hw_id = get_hw_id();
+
+    uint32_t cu_id = (hw_id >> 8) & 0b1111u;
+    uint32_t sh_id = (hw_id >> 12) & 0b1;
+    uint32_t se_id = (hw_id >> 13) & 0b11;
+
+    uint32_t cu_within_se = cu_id + sh_id * CU_PER_SH;
+
+    return cu_within_se + se_id * CU_PER_SE;
+}
+
 } // namespace gcnasm
 
 // Sample event classes

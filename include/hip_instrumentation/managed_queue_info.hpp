@@ -166,4 +166,49 @@ class ChunkAllocator {
     std::atomic<unsigned int> process_count{0u};
 };
 
+class CUChunkAllocator {
+  public:
+    CUChunkAllocator(size_t buffer_count, size_t buffer_size,
+                     bool alloc_gpu = true);
+    ~CUChunkAllocator();
+
+    ChunkAllocator::Registry* toDevice() { return device_ptr; }
+
+    void record(uint64_t stamp);
+
+    ChunkAllocator::Registry* getRegistries() const { return last_registry; }
+
+    std::unique_ptr<std::byte[]> copyBuffer();
+    std::unique_ptr<std::byte[]> slice(size_t begin, size_t end);
+    std::ostream& printBuffer(std::ostream& out);
+
+    /** \fn doneProcessing
+     * \brief To be called by the trace manager thread to signal the
+     * ChunkAllocator that it's done processing a record() request.
+     *
+     * \details This mechanism is needed to ensure the buffer isn't freed by the
+     * time the trace processor reaches the last record() payload
+     */
+    void notifyDoneProcessing() { --process_count; }
+
+    /**
+     *
+     */
+    static CUChunkAllocator* getStreamAllocator(hipStream_t stream,
+                                                size_t buffer_count,
+                                                size_t buffer_size);
+
+    static const std::string& event_desc;
+    static const std::string& event_name;
+
+  private:
+    void update();
+
+    ChunkAllocator::Registry* device_ptr;
+    ChunkAllocator::SubBuffer* buffer_ptr;
+    ChunkAllocator::Registry* last_registry;
+
+    std::atomic<unsigned int> process_count{0u};
+};
+
 } // namespace hip
