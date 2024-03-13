@@ -168,15 +168,26 @@ class ChunkAllocator {
 
 class CUChunkAllocator {
   public:
+    constexpr static size_t TOTAL_CU_COUNT = 112ull;
+    constexpr static size_t CACHE_LINE_SIZE = 256ull;
+
+    struct CacheAlignedRegistry {
+        ChunkAllocator::Registry reg;
+        std::byte padding[CACHE_LINE_SIZE - sizeof(reg)];
+    };
+
     CUChunkAllocator(size_t buffer_count, size_t buffer_size,
                      bool alloc_gpu = true);
     ~CUChunkAllocator();
 
-    ChunkAllocator::Registry* toDevice() { return device_ptr; }
+    CacheAlignedRegistry* toDevice() { return device_ptr; }
 
     void record(uint64_t stamp);
 
-    ChunkAllocator::Registry* getRegistries() const { return last_registry; }
+    const std::array<CacheAlignedRegistry, TOTAL_CU_COUNT>&
+    getRegistries() const {
+        return last_registry;
+    }
 
     std::unique_ptr<std::byte[]> copyBuffer();
     std::unique_ptr<std::byte[]> slice(size_t begin, size_t end);
@@ -204,9 +215,11 @@ class CUChunkAllocator {
   private:
     void update();
 
-    ChunkAllocator::Registry* device_ptr;
+    CacheAlignedRegistry* device_ptr;
     ChunkAllocator::SubBuffer* buffer_ptr;
-    ChunkAllocator::Registry* last_registry;
+    std::array<CacheAlignedRegistry, TOTAL_CU_COUNT> last_registry;
+
+    size_t buffer_count, buffer_size;
 
     std::atomic<unsigned int> process_count{0u};
 };

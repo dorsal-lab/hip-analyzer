@@ -228,4 +228,35 @@ ChunkAllocator* ChunkAllocator::getStreamAllocator(hipStream_t stream,
     return &allocators.at(stream);
 }
 
+// ----- CUChunkAllocator ----- //
+
+CUChunkAllocator::CUChunkAllocator(size_t buffer_count, size_t buffer_size,
+                                   bool alloc_gpu)
+    : last_registry{{{buffer_count, buffer_size, nullptr, 0ull}}},
+      buffer_count(buffer_count), buffer_size(buffer_size) {
+
+    if (std::popcount(buffer_count) != 1) {
+        throw std::runtime_error("ChunkAllocator::ChunckAllocator() : "
+                                 "buffer_count must be a power of two");
+    }
+
+    size_t alloc_size = buffer_size * buffer_count * TOTAL_CU_COUNT;
+
+    if (alloc_gpu) {
+        hip::check(hipMalloc(&buffer_ptr, alloc_size));
+
+        for (auto i = 0u; i < TOTAL_CU_COUNT; ++i) {
+            last_registry[i].reg.begin =
+                buffer_ptr + i * (buffer_size * buffer_count);
+        }
+
+        hip::check(hipMalloc(&device_ptr,
+                             sizeof(CacheAlignedRegistry) * TOTAL_CU_COUNT));
+
+        hip::check(hipMemcpy(device_ptr, last_registry.data(),
+                             sizeof(CacheAlignedRegistry) * TOTAL_CU_COUNT,
+                             hipMemcpyHostToDevice));
+    }
+}
+
 } // namespace hip
