@@ -893,13 +893,13 @@ llvm::Function* ChunkAllocatorHostPass::replaceStubCall(
     llvm::Value *alloc, *gpu_registry, *stamp;
 
     alloc =
-        builder.CreateCall(instr_handlers.newHipChunkAllocator,
+        builder.CreateCall(instr_handlers.newHipCUChunkAllocator,
                            {builder.CreateGlobalStringPtr(
                                 call_to_launch->getArgOperand(0)->getName()),
                             builder.getInt64(1048576), builder.getInt64(4096)});
 
     gpu_registry =
-        builder.CreateCall(instr_handlers.hipChunkAllocatorToDevice, {alloc});
+        builder.CreateCall(instr_handlers.hipCUChunkAllocatorToDevice, {alloc});
 
     // Launch tracing kernel
 
@@ -911,7 +911,8 @@ llvm::Function* ChunkAllocatorHostPass::replaceStubCall(
     builder.CreateCall(tracing_stub, args);
 
     // Store counters (runtime)
-    builder.CreateCall(instr_handlers.hipChunkAllocatorRecord, {alloc, stamp});
+    builder.CreateCall(instr_handlers.hipCUChunkAllocatorRecord,
+                       {alloc, stamp});
 
     // builder.CreateCall(instr_handlers.freeChunkAllocator, {alloc});
 

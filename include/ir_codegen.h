@@ -81,6 +81,10 @@ struct InstrumentationFunctions {
     llvm::Function *newHipChunkAllocator, *hipChunkAllocatorToDevice,
         *hipChunkAllocatorRecord, *freeChunkAllocator;
 
+    // hipChunkAllocator
+    llvm::Function *newHipCUChunkAllocator, *hipCUChunkAllocatorToDevice,
+        *hipCUChunkAllocatorRecord, *freeCUChunkAllocator;
+
     /** ctor
      * \brief Forward-declare instrumentation functions in the module, and
      * returns pointers to them

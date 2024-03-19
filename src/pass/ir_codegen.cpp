@@ -500,6 +500,21 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
 
     freeChunkAllocator =
         getFunction(mod, "freeChunkAllocator", void_from_ptr_type);
+
+    newHipCUChunkAllocator =
+        getFunction(mod, "newHipCUChunkAllocator",
+                    llvm::FunctionType::get(
+                        ptr_type, {ptr_type, uint64_type, uint64_type}, false));
+
+    hipCUChunkAllocatorToDevice =
+        getFunction(mod, "hipCUChunkAllocatorToDevice", ptr_from_ptr_type);
+
+    hipCUChunkAllocatorRecord = getFunction(
+        mod, "hipCUChunkAllocatorRecord",
+        llvm::FunctionType::get(void_type, {ptr_type, uint64_type}, false));
+
+    freeCUChunkAllocator =
+        getFunction(mod, "freeCUChunkAllocator", void_from_ptr_type);
 }
 
 CfgFunctions::CfgFunctions(llvm::Module& mod) {

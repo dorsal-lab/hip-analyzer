@@ -112,6 +112,12 @@ __device__ void* _hip_get_global_memory_trace_ptr(
     return &device_ptr->current;
 }
 
+__device__ hip::ChunkAllocator::Registry* _hip_get_cache_aligned_registry(hip::CUChunkAllocator::CacheAlignedRegistry* reg) {
+    auto cu_id = hip::gcnasm::get_cu_id();
+
+    return &(reg[cu_id].reg);
+}
+
 // Generic function pointer to : void event_ctor(void* storage, size_t bb);
 using event_ctor = void (*)(void*, uint32_t);
 

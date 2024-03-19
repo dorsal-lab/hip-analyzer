@@ -156,6 +156,10 @@ class HipMemoryManager {
         return allocators_map;
     }
 
+    std::map<hipStream_t, CUChunkAllocator>& CUAllocators() {
+        return cu_allocators_map;
+    }
+
   private:
     HipMemoryManager();
 
@@ -175,6 +179,7 @@ class HipMemoryManager {
     // Singleton map of allocators, need to be owned by the HipMemoryManager to
     // enforce proper order of destruction
     std::map<hipStream_t, ChunkAllocator> allocators_map;
+    std::map<hipStream_t, CUChunkAllocator> cu_allocators_map;
 };
 
 template <typename T>

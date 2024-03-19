@@ -82,7 +82,7 @@ ChunkAllocator::ChunkAllocator(size_t buffer_count, size_t buffer_size,
     : last_registry{buffer_count, buffer_size, nullptr, 0ull} {
 
     if (std::popcount(buffer_count) != 1) {
-        throw std::runtime_error("ChunkAllocator::ChunckAllocator() : "
+        throw std::runtime_error("ChunkAllocator::ChunkAllocator() : "
                                  "buffer_count must be a power of two");
     }
 
@@ -232,11 +232,11 @@ ChunkAllocator* ChunkAllocator::getStreamAllocator(hipStream_t stream,
 
 CUChunkAllocator::CUChunkAllocator(size_t buffer_count, size_t buffer_size,
                                    bool alloc_gpu)
-    : last_registry{{{buffer_count, buffer_size, nullptr, 0ull}}},
+    : last_registry{{{{buffer_count, buffer_size, nullptr, 0ull}}}},
       buffer_count(buffer_count), buffer_size(buffer_size) {
 
     if (std::popcount(buffer_count) != 1) {
-        throw std::runtime_error("ChunkAllocator::ChunckAllocator() : "
+        throw std::runtime_error("CUChunkAllocator::CUChunkAllocator() : "
                                  "buffer_count must be a power of two");
     }
 
@@ -257,6 +257,28 @@ CUChunkAllocator::CUChunkAllocator(size_t buffer_count, size_t buffer_size,
                              sizeof(CacheAlignedRegistry) * TOTAL_CU_COUNT,
                              hipMemcpyHostToDevice));
     }
+}
+
+CUChunkAllocator::~CUChunkAllocator() {
+    while (process_count > 0) {
+        std::this_thread::sleep_for(std::chrono::microseconds(1));
+    }
+    hip::check(hipFree(device_ptr));
+    hip::check(hipFree(buffer_ptr));
+}
+
+void CUChunkAllocator::record(uint64_t stamp) {
+    hip::check(hipDeviceSynchronize());
+    // TODO
+}
+
+CUChunkAllocator* CUChunkAllocator::getStreamAllocator(hipStream_t stream,
+                                                       size_t buffer_count,
+                                                       size_t buffer_size) {
+    auto& allocators = HipMemoryManager::getInstance().CUAllocators();
+    allocators.try_emplace(stream, buffer_count, buffer_size);
+
+    return &allocators.at(stream);
 }
 
 } // namespace hip
