@@ -569,8 +569,8 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         "s_load_dwordx2 s[24:25], s[44:45], 8\n"  // Load buffer_size
         "s_load_dwordx2 s[26:27], s[44:45], 16\n" // Load begin
         // Compute return address, s[46:47] holds PC before the substraction
-        "s_add_u32 s46, s46, 12\n"
-        "s_addc_u32 s47, s47, 0\n"
+        "s_add_u32 s28, s28, 12\n"
+        "s_addc_u32 s29, s29, 0\n"
         // Wait for completion of loads
         "s_waitcnt lgkmcnt(0)\n"
         //// Compute new ptr, ptr_end
