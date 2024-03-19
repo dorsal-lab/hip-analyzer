@@ -558,7 +558,9 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
 
     static constexpr auto* trampoline_asm =
         // Always skip this section except if you've jumped to `trampoline`
-        "s_branch 1f\n"
+        "s_getpc_b64 s[28:29]\n"
+        "s_add_u32 s28, s28, 1f\n"
+        "s_add_u32 s28, s28, -0x8\n"
         // Prepare call to alloc
         "0:\n"
         // New allocation (ChunkAllocator::Registry::alloc)

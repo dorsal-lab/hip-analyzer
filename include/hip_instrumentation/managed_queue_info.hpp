@@ -169,7 +169,7 @@ class ChunkAllocator {
 class CUChunkAllocator {
   public:
     constexpr static size_t TOTAL_CU_COUNT = 112ull;
-    constexpr static size_t CACHE_LINE_SIZE = 256ull;
+    constexpr static size_t CACHE_LINE_SIZE = 64ull;
 
     struct CacheAlignedRegistry {
         ChunkAllocator::Registry reg;
