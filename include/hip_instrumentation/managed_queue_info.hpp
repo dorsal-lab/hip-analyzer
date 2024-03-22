@@ -120,6 +120,11 @@ class ChunkAllocator {
         }
 
         std::ostream& printBuffer(std::ostream& out, SubBuffer* sb);
+
+        std::unique_ptr<std::byte[]> slice(size_t begin, size_t end);
+
+        std::unique_ptr<std::byte[]> sliceAsync(size_t begin, size_t end,
+                                                hipStream_t stream);
     };
 
     ChunkAllocator(size_t buffer_count, size_t buffer_size,
@@ -134,7 +139,6 @@ class ChunkAllocator {
     Registry getRegistry() const { return last_registry; }
 
     std::unique_ptr<std::byte[]> copyBuffer();
-    std::unique_ptr<std::byte[]> slice(size_t begin, size_t end);
     std::ostream& printBuffer(std::ostream& out);
 
     /** \fn doneProcessing

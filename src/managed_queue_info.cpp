@@ -142,40 +142,46 @@ std::unique_ptr<std::byte[]> ChunkAllocator::copyBuffer() {
     return buf;
 }
 
-std::unique_ptr<std::byte[]> ChunkAllocator::slice(size_t begin, size_t end) {
-    // No update needed
-    auto& reg = last_registry;
+std::unique_ptr<std::byte[]> ChunkAllocator::Registry::slice(size_t slice_begin,
+                                                             size_t slice_end) {
+    auto data = sliceAsync(slice_begin, slice_end, 0);
+    hip::check(hipStreamSynchronize(0));
+    return data;
+}
 
-    size_t size = end - begin;
+std::unique_ptr<std::byte[]>
+ChunkAllocator::Registry::sliceAsync(size_t slice_begin, size_t slice_end,
+                                     hipStream_t stream) {
+    size_t size = std::abs(static_cast<ssize_t>(slice_end) -
+                           static_cast<ssize_t>(slice_begin));
 
-    if (size > reg.buffer_count) {
+    if (size > buffer_count) {
         throw std::runtime_error("ChunkAllocator::slice() : Requesting a slice "
                                  "larger than buffer_count");
     }
 
-    auto buf = std::make_unique<std::byte[]>(size * reg.buffer_size);
+    auto buf = std::make_unique<std::byte[]>(size * buffer_size);
 
-    size_t begin_wrap = begin % reg.buffer_count;
-    size_t end_wrap = end % reg.buffer_count;
+    size_t begin_wrap = slice_begin % buffer_count;
+    size_t end_wrap = slice_end % buffer_count;
 
     std::byte* begin_ptr =
-        reinterpret_cast<std::byte*>(reg.begin) + begin_wrap * reg.buffer_size;
+        reinterpret_cast<std::byte*>(begin) + begin_wrap * buffer_size;
 
     if (begin_wrap <= end_wrap) {
         // Easiest : contiguous copy
 
-        hip::check(hipMemcpy(buf.get(), begin_ptr, size * reg.buffer_size,
-                             hipMemcpyDeviceToHost));
+        hip::check(hipMemcpyDtoHAsync(buf.get(), begin_ptr, size * buffer_size,
+                                      stream));
     } else {
         // Have to do two copies
-        size_t size_slice = (reg.buffer_count - begin_wrap) * reg.buffer_size;
+        size_t size_slice = (buffer_count - begin_wrap) * buffer_size;
 
         hip::check(
-            hipMemcpy(buf.get(), begin_ptr, size_slice, hipMemcpyDeviceToHost));
+            hipMemcpyDtoHAsync(buf.get(), begin_ptr, size_slice, stream));
 
-        hip::check(hipMemcpy(buf.get() + size_slice, reg.begin,
-                             end_wrap * reg.buffer_size,
-                             hipMemcpyDeviceToHost));
+        hip::check(hipMemcpyDtoHAsync(buf.get() + size_slice, begin,
+                                      end_wrap * buffer_size, stream));
     }
 
     return buf;
@@ -269,7 +275,6 @@ CUChunkAllocator::~CUChunkAllocator() {
 
 void CUChunkAllocator::record(uint64_t stamp) {
     hip::check(hipDeviceSynchronize());
-    // TODO
 }
 
 CUChunkAllocator* CUChunkAllocator::getStreamAllocator(hipStream_t stream,

@@ -331,7 +331,7 @@ void HipTraceManager::handlePayload(ChunkAllocatorEventsQueuePayload&& payload,
 
     auto end = registry.current_id;
 
-    auto buf = allocator->slice(begin, end);
+    auto buf = registry.slice(begin, end);
 
     dumpEventsBin(out, stamp, buf, ChunkAllocator::event_desc,
                   ChunkAllocator::event_name, end - begin,
