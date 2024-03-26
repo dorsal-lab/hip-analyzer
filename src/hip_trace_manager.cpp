@@ -166,6 +166,30 @@ std::ofstream& dumpEventsBin(std::ofstream& out, uint64_t stamp,
     return out;
 }
 
+std::ofstream&
+dumpEventsBin(std::ofstream& out, uint64_t stamp,
+              const std::array<std::unique_ptr<std::byte[]>,
+                               CUChunkAllocator::TOTAL_CU_COUNT>& queue_data,
+              const std::array<size_t, CUChunkAllocator::TOTAL_CU_COUNT>& sizes,
+              std::string_view event_desc, std::string_view event_name,
+              size_t buffer_count, size_t buffer_size) {
+
+    out << hiptrace_chunk_events_name << ',' << stamp << ',' << buffer_count
+        << ',' << buffer_size << ',' << event_name << ','
+        << hiptrace_event_fields << ',' << event_desc << ','
+        << CUChunkAllocator::TOTAL_CU_COUNT << '\n';
+
+    for (auto i = 0u; i < CUChunkAllocator::TOTAL_CU_COUNT; ++i) {
+        auto size = sizes[i];
+        out << size << '\n';
+
+        out.write(reinterpret_cast<const char*>(queue_data[i].get()),
+                  buffer_size * size);
+    }
+
+    return out;
+}
+
 HipTraceManager::HipTraceManager() {
     // Startup thread
     fs_thread = std::make_unique<std::thread>([this]() { runThread(); });
@@ -257,6 +281,21 @@ void HipTraceManager::registerChunkAllocatorEvents(
     cond.notify_one();
 }
 
+void HipTraceManager::registerCUChunkAllocatorEvents(
+    CUChunkAllocator* alloc, uint64_t stamp,
+    std::unique_ptr<CUChunkAllocator::Registries> begin_registries,
+    std::unique_ptr<CUChunkAllocator::Registries> end_registries) {
+    std::lock_guard lock{mutex};
+
+    lttng_ust_tracepoint(hip_instrumentation,
+                         register_cu_chunk_allocator_events, alloc, stamp);
+
+    queue.push(CUChunkAllocatorEventsQueuePayload{
+        alloc, stamp, std::move(begin_registries), std::move(end_registries)});
+
+    cond.notify_one();
+}
+
 template <>
 void HipTraceManager::handlePayload(
     CountersQueuePayload<ThreadCounters>&& payload, std::ofstream& out) {
@@ -339,6 +378,32 @@ void HipTraceManager::handlePayload(ChunkAllocatorEventsQueuePayload&& payload,
     allocator->notifyDoneProcessing();
     lttng_ust_tracepoint(hip_instrumentation, collector_dump_end,
                          registry.begin, stamp);
+}
+
+template <>
+void HipTraceManager::handlePayload(
+    CUChunkAllocatorEventsQueuePayload&& payload, std::ofstream& out) {
+    auto& [cu_allocator, stamp, begin_registries, end_registries] = payload;
+
+    lttng_ust_tracepoint(hip_instrumentation, collector_dump_queue, &out,
+                         cu_allocator->toDevice(), stamp);
+
+    std::array<std::unique_ptr<std::byte[]>, CUChunkAllocator::TOTAL_CU_COUNT>
+        buffers;
+
+    std::array<size_t, CUChunkAllocator::TOTAL_CU_COUNT> sizes;
+
+    cu_allocator->fetchBuffers(*begin_registries, *end_registries, buffers,
+                               sizes);
+
+    dumpEventsBin(out, stamp, buffers, sizes, CUChunkAllocator::event_desc,
+                  CUChunkAllocator::event_name,
+                  CUChunkAllocator::TOTAL_CU_COUNT,
+                  cu_allocator->getRegistries()[0].reg.buffer_size);
+
+    cu_allocator->notifyDoneProcessing();
+    lttng_ust_tracepoint(hip_instrumentation, collector_dump_end,
+                         cu_allocator->toDevice(), stamp);
 }
 
 template <class> inline constexpr bool always_false_v = false;

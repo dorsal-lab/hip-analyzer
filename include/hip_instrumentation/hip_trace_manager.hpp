@@ -47,12 +47,19 @@ class HipTraceManager {
     using ChunkAllocatorEventsQueuePayload =
         std::tuple<ChunkAllocator*, uint64_t, ChunkAllocator::Registry, size_t>;
 
+    // <allocator> - <stamp> - <begin registries> - <end registries
+    using CUChunkAllocatorEventsQueuePayload =
+        std::tuple<CUChunkAllocator*, uint64_t,
+                   std::unique_ptr<CUChunkAllocator::Registries>,
+                   std::unique_ptr<CUChunkAllocator::Registries>>;
+
     // Either a counters payload or an events payload
     using Payload =
         std::variant<CountersQueuePayload<ThreadCounters>,
                      CountersQueuePayload<WaveCounters>, EventsQueuePayload,
                      GlobalMemoryEventsQueuePayload,
-                     ChunkAllocatorEventsQueuePayload>;
+                     ChunkAllocatorEventsQueuePayload,
+                     CUChunkAllocatorEventsQueuePayload>;
 
     HipTraceManager(const HipTraceManager&) = delete;
     HipTraceManager operator=(const HipTraceManager&) = delete;
@@ -81,6 +88,11 @@ class HipTraceManager {
     void registerChunkAllocatorEvents(ChunkAllocator* alloc, uint64_t stamp,
                                       ChunkAllocator::Registry end_registry,
                                       size_t begin_offset);
+
+    void registerCUChunkAllocatorEvents(
+        CUChunkAllocator* alloc, uint64_t stamp,
+        std::unique_ptr<CUChunkAllocator::Registries> begin_registries,
+        std::unique_ptr<CUChunkAllocator::Registries> end_registries);
 
     size_t queuedPayloads();
 

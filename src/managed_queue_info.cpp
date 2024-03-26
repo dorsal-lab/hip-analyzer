@@ -142,6 +142,15 @@ std::unique_ptr<std::byte[]> ChunkAllocator::copyBuffer() {
     return buf;
 }
 
+size_t ChunkAllocator::Registry::wrappedSize(size_t slice_begin,
+                                             size_t slice_end) {
+    if (slice_begin <= slice_end) {
+        return slice_end - slice_begin;
+    } else {
+        return slice_end + (buffer_size - slice_begin);
+    }
+}
+
 std::unique_ptr<std::byte[]> ChunkAllocator::Registry::slice(size_t slice_begin,
                                                              size_t slice_end) {
     auto data = sliceAsync(slice_begin, slice_end, 0);
@@ -152,8 +161,7 @@ std::unique_ptr<std::byte[]> ChunkAllocator::Registry::slice(size_t slice_begin,
 std::unique_ptr<std::byte[]>
 ChunkAllocator::Registry::sliceAsync(size_t slice_begin, size_t slice_end,
                                      hipStream_t stream) {
-    size_t size = std::abs(static_cast<ssize_t>(slice_end) -
-                           static_cast<ssize_t>(slice_begin));
+    size_t size = wrappedSize(slice_begin, slice_end);
 
     if (size > buffer_count) {
         throw std::runtime_error("ChunkAllocator::slice() : Requesting a slice "
@@ -274,7 +282,38 @@ CUChunkAllocator::~CUChunkAllocator() {
 }
 
 void CUChunkAllocator::record(uint64_t stamp) {
+    auto begin_registries = std::make_unique<Registries>(last_registry);
+
     hip::check(hipDeviceSynchronize());
+
+    hip::check(hipMemcpy(last_registry.data(), device_ptr,
+                         sizeof(CacheAlignedRegistry) * TOTAL_CU_COUNT,
+                         hipMemcpyDeviceToHost));
+
+    auto end_registries = std::make_unique<Registries>(last_registry);
+
+    ++process_count;
+
+    hip::HipTraceManager::getInstance().registerCUChunkAllocatorEvents(
+        this, stamp, std::move(begin_registries), std::move(end_registries));
+}
+
+void CUChunkAllocator::fetchBuffers(
+    const Registries& begin_registries, const Registries& end_registries,
+    std::array<std::unique_ptr<std::byte[]>, TOTAL_CU_COUNT>& sub_buffers_out,
+    std::array<size_t, TOTAL_CU_COUNT>& sizes_out) {
+
+    for (auto i = 0u; i < TOTAL_CU_COUNT; ++i) {
+        auto old = begin_registries[i].reg.current_id;
+        auto current = end_registries[i].reg.current_id;
+
+        sizes_out[i] = last_registry[i].reg.wrappedSize(old, current);
+        sub_buffers_out[i] = last_registry[i].reg.sliceAsync(old, current, 0);
+    }
+
+    hip::check(hipStreamSynchronize(0));
+
+    return;
 }
 
 CUChunkAllocator* CUChunkAllocator::getStreamAllocator(hipStream_t stream,
@@ -285,5 +324,9 @@ CUChunkAllocator* CUChunkAllocator::getStreamAllocator(hipStream_t stream,
 
     return &allocators.at(stream);
 }
+
+const std::string& hip::CUChunkAllocator::event_desc =
+    hip::WaveState::description;
+const std::string& hip::CUChunkAllocator::event_name = hip::WaveState::name;
 
 } // namespace hip

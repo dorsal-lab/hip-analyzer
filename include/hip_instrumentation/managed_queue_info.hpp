@@ -121,6 +121,8 @@ class ChunkAllocator {
 
         std::ostream& printBuffer(std::ostream& out, SubBuffer* sb);
 
+        size_t wrappedSize(size_t begin, size_t end);
+
         std::unique_ptr<std::byte[]> slice(size_t begin, size_t end);
 
         std::unique_ptr<std::byte[]> sliceAsync(size_t begin, size_t end,
@@ -180,6 +182,8 @@ class CUChunkAllocator {
         std::byte padding[CACHE_LINE_SIZE - sizeof(reg)];
     };
 
+    using Registries = std::array<CacheAlignedRegistry, TOTAL_CU_COUNT>;
+
     CUChunkAllocator(size_t buffer_count, size_t buffer_size,
                      bool alloc_gpu = true);
     ~CUChunkAllocator();
@@ -188,21 +192,22 @@ class CUChunkAllocator {
 
     void record(uint64_t stamp);
 
-    const std::array<CacheAlignedRegistry, TOTAL_CU_COUNT>&
-    getRegistries() const {
-        return last_registry;
-    }
+    const Registries& getRegistries() const { return last_registry; }
 
-    std::unique_ptr<std::byte[]> copyBuffer();
-    std::unique_ptr<std::byte[]> slice(size_t begin, size_t end);
     std::ostream& printBuffer(std::ostream& out);
+
+    void fetchBuffers(const Registries& begin_registries,
+                      const Registries& end_registries,
+                      std::array<std::unique_ptr<std::byte[]>, TOTAL_CU_COUNT>&
+                          sub_buffers_out,
+                      std::array<size_t, TOTAL_CU_COUNT>& sizes_out);
 
     /** \fn doneProcessing
      * \brief To be called by the trace manager thread to signal the
      * ChunkAllocator that it's done processing a record() request.
      *
-     * \details This mechanism is needed to ensure the buffer isn't freed by the
-     * time the trace processor reaches the last record() payload
+     * \details This mechanism is needed to ensure the buffer isn't freed by
+     * the time the trace processor reaches the last record() payload
      */
     void notifyDoneProcessing() { --process_count; }
 
@@ -221,7 +226,7 @@ class CUChunkAllocator {
 
     CacheAlignedRegistry* device_ptr;
     ChunkAllocator::SubBuffer* buffer_ptr;
-    std::array<CacheAlignedRegistry, TOTAL_CU_COUNT> last_registry;
+    Registries last_registry;
 
     size_t buffer_count, buffer_size;
 

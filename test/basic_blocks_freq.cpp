@@ -99,6 +99,12 @@ void visitor(hip::HipTraceManager::ChunkAllocatorEventsQueuePayload&& payload) {
     throw std::runtime_error("Unexpected chunk allocator events");
 }
 
+template <>
+void visitor(
+    hip::HipTraceManager::CUChunkAllocatorEventsQueuePayload&& payload) {
+    throw std::runtime_error("Unexpected cu chunk allocator events");
+}
+
 int main(int argc, char** argv) {
     llvm::cl::ParseCommandLineOptions(argc, argv);
 

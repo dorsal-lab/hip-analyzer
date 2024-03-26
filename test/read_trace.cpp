@@ -100,6 +100,12 @@ void visitor(hip::HipTraceManager::ChunkAllocatorEventsQueuePayload&& payload) {
     delete alloc;
 }
 
+template <>
+void visitor(
+    hip::HipTraceManager::CUChunkAllocatorEventsQueuePayload&& payload) {
+    std::cout << "CUChunkAllocator\n";
+}
+
 int main(int argc, char** argv) {
     llvm::cl::ParseCommandLineOptions(argc, argv);
 
