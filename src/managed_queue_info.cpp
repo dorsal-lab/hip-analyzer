@@ -246,8 +246,10 @@ ChunkAllocator* ChunkAllocator::getStreamAllocator(hipStream_t stream,
 
 CUChunkAllocator::CUChunkAllocator(size_t buffer_count, size_t buffer_size,
                                    bool alloc_gpu)
-    : last_registry{{{{buffer_count, buffer_size, nullptr, 0ull}}}},
-      buffer_count(buffer_count), buffer_size(buffer_size) {
+    : buffer_count(buffer_count), buffer_size(buffer_size) {
+
+    // Initialize all registries
+    last_registry.fill({{buffer_count, buffer_size, nullptr, 0ull}});
 
     if (std::popcount(buffer_count) != 1) {
         throw std::runtime_error("CUChunkAllocator::CUChunkAllocator() : "
