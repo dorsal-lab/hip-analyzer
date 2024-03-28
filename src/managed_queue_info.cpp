@@ -144,6 +144,9 @@ std::unique_ptr<std::byte[]> ChunkAllocator::copyBuffer() {
 
 size_t ChunkAllocator::Registry::wrappedSize(size_t slice_begin,
                                              size_t slice_end) {
+    slice_begin = slice_begin % buffer_count;
+    slice_end = slice_end % buffer_count;
+
     if (slice_begin <= slice_end) {
         return slice_end - slice_begin;
     } else {
@@ -164,8 +167,9 @@ ChunkAllocator::Registry::sliceAsync(size_t slice_begin, size_t slice_end,
     size_t size = wrappedSize(slice_begin, slice_end);
 
     if (size > buffer_count) {
-        throw std::runtime_error("ChunkAllocator::slice() : Requesting a slice "
-                                 "larger than buffer_count");
+        throw std::runtime_error(
+            "ChunkAllocator::Registry::slice() : Requesting a slice "
+            "larger than buffer_count");
     }
 
     auto buf = std::make_unique<std::byte[]>(size * buffer_size);
