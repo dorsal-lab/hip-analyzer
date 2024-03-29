@@ -150,7 +150,7 @@ size_t ChunkAllocator::Registry::wrappedSize(size_t slice_begin,
     if (slice_begin <= slice_end) {
         return slice_end - slice_begin;
     } else {
-        return slice_end + (buffer_size - slice_begin);
+        return slice_end + (buffer_count - slice_begin);
     }
 }
 
@@ -248,6 +248,8 @@ ChunkAllocator* ChunkAllocator::getStreamAllocator(hipStream_t stream,
 
 // ----- CUChunkAllocator ----- //
 
+extern void dryRunRegistries(CUChunkAllocator&);
+
 CUChunkAllocator::CUChunkAllocator(size_t buffer_count, size_t buffer_size,
                                    bool alloc_gpu)
     : buffer_count(buffer_count), buffer_size(buffer_size) {
@@ -277,6 +279,8 @@ CUChunkAllocator::CUChunkAllocator(size_t buffer_count, size_t buffer_size,
                              sizeof(CacheAlignedRegistry) * TOTAL_CU_COUNT,
                              hipMemcpyHostToDevice));
     }
+
+    dryRunRegistries(*this);
 }
 
 CUChunkAllocator::~CUChunkAllocator() {

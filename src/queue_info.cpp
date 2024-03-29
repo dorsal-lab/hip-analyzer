@@ -6,6 +6,7 @@
 
 #include "hip_instrumentation/gpu_queue.hpp"
 #include "hip_instrumentation/hip_trace_manager.hpp"
+#include "hip_instrumentation/managed_queue_info.hpp"
 
 #include <iomanip>
 #include <numeric>
@@ -256,5 +257,32 @@ std::string GlobalWaveState::description = HipEventFields<
     decltype(GlobalWaveState::producer)>();
 
 std::string GlobalWaveState::name = "hip::GlobalWaveState";
+
+__global__ void
+prefetchRegistries(CUChunkAllocator::CacheAlignedRegistry* regs) {
+    auto cu_id = hip::gcnasm::get_cu_id();
+
+    // if (threadIdx.x == 0) {
+    //     printf("CU id : %d\n", cu_id);
+    // }
+
+    auto* ptr = &(regs[cu_id].reg);
+
+    auto int_ptr = reinterpret_cast<uintptr_t>(ptr);
+
+    uint32_t ptr_lo = static_cast<uint32_t>(int_ptr);
+    uint32_t ptr_hi = static_cast<uint32_t>(int_ptr >> 32);
+
+    asm volatile("s_mov_b32 s0, %0\n"
+                 "s_mov_b32 s1, %1\n"
+                 "s_load_dwordx2 s[2:3], s[0:1]\n"
+                 "s_waitcnt lgkmcnt(0)\n" ::"r"(ptr_lo),
+                 "r"(ptr_hi));
+}
+
+void dryRunRegistries(CUChunkAllocator& cu) {
+    prefetchRegistries<<<1048576, 64>>>(cu.toDevice());
+    hip::check(hipDeviceSynchronize());
+}
 
 } // namespace hip
