@@ -257,11 +257,6 @@ CUChunkAllocator::CUChunkAllocator(size_t buffer_count, size_t buffer_size,
     // Initialize all registries
     last_registry.fill({{buffer_count, buffer_size, nullptr, 0ull}});
 
-    if (std::popcount(buffer_count) != 1) {
-        throw std::runtime_error("CUChunkAllocator::CUChunkAllocator() : "
-                                 "buffer_count must be a power of two");
-    }
-
     size_t alloc_size = buffer_size * buffer_count * TOTAL_CU_COUNT;
 
     if (alloc_gpu) {
@@ -283,12 +278,39 @@ CUChunkAllocator::CUChunkAllocator(size_t buffer_count, size_t buffer_size,
     dryRunRegistries(*this);
 }
 
+CUChunkAllocator::CUChunkAllocator(const std::vector<size_t>& buffer_count,
+                                   size_t buffer_size)
+    : buffer_count(-1), buffer_size(buffer_size), loaded(true) {
+
+    // Initialize all registries
+
+    if (buffer_count.size() != TOTAL_CU_COUNT) {
+        throw std::runtime_error("CUChunkAllocator::CUChunkAllocator() : "
+                                 "Unexpected number of buffer counts");
+    }
+
+    for (auto i = 0u; i < TOTAL_CU_COUNT; ++i) {
+        auto* buf = reinterpret_cast<ChunkAllocator::SubBuffer*>(
+            new std::byte[buffer_count[i] * buffer_size]);
+
+        last_registry[i].reg = {buffer_count[i], buffer_size, buf, 0ull};
+    }
+}
+
 CUChunkAllocator::~CUChunkAllocator() {
     while (process_count > 0) {
         std::this_thread::sleep_for(std::chrono::microseconds(1));
     }
-    hip::check(hipFree(device_ptr));
-    hip::check(hipFree(buffer_ptr));
+
+    if (!loaded) {
+        hip::check(hipFree(device_ptr));
+        hip::check(hipFree(buffer_ptr));
+    } else {
+        // Must free allocated memory from registries
+        for (auto& reg : last_registry) {
+            delete[] reg.reg.begin;
+        }
+    }
 }
 
 void CUChunkAllocator::record(uint64_t stamp) {

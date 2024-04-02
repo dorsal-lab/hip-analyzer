@@ -47,7 +47,7 @@ class HipTraceManager {
     using ChunkAllocatorEventsQueuePayload =
         std::tuple<ChunkAllocator*, uint64_t, ChunkAllocator::Registry, size_t>;
 
-    // <allocator> - <stamp> - <begin registries> - <end registries
+    // <allocator> - <stamp> - <begin registries> - <end registries>
     using CUChunkAllocatorEventsQueuePayload =
         std::tuple<CUChunkAllocator*, uint64_t,
                    std::unique_ptr<CUChunkAllocator::Registries>,
@@ -134,6 +134,7 @@ class HipTraceFile {
         WaveCounters,
         Events,
         ChunkAlloc,
+        CUChunkAlloc,
         ErrorKind
     };
 
@@ -191,6 +192,10 @@ constexpr std::string_view hiptrace_raw_events_name = "hiptrace_raw_events";
 /** \brief Hiptrace chunk-allocated events
  */
 constexpr std::string_view hiptrace_chunk_events_name = "hiptrace_chunks";
+
+/** \brief Hiptrace multiple chunk-allocated events
+ */
+constexpr std::string_view hiptrace_cu_chunk_events_name = "hiptrace_chunks";
 
 /** \brief Hiptrace begin kernel info
  */

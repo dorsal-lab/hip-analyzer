@@ -174,10 +174,10 @@ dumpEventsBin(std::ofstream& out, uint64_t stamp,
               std::string_view event_desc, std::string_view event_name,
               size_t buffer_count, size_t buffer_size) {
 
-    out << hiptrace_chunk_events_name << ',' << stamp << ',' << buffer_count
-        << ',' << buffer_size << ',' << event_name << ','
-        << hiptrace_event_fields << ',' << event_desc << ','
-        << CUChunkAllocator::TOTAL_CU_COUNT << '\n';
+    out << hiptrace_cu_chunk_events_name << ',' << stamp << ',' << buffer_count
+        << ',' << buffer_size << ',' << CUChunkAllocator::TOTAL_CU_COUNT
+        << event_name << ',' << hiptrace_event_fields << ',' << event_desc
+        << ',' << '\n';
 
     for (auto i = 0u; i < CUChunkAllocator::TOTAL_CU_COUNT; ++i) {
         auto size = sizes[i];
@@ -518,59 +518,71 @@ HipTraceFile::Kind HipTraceFile::parseHeader(std::string_view header) {
         return Kind::Events;
     } else if (header_trimmed == hiptrace_chunk_events_name) {
         return Kind::ChunkAlloc;
+    } else if (header_trimmed == hiptrace_cu_chunk_events_name) {
+        return Kind::CUChunkAlloc;
     } else {
         return Kind::ErrorKind;
     }
 }
 
+class Parser {
+  public:
+    Parser(const std::string& header, char _sep = ',') : sep(_sep) {
+        ss << header;
+    }
+
+    std::string token() {
+        std::string token;
+        std::getline(ss, token, sep);
+        return token;
+    }
+
+    template <typename T> T parse() {
+        T val;
+        auto tok = token();
+        if (std::from_chars(tok.data(), tok.data() + tok.length(), val).ec !=
+            std::errc()) {
+            throw std::runtime_error("Could not parse token : " + tok);
+        }
+        return val;
+    }
+
+  private:
+    std::stringstream ss;
+    char sep;
+};
+
 template <typename Instr>
 HipTraceManager::CountersQueuePayload<Instr>
 loadInstr(const std::string& header, std::ifstream& f) {
     // Get header, construct kernel info
-    std::stringstream ss;
-    ss << header;
+    Parser p{header};
 
-    auto get_token = [&]() -> std::string {
-        std::string token;
-        std::getline(ss, token, ',');
-        return token;
-    };
-
-    auto parse_u64 = [&]() -> uint64_t {
-        uint64_t val;
-        std::string token = get_token();
-        if (std::from_chars(token.data(), token.data() + token.length(), val)
-                .ec != std::errc()) {
-            throw std::runtime_error("Could not parse u64 token : " + token);
-        }
-        return val;
-    };
-
-    auto type_header = get_token(); // Ignore for now
-    auto kernel_name = get_token();
-    auto instr_size = parse_u64();
-    auto stamp = parse_u64();
+    auto type_header = p.token(); // Ignore for now
+    auto kernel_name = p.token();
+    auto instr_size = p.parse<uint64_t>();
+    auto stamp = p.parse<uint64_t>();
 
     std::pair<uint64_t, uint64_t> interval;
-    interval.first = parse_u64();
-    interval.second = parse_u64();
+    interval.first = p.parse<uint64_t>();
+    interval.second = p.parse<uint64_t>();
 
-    auto num_counters = parse_u64();
-    auto counter_size = parse_u64();
+    auto num_counters = p.parse<uint64_t>();
+    auto counter_size = p.parse<uint64_t>();
 
     // Kernel info
     dim3 blocks, threads;
     uint64_t bb;
 
-    auto geometry_header = get_token();
-    bb = parse_u64();
-    blocks.x = parse_u64();
-    blocks.y = parse_u64();
-    blocks.z = parse_u64();
+    auto geometry_header = p.token();
+    bb = p.parse<uint64_t>();
+    blocks.x = p.parse<uint64_t>();
+    blocks.y = p.parse<uint64_t>();
+    blocks.z = p.parse<uint64_t>();
 
-    threads.x = parse_u64();
-    threads.y = parse_u64();
-    threads.z = parse_u64();
+    threads.x = p.parse<uint64_t>();
+    threads.y = p.parse<uint64_t>();
+    threads.z = p.parse<uint64_t>();
 
     KernelInfo ki(kernel_name, bb, blocks, threads);
     // ki.dump();
@@ -586,24 +598,7 @@ loadInstr(const std::string& header, std::ifstream& f) {
 HipTraceManager::EventsQueuePayload
 HipTraceFile::loadEvents(const std::string& header, std::ifstream& f) const {
     // Get header, construct queue info
-    std::stringstream ss;
-    ss << header;
-
-    auto get_token = [&]() -> std::string {
-        std::string token;
-        std::getline(ss, token, ',');
-        return token;
-    };
-
-    auto parse_u64 = [&]() -> uint64_t {
-        uint64_t val;
-        std::string token = get_token();
-        if (std::from_chars(token.data(), token.data() + token.length(), val)
-                .ec != std::errc()) {
-            throw std::runtime_error("Could not parse u64 token : " + token);
-        }
-        return val;
-    };
+    Parser p{header};
 
     auto assert_header = [](const std::string& token,
                             std::string_view expected) {
@@ -613,11 +608,11 @@ HipTraceFile::loadEvents(const std::string& header, std::ifstream& f) const {
         }
     };
 
-    auto type_header = get_token();
-    auto event_size = parse_u64();
-    auto num_offsets = parse_u64() + 1;
-    auto event_name = get_token();
-    auto fields_header = get_token();
+    auto type_header = p.token();
+    auto event_size = p.parse<uint64_t>();
+    auto num_offsets = p.parse<uint64_t>() + 1;
+    auto event_name = p.token();
+    auto fields_header = p.token();
 
     assert_header(type_header, hiptrace_events_name);
     assert_header(fields_header, hiptrace_event_fields);
@@ -643,40 +638,73 @@ HipTraceFile::loadEvents(const std::string& header, std::ifstream& f) const {
 HipTraceManager::ChunkAllocatorEventsQueuePayload
 loadChunkAlloc(const std::string& header, std::ifstream& f) {
     // Get header, construct kernel info
-    std::stringstream ss;
-    ss << header;
+    Parser p{header};
 
-    auto get_token = [&]() -> std::string {
-        std::string token;
-        std::getline(ss, token, ',');
-        return token;
-    };
-
-    auto parse_u64 = [&]() -> uint64_t {
-        uint64_t val;
-        std::string token = get_token();
-        if (std::from_chars(token.data(), token.data() + token.length(), val)
-                .ec != std::errc()) {
-            throw std::runtime_error("Could not parse u64 token : " + token);
-        }
-        return val;
-    };
-
-    auto type_header = get_token(); // Ignore for now
-    auto stamp = parse_u64();
-    auto buffer_count = parse_u64();
-    auto buffer_size = parse_u64();
-    auto event_name = get_token();
-    auto fields_header = get_token();
+    auto type_header = p.token(); // Ignore for now
+    auto stamp = p.parse<uint64_t>();
+    auto buffer_count = p.parse<uint64_t>();
+    auto buffer_size = p.parse<uint64_t>();
+    auto event_name = p.token();
+    auto fields_header = p.token();
 
     // TODO do something with the fields
 
     // Instantiate a new chunk alloc & copy to buffer
-    auto* alloc = new ChunkAllocator(buffer_count, buffer_size);
+    auto* alloc = new ChunkAllocator(buffer_count, buffer_size, false);
     f.read(reinterpret_cast<char*>(alloc->cpuBuffer()),
            buffer_count * buffer_size);
 
     return {alloc, stamp, alloc->getRegistry(), 0ull};
+}
+
+HipTraceManager::CUChunkAllocatorEventsQueuePayload
+loadCUChunkAlloc(const std::string& header, std::ifstream& f) {
+    // Get header, construct kernel info
+    Parser p{header};
+
+    auto type_header = p.token(); // Ignore for now
+    auto stamp = p.parse<uint64_t>();
+    auto buffer_count = p.parse<uint64_t>();
+    auto buffer_size = p.parse<uint64_t>();
+    auto count = p.parse<uint64_t>();
+    auto event_name = p.token();
+    auto fields_header = p.token();
+
+    // TODO do something with the fields
+
+    // First step : get sizes
+
+    std::vector<size_t> counts, offsets;
+    counts.resize(count);
+    offsets.resize(count);
+
+    for (auto i = 0u; i < count; ++i) {
+        std::string buf;
+        if (!std::getline(f, buf)) {
+            throw std::runtime_error("loadCUChunkAlloc()");
+        }
+
+        Parser subparser{buf};
+
+        counts[i] = subparser.parse<uint64_t>();
+        offsets[i] = f.tellg();
+
+        f.seekg(offsets[i] + counts[i]);
+    }
+
+    // Allocate
+
+    auto* cu = new CUChunkAllocator{counts, buffer_size};
+
+    // Fill buffers
+
+    for (auto i = 0u; i < count; ++i) {
+        f.seekg(offsets[i]);
+        f.read(reinterpret_cast<char*>(cu->getRegistries()[i].reg.begin),
+               counts[i] * buffer_size);
+    }
+
+    return {cu, stamp, nullptr, nullptr};
 }
 
 HipTraceManager::Payload HipTraceFile::getNext() {
@@ -701,6 +729,8 @@ HipTraceManager::Payload HipTraceFile::getNext() {
         return loadEvents(buffer, input);
     case Kind::ChunkAlloc:
         return loadChunkAlloc(buffer, input);
+    case Kind::CUChunkAlloc:
+        return loadCUChunkAlloc(buffer, input);
     case Kind::ErrorKind:
         throw std::runtime_error(
             "HipTraceFile::getNext() : Could not parse header " + buffer);

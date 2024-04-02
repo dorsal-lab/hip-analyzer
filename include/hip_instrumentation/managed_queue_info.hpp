@@ -186,13 +186,17 @@ class CUChunkAllocator {
 
     CUChunkAllocator(size_t buffer_count, size_t buffer_size,
                      bool alloc_gpu = true);
+
+    CUChunkAllocator(const std::vector<size_t>& buffer_count,
+                     size_t buffer_size);
+
     ~CUChunkAllocator();
 
     CacheAlignedRegistry* toDevice() { return device_ptr; }
 
     void record(uint64_t stamp);
 
-    const Registries& getRegistries() const { return last_registry; }
+    Registries& getRegistries() { return last_registry; }
 
     std::ostream& printBuffer(std::ostream& out);
 
@@ -231,6 +235,7 @@ class CUChunkAllocator {
     size_t buffer_count, buffer_size;
 
     std::atomic<unsigned int> process_count{0u};
+    bool loaded = false;
 };
 
 } // namespace hip
