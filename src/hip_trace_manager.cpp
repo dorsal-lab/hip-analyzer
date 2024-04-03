@@ -679,6 +679,8 @@ loadCUChunkAlloc(const std::string& header, std::ifstream& f) {
     offsets.resize(count);
 
     for (auto i = 0u; i < count; ++i) {
+        std::cerr << "Pos : " << f.tellg() << '\n';
+
         std::string buf;
         if (!std::getline(f, buf)) {
             throw std::runtime_error("loadCUChunkAlloc()");
@@ -687,9 +689,11 @@ loadCUChunkAlloc(const std::string& header, std::ifstream& f) {
         Parser subparser{buf};
 
         counts[i] = subparser.parse<uint64_t>();
-        offsets[i] = f.tellg();
+        offsets[i] = f.tellg() + 1;
 
-        f.seekg(offsets[i] + counts[i]);
+        std::cerr << "Count " << counts[i] << " offset " << offsets[i] << '\n';
+
+        f.seekg(offsets[i] + counts[i] * buffer_size + 1);
     }
 
     // Allocate

@@ -195,7 +195,7 @@ constexpr std::string_view hiptrace_chunk_events_name = "hiptrace_chunks";
 
 /** \brief Hiptrace multiple chunk-allocated events
  */
-constexpr std::string_view hiptrace_cu_chunk_events_name = "hiptrace_chunks";
+constexpr std::string_view hiptrace_cu_chunk_events_name = "hiptrace_cu_chunks";
 
 /** \brief Hiptrace begin kernel info
  */

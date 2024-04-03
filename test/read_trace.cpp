@@ -103,7 +103,15 @@ void visitor(hip::HipTraceManager::ChunkAllocatorEventsQueuePayload&& payload) {
 template <>
 void visitor(
     hip::HipTraceManager::CUChunkAllocatorEventsQueuePayload&& payload) {
-    std::cout << "CUChunkAllocator\n";
+    auto& [alloc, stamp, begin_reg, end_reg] = payload;
+
+    auto& registries = alloc->getRegistries();
+
+    std::cout << "CU Chunk Allocators event, " << registries.size()
+              << " CU-buffers of size " << registries[0].reg.buffer_size
+              << '\n';
+
+    delete alloc;
 }
 
 int main(int argc, char** argv) {
