@@ -267,3 +267,13 @@ add_custom_command(
 add_executable(chunk_allocator ${CMAKE_CURRENT_BINARY_DIR}/chunk_allocator.o)
 target_link_libraries(chunk_allocator hip_instrumentation)
 set_target_properties(chunk_allocator PROPERTIES LINKER_LANGUAGE CXX)
+
+
+
+# ----- read_trace ----- #
+
+add_executable(count_allocations
+    count_allocations.cpp
+)
+
+target_link_libraries(count_allocations hip_instrumentation LLVMSupport)
