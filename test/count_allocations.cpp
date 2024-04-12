@@ -72,8 +72,12 @@ void Counter::visitor(
               << " CU-buffers of size " << registries[0].reg.buffer_size
               << '\n';
 
+    auto i = 0u;
     for (auto& ca_reg : registries) {
         auto& reg = ca_reg.reg;
+
+        std::cout << "\tCU " << i << ", " << reg.buffer_count << " buffers\n";
+
         for (auto subbuffer_id = 0ull; subbuffer_id < reg.buffer_count;
              ++subbuffer_id) {
 
@@ -81,10 +85,12 @@ void Counter::visitor(
                 reinterpret_cast<std::byte*>(reg.begin) +
                 subbuffer_id * reg.buffer_size);
 
-            std::cout << ptr->owner << ' ';
+            std::cout << (ptr->owner & 0xffffffff) << ',';
         }
 
         std::cout << "\n";
+
+        ++i;
     }
 
     delete alloc;
