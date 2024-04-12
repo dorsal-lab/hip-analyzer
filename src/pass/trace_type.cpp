@@ -567,9 +567,8 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         //// Atomic add, load values
         "s_mov_b64 s[40:41], 1\n"
         "s_atomic_add_x2 s[40:41], s[44:45], 24 glc\n"
-        "s_load_dwordx2 s[22:23], s[44:45], 0\n"  // Load buffer_count
-        "s_load_dwordx2 s[24:25], s[44:45], 8\n"  // Load buffer_size
-        "s_load_dwordx2 s[26:27], s[44:45], 16\n" // Load begin
+        "s_load_dwordx2 s[22:23], s[44:45], 0\n" // Load buffer_count
+        "s_load_dwordx4 s[24:27], s[44:45], 8\n" // Load buffer_size, begin
         // Compute return address, s[46:47] holds PC before the substraction
         "s_add_u32 s28, s28, 12\n"
         "s_addc_u32 s29, s29, 0\n"
@@ -596,7 +595,7 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         "s_mov_b32 s30, $0\n"
         "s_sub_u32 s24, s24, $1\n" // Reasonable to expect event_size <<< 2^32,
                                    // so no carry
-        "s_store_dwordx2 s[30:31], s[22:23]\n"
+        "s_store_dword s30, s[22:23]\n"
         "s_add_u32 s42, s22, s24\n"  // ptr_end_lo
         "s_addc_u32 s43, s23, s25\n" // ptr_end_hi
         "s_add_u32 s40, s22, 8\n"    // ptr_lo
