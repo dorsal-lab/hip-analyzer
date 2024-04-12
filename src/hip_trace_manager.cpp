@@ -686,9 +686,9 @@ loadCUChunkAlloc(const std::string& header, std::ifstream& f) {
         Parser subparser{buf};
 
         counts[i] = subparser.parse<uint64_t>();
-        offsets[i] = f.tellg() + 1l;
+        offsets[i] = f.tellg();
 
-        f.seekg(offsets[i] + counts[i] * buffer_size - 1);
+        f.seekg(offsets[i] + counts[i] * buffer_size);
     }
 
     // Allocate
