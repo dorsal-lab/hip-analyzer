@@ -474,7 +474,7 @@ hip::CUChunkAllocator* newHipCUChunkAllocator(const char* kernel_name,
     }
 
     hip::CUChunkAllocator* alloc = hip::CUChunkAllocator::getStreamAllocator(
-        stream, buffer_count / 128, buffer_size);
+        stream, buffer_count / 64, buffer_size);
 
     if (__hipPushCallConfiguration(blocks, threads, shared_mem, stream) !=
         hipSuccess) {

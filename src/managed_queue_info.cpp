@@ -264,7 +264,9 @@ CUChunkAllocator::CUChunkAllocator(size_t buffer_count, size_t buffer_size,
 
         for (auto i = 0u; i < TOTAL_CU_COUNT; ++i) {
             last_registry[i].reg.begin =
-                buffer_ptr + i * (buffer_size * buffer_count);
+                reinterpret_cast<ChunkAllocator::SubBuffer*>(
+                    reinterpret_cast<std::byte*>(buffer_ptr) +
+                    i * (buffer_size * buffer_count));
         }
 
         hip::check(hipMalloc(&device_ptr,

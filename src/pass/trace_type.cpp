@@ -433,6 +433,9 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
 
         auto* int32_ty = builder.getInt32Ty();
 
+        storage_ptr = builder.CreateCall(utils._hip_get_cache_aligned_registry,
+                                         {storage_ptr});
+
         readFirstLaneI64(builder, storage_ptr, register_ptr.id);
         initializeSGPR64(builder, 0, index.name);
         initializeSGPR64(

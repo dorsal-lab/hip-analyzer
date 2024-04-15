@@ -122,6 +122,8 @@ struct TracingFunctions {
 
     llvm::Function* _hip_chunk_allocator_alloc;
 
+    llvm::Function* _hip_get_cache_aligned_registry;
+
     /** ctor
      * \brief Forward-declare tracing functions in the module, and
      * returns pointers to them
