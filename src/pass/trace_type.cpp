@@ -432,11 +432,16 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         TracingFunctions utils{mod};
 
         auto* int32_ty = builder.getInt32Ty();
-
-        storage_ptr = builder.CreateCall(utils._hip_get_cache_aligned_registry,
-                                         {storage_ptr});
+        auto* void_ty = builder.getVoidTy();
 
         readFirstLaneI64(builder, storage_ptr, register_ptr.id);
+
+        auto get_registry_ty = llvm::FunctionType::get(void_ty, {}, false);
+        auto get_registry =
+            llvm::InlineAsm::get(get_registry_ty, get_registry_asm,
+                                 get_registry_asm_constraints, true);
+        builder.CreateCall(get_registry, {});
+
         initializeSGPR64(builder, 0, index.name);
         initializeSGPR64(
             builder, 23,
@@ -445,8 +450,8 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         auto* v_u32_id = builder.CreateCall(utils._hip_wave_id_1d, {});
         wave_id = readFirstLane(builder, v_u32_id);
 
-        auto trampoline_ty = llvm::FunctionType::get(
-            builder.getVoidTy(), {int32_ty, int32_ty}, false);
+        auto trampoline_ty =
+            llvm::FunctionType::get(void_ty, {int32_ty, int32_ty}, false);
         auto trampoline = llvm::InlineAsm::get(trampoline_ty, trampoline_asm,
                                                trampoline_constraints, true);
         builder.CreateCall(trampoline,
@@ -529,6 +534,24 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
     // Registry pointer contains the pointer to the global, shared
     // ChunkAllocator::Registry.
     const Register register_ptr{44u};
+
+    static constexpr auto* get_registry_asm =
+        // We assume the base cache-aligned registry is stored in s[44:45]
+        "s_getreg_b32 s20, hwreg(HW_REG_HW_ID)\n"
+        "s_bfe_u32 s22, s20, 0x1000c\n"
+        "s_bfe_u32 s21, s20, 0x40008\n"
+        "s_bfe_u32 s20, s20, 0x2000d\n"
+        "s_mul_i32 s22, s22, 14\n"
+        "s_add_i32 s21, s21, s22\n"
+        "s_mul_i32 s20, s20, 28\n"
+        "s_add_i32 s20, s21, s20\n"
+        "v_mov_b32_e32 v2, s20\n"
+        "s_lshl_b32 s20, s20, 6\n"
+        "s_add_u32 s44, s44, s20\n"
+        "s_addc_u32 s45, s45, 0\n";
+
+    static constexpr auto* get_registry_asm_constraints =
+        "~{s20},~{s21},~{s22},~{scc}";
 
     static constexpr auto* wave_event_ctor_asm =
         // Check ptr + size > ptr_end
