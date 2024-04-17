@@ -10,6 +10,7 @@
 #include "hip_instrumentation/hip_trace_manager.hpp"
 
 #include <iostream>
+#include <map>
 
 #include "llvm/Support/CommandLine.h"
 
@@ -24,12 +25,17 @@ static llvm::cl::opt<std::string> output_file(llvm::cl::desc("Output file"),
 
 class Counter {
   public:
+    struct Tally {
+        unsigned int allocations, total_events;
+    };
+
     Counter(hip::HipTraceFile& trace, std::ofstream& out)
         : trace(trace), out(out) {
         out << "input_trace,run_id,wave,count\n";
     }
 
     void process();
+    void finalize();
 
     template <typename T> void visitor(T&&) {
         // Basic behaviour : nothing to do
@@ -39,6 +45,8 @@ class Counter {
   private:
     hip::HipTraceFile& trace;
     std::ofstream& out;
+
+    std::map<uint32_t, Tally> tallies;
 
     unsigned int payload_id = 0u;
 };
@@ -85,7 +93,25 @@ void Counter::visitor(
                 reinterpret_cast<std::byte*>(reg.begin) +
                 subbuffer_id * reg.buffer_size);
 
-            std::cout << (ptr->owner & 0xffffffff) << ',';
+            uint32_t owner = (ptr->owner & 0xffffffff);
+
+            std::cout << owner << ',';
+
+            auto& tally = tallies[owner];
+
+            ++tally.allocations;
+
+            auto* event = reinterpret_cast<hip::WaveState*>(ptr->data);
+
+            auto local_events = 0u;
+
+            while (reinterpret_cast<void*>(event) <
+                   reinterpret_cast<void*>(ptr + reg.buffer_size)) {
+                ++event;
+                ++local_events;
+            }
+
+            tally.total_events += local_events;
         }
 
         std::cout << "\n";
@@ -106,6 +132,14 @@ void Counter::process() {
     }
 }
 
+void Counter::finalize() {
+    out << "producer,allocations,events\n";
+    for (auto& [producer, tally] : tallies) {
+        out << producer << ',' << tally.allocations << ',' << tally.total_events
+            << '\n';
+    }
+}
+
 int main(int argc, char** argv) {
     llvm::cl::ParseCommandLineOptions(argc, argv);
 
@@ -116,4 +150,5 @@ int main(int argc, char** argv) {
 
     Counter counter(trace, out);
     counter.process();
+    counter.finalize();
 }
