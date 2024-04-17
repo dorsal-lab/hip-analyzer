@@ -447,7 +447,8 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
             builder, 23,
             index_end.name); // Will force allocation on the first event
 
-        auto* v_u32_id = builder.CreateCall(utils._hip_wave_id_1d, {});
+        // auto* v_u32_id = builder.CreateCall(utils._hip_wave_id_1d, {});
+        auto* v_u32_id = builder.getInt32(0);
         wave_id = readFirstLane(builder, v_u32_id);
 
         auto trampoline_ty =
