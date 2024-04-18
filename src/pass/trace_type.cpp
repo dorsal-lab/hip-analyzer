@@ -447,8 +447,8 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
             builder, 23,
             index_end.name); // Will force allocation on the first event
 
-        // auto* v_u32_id = builder.CreateCall(utils._hip_wave_id_1d, {});
-        auto* v_u32_id = builder.getInt32(0);
+        auto* v_u32_id = builder.CreateCall(utils._hip_wave_id_1d, {});
+        // auto* v_u32_id = builder.getInt32(0);
         wave_id = readFirstLane(builder, v_u32_id);
 
         auto trampoline_ty =
@@ -492,23 +492,15 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         // We are not calling a "simple" device function. This constructor is
         // handwritten in assembly.
         auto* int32_ty = builder.getInt32Ty();
-        auto* ptr_ty = llvm::PointerType::getUnqual(mod.getContext());
 
         auto* ctor_ty = llvm::FunctionType::get(
-            builder.getVoidTy(), {int32_ty, int32_ty, ptr_ty, int32_ty}, false);
+            builder.getVoidTy(), {int32_ty, int32_ty, int32_ty}, false);
 
         auto* ctor = llvm::InlineAsm::get(ctor_ty, wave_event_ctor_asm,
                                           wave_event_ctor_constraints, true);
 
-        // llvm::dbgs() << "Base storage " << *thread_storage << '\n';
-        // llvm::dbgs() << "Counter " << *counter << '\n';
-
-        auto* alloc = getFunction(
-            mod, "_hip_chunk_allocator_alloc",
-            llvm::FunctionType::get(builder.getVoidTy(), {}, false));
-
         builder.CreateCall(ctor, {builder.getInt32(eventSize()),
-                                  builder.getInt32(bb), alloc, wave_id});
+                                  builder.getInt32(bb), wave_id});
     }
 
     size_t eventSize() const override { return 24; }
@@ -576,11 +568,10 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         "s_waitcnt lgkmcnt(0)\n";
 
     static constexpr auto* wave_event_ctor_constraints =
-        "i,i,s,s," // u32 Event size, u32 bb
-                   // u32 producer, u64 _hip_chunk_allocator_alloc address. Last
-                   // two are "unused" but force the compiler to extend the
-                   // lifetime of the values (due to the jump to 0b)
-        "~{s22},~{s23},~{s24},~{s25},~{s26},~{s27},~{s28},~{s29},~{s30},~{s31},"
+        "i,i,s," // u32 Event size, u32 bb
+                 // u32 producer. Last one is  "unused" but force the compiler
+                 // to extend the lifetime of the values (due to the jump to 0b)
+        "~{s22},~{s23},~{s24},~{s25},~{s26},~{s27},~{s28},~{s29},~{s30},"
         "~{scc}";
 
     static constexpr auto* trampoline_asm =
@@ -633,7 +624,8 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
 
     static constexpr auto* trampoline_constraints =
         // producer_id, event_size - 1
-        "s,i";
+        "s,i,~{s22},~{s23},~{s24},~{s25},~{s26},~{s27},~{s28},~{s29},~{s30},"
+        "~{scc}";
 
     static constexpr auto* flush_asm = "s_dcache_wb\n";
 };
