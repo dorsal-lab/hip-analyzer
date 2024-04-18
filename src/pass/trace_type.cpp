@@ -442,11 +442,6 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
                                  get_registry_asm_constraints, true);
         builder.CreateCall(get_registry, {});
 
-        initializeSGPR64(builder, 0, index.name);
-        initializeSGPR64(
-            builder, 23,
-            index_end.name); // Will force allocation on the first event
-
         auto* v_u32_id = builder.CreateCall(utils._hip_wave_id_1d, {});
         // auto* v_u32_id = builder.getInt32(0);
         wave_id = readFirstLane(builder, v_u32_id);
@@ -547,15 +542,6 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         "~{s20},~{s21},~{s22},~{scc}";
 
     static constexpr auto* wave_event_ctor_asm =
-        // Check ptr + size > ptr_end
-        "s_add_u32 s40, s40, $0\n"
-        "s_addc_u32 s41, s41, 0\n"
-        "s_getpc_b64 s[28:29]\n"
-        "s_sub_u32 s24, s42, s40\n"
-        "s_subb_u32 s25, s43, s41\n" // At this point, SCC holds whether or not
-                                     // to jump
-        "s_cbranch_scc1 0b\n"
-
         // Prepare payload
         "s_memrealtime s[24:25]\n"                // timestamp
         "s_mov_b64 s[26:27], exec\n"              // exec mask
@@ -565,12 +551,22 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         // Write to mem
         "s_store_dwordx4 s[24:27], s[40:41], 0\n"
         "s_store_dwordx2 s[28:29], s[40:41], 16\n"
-        "s_waitcnt lgkmcnt(0)\n";
+        // Check ptr + size > ptr_end
+        "s_add_u32 s22, s40, $0\n"
+        "s_addc_u32 s23, s41, 0\n"
+        "s_getpc_b64 s[28:29]\n"
+        "s_sub_u32 s30, s42, s22\n"
+        "s_subb_u32 s30, s43, s23\n" // At this point, SCC holds whether or not
+                                     // to jump
+        "s_cbranch_scc1 0b\n"
+        "s_waitcnt lgkmcnt(0)\n"
+        "s_mov_b64 s[40:41], s[22:23]\n";
 
     static constexpr auto* wave_event_ctor_constraints =
         "i,i,s," // u32 Event size, u32 bb
-                 // u32 producer. Last one is  "unused" but force the compiler
-                 // to extend the lifetime of the values (due to the jump to 0b)
+                 // u32 producer. Last one is  "unused" but force the
+                 // compiler to extend the lifetime of the values (due to
+                 // the jump to 0b)
         "~{s22},~{s23},~{s24},~{s25},~{s26},~{s27},~{s28},~{s29},~{s30},"
         "~{scc}";
 
@@ -583,6 +579,7 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         "0:\n"
         // New allocation (ChunkAllocator::Registry::alloc)
         //// Atomic add, load values
+        "s_waitcnt lgkmcnt(0)\n"
         "s_mov_b64 s[40:41], 1\n"
         "s_atomic_add_x2 s[40:41], s[44:45], 24 glc\n"
         "s_load_dwordx2 s[22:23], s[44:45], 0\n" // Load buffer_count
