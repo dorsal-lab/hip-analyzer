@@ -558,8 +558,8 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         "s_sub_u32 s30, s42, s22\n"
         "s_subb_u32 s30, s43, s23\n" // At this point, SCC holds whether or not
                                      // to jump
-        "s_cbranch_scc1 0b\n"
         "s_waitcnt lgkmcnt(0)\n"
+        "s_cbranch_scc1 0b\n"
         "s_mov_b64 s[40:41], s[22:23]\n";
 
     static constexpr auto* wave_event_ctor_constraints =
@@ -574,18 +574,17 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         // Always skip this section except if you've jumped to `trampoline`
         "s_getpc_b64 s[28:29]\n"
         "s_add_u32 s28, s28, 1f\n"
-        "s_add_u32 s28, s28, -0x8\n"
+        "s_add_u32 s28, s28, -12\n"
         // Prepare call to alloc
         "0:\n"
         // New allocation (ChunkAllocator::Registry::alloc)
         //// Atomic add, load values
-        "s_waitcnt lgkmcnt(0)\n"
         "s_mov_b64 s[40:41], 1\n"
         "s_atomic_add_x2 s[40:41], s[44:45], 24 glc\n"
         "s_load_dwordx2 s[22:23], s[44:45], 0\n" // Load buffer_count
         "s_load_dwordx4 s[24:27], s[44:45], 8\n" // Load buffer_size, begin
         // Compute return address, s[46:47] holds PC before the substraction
-        "s_add_u32 s28, s28, 12\n"
+        "s_add_u32 s28, s28, 16\n"
         "s_addc_u32 s29, s29, 0\n"
         // Wait for completion of loads
         "s_waitcnt lgkmcnt(0)\n"
@@ -604,20 +603,21 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         "s_mul_i32 s40, s40, s24\n"
         "s_add_u32 s41, s22, s23\n"
         ///// ptr = begin + next
-        "s_add_u32 s22, s26, s40\n"
-        "s_addc_u32 s23, s27, s41\n"
-        // Store producer id
-        "s_mov_b32 s30, $0\n"
+        "s_add_u32 s40, s26, s40\n"
+        "s_addc_u32 s41, s27, s41\n"
         "s_sub_u32 s24, s24, $1\n" // Reasonable to expect event_size <<< 2^32,
                                    // so no carry
-        "s_store_dword s30, s[22:23]\n"
-        "s_add_u32 s42, s22, s24\n"  // ptr_end_lo
-        "s_addc_u32 s43, s23, s25\n" // ptr_end_hi
-        "s_add_u32 s40, s22, 8\n"    // ptr_lo
-        "s_addc_u32 s41, s23, 0\n"   // ptr_hi
+        // Store producer id
+        "s_store_dword $0, s[40:41]\n"
+        "s_add_u32 s42, s40, s24\n"  // ptr_end_lo
+        "s_addc_u32 s43, s41, s25\n" // ptr_end_hi
+        "s_add_u32 s22, s40, 8\n"    // ptr_lo
+        "s_addc_u32 s23, s41, 0\n"   // ptr_hi
+        "s_waitcnt lgkmcnt(0)\n"
         "s_setpc_b64 s[28:29]\n"
 
-        "1:";
+        "1:"
+        "s_mov_b64 s[40:41], s[22:23]\n";
 
     static constexpr auto* trampoline_constraints =
         // producer_id, event_size - 1
