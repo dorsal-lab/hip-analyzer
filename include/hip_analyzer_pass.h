@@ -516,4 +516,10 @@ struct ChunkAllocatorHostPass : public HostPass {
         llvm::ArrayRef<llvm::Function*> instrumentation_stubs) const override;
 };
 
+struct CUChunkAllocatorHostPass : public ChunkAllocatorHostPass {
+    llvm::Function* replaceStubCall(
+        llvm::Function& stub,
+        llvm::ArrayRef<llvm::Function*> instrumentation_stubs) const override;
+};
+
 } // namespace hip

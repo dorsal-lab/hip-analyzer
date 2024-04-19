@@ -18,7 +18,7 @@ static llvm::cl::opt<std::string>
                    if (auto* env = std::getenv("HIP_ANALYZER_TRACE_TYPE")) {
                        return env;
                    } else {
-                       return "trace-wavestate-chunkallocator";
+                       return "trace-wavestate-cuchunkallocator";
                    }
                }()));
 
@@ -27,7 +27,8 @@ enum class TracingType {
     LowOverheadTracing,
     CountersReplayer,
     GlobalMemory,
-    ChunkAllocator
+    ChunkAllocator,
+    CUChunkAllocator
     // TODO : Add new tracing modes
 };
 
@@ -43,8 +44,11 @@ static llvm::cl::opt<TracingType> hip_analyzer_mode(
         clEnumValN(TracingType::GlobalMemory, "hip-global-mem",
                    "Concurrent global memory, atomics based tracing"),
         clEnumValN(TracingType::ChunkAllocator, "hip-chunk-allocator",
-                   "Concurrent buffer based tracing")),
-    llvm::cl::init(TracingType::ChunkAllocator));
+                   "Concurrent buffer based tracing"),
+        clEnumValN(
+            TracingType::CUChunkAllocator, "hip-cu-chunk-allocator",
+            "Concurrent buffer based tracing, with additional CU locality")),
+    llvm::cl::init(TracingType::CUChunkAllocator));
 
 llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
     return {
@@ -110,6 +114,9 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
                     break;
                 case TracingType::ChunkAllocator:
                     pm.addPass(hip::ChunkAllocatorHostPass());
+                    break;
+                case TracingType::CUChunkAllocator:
+                    pm.addPass(hip::CUChunkAllocatorHostPass());
                     break;
                 }
             });
