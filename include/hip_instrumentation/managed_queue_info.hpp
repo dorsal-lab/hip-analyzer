@@ -196,6 +196,11 @@ class CUChunkAllocator {
 
     void record(uint64_t stamp);
 
+    /** \fn sync
+     * \brief Wait for completion of all previous record() calls
+     */
+    void sync();
+
     Registries& getRegistries() { return last_registry; }
 
     std::ostream& printBuffer(std::ostream& out);

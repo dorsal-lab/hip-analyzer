@@ -332,6 +332,12 @@ void CUChunkAllocator::record(uint64_t stamp) {
         this, stamp, std::move(begin_registries), std::move(end_registries));
 }
 
+void CUChunkAllocator::sync() {
+    while (process_count > 0) {
+        std::this_thread::sleep_for(std::chrono::microseconds(1));
+    }
+}
+
 void CUChunkAllocator::fetchBuffers(
     const Registries& begin_registries, const Registries& end_registries,
     std::array<std::unique_ptr<std::byte[]>, TOTAL_CU_COUNT>& sub_buffers_out,

@@ -445,6 +445,7 @@ hipChunkAllocatorToDevice(hip::ChunkAllocator* ca) {
 }
 
 void hipChunkAllocatorRecord(hip::ChunkAllocator* ca, uint64_t stamp) {
+    hip::check(hipDeviceSynchronize());
     lttng_ust_tracepoint(hip_instrumentation, queue_record_begin, ca);
 
     ca->record(stamp);
@@ -501,11 +502,15 @@ hipCUChunkAllocatorToDevice(hip::CUChunkAllocator* ca) {
 }
 
 void hipCUChunkAllocatorRecord(hip::CUChunkAllocator* ca, uint64_t stamp) {
+    hip::check(hipDeviceSynchronize());
     lttng_ust_tracepoint(hip_instrumentation, queue_record_begin, ca);
 
     ca->record(stamp);
 
     lttng_ust_tracepoint(hip_instrumentation, queue_record_end, ca);
+
+    ca->sync();
+
     lttng_ust_tracepoint(hip_instrumentation, delete_instrumenter, ca);
 }
 
