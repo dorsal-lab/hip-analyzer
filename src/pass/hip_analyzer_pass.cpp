@@ -28,7 +28,8 @@ enum class TracingType {
     CountersReplayer,
     GlobalMemory,
     ChunkAllocator,
-    CUChunkAllocator
+    CUChunkAllocator,
+    FromEnv
     // TODO : Add new tracing modes
 };
 
@@ -47,8 +48,9 @@ static llvm::cl::opt<TracingType> hip_analyzer_mode(
                    "Concurrent buffer based tracing"),
         clEnumValN(
             TracingType::CUChunkAllocator, "hip-cu-chunk-allocator",
-            "Concurrent buffer based tracing, with additional CU locality")),
-    llvm::cl::init(TracingType::CUChunkAllocator));
+            "Concurrent buffer based tracing, with additional CU locality"),
+        clEnumValN(TracingType::FromEnv, "hip-from-env", "Load mode from env")),
+    llvm::cl::init(TracingType::FromEnv));
 
 llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
     return {
@@ -96,6 +98,19 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
                         ? hip::WaveCountersInstrumentationPass::CounterType
                         : hip::ThreadCountersInstrumentationPass::CounterType;
 
+                if (hip_analyzer_mode == TracingType::FromEnv) {
+                    auto* env = std::getenv("HIP_ANALYZER_MODE");
+                    if (env == nullptr) {
+                        throw std::runtime_error(
+                            "Missing environment variable HIP_ANALYZER_MODE");
+                    }
+
+                    if (hip_analyzer_mode.addOccurrence(0, env, env, false)) {
+                        throw std::runtime_error(
+                            "Unsupported hip analyzer_mode");
+                    }
+                }
+
                 switch (hip_analyzer_mode) {
                 case TracingType::CountersOnly:
                     pm.addPass(
@@ -117,6 +132,9 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
                     break;
                 case TracingType::CUChunkAllocator:
                     pm.addPass(hip::CUChunkAllocatorHostPass());
+                    break;
+                case TracingType::FromEnv:
+                    throw std::runtime_error("Unreachable?");
                     break;
                 }
             });
