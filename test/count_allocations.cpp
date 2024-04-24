@@ -19,20 +19,19 @@ static llvm::cl::opt<std::string> input_file(llvm::cl::Positional,
                                              llvm::cl::value_desc("hiptrace"),
                                              llvm::cl::Required);
 
-static llvm::cl::opt<std::string> output_file(llvm::cl::desc("Output file"),
+static llvm::cl::opt<std::string> output_file(llvm::cl::Positional,
+                                              llvm::cl::desc("Output file"),
                                               llvm::cl::value_desc("output"),
                                               llvm::cl::init("out.csv"));
 
 class Counter {
   public:
     struct Tally {
-        unsigned int allocations, total_events;
+        unsigned int allocations, total_events, cu;
     };
 
     Counter(hip::HipTraceFile& trace, std::ofstream& out)
-        : trace(trace), out(out) {
-        out << "input_trace,run_id,wave,count\n";
-    }
+        : trace(trace), out(out) {}
 
     void process();
     void finalize(std::map<uint32_t, Tally>& tallies);
@@ -110,6 +109,7 @@ void Counter::visitor(
 
             ++tally.allocations;
             tally.total_events += local_events;
+            tally.cu = i;
         }
 
         std::cout << "\n";
@@ -121,7 +121,7 @@ void Counter::visitor(
 }
 
 void Counter::process() {
-    out << "producer,payload,allocations,events\n";
+    out << "payload,producer,cu,allocations,events\n";
     while (!trace.done()) {
         auto payload = trace.getNext();
 
@@ -141,8 +141,8 @@ void Counter::process() {
 
 void Counter::finalize(std::map<uint32_t, Tally>& tallies) {
     for (auto& [producer, tally] : tallies) {
-        out << producer << ',' << payload_id << ',' << tally.allocations << ','
-            << tally.total_events << '\n';
+        out << payload_id << ',' << producer << ',' << tally.cu << ','
+            << tally.allocations << ',' << tally.total_events << '\n';
     }
 }
 
