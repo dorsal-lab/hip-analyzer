@@ -414,6 +414,12 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
 
     // Start at 1 because the first block is handled separately
 
+    auto* terminator = f.begin()->getTerminator();
+    if (llvm::isa<llvm::ReturnInst>(terminator)) {
+        builder.SetInsertPoint(terminator);
+        event->finalize(builder);
+    }
+
     auto curr_bb = ++f.begin();
     auto index = 1u;
 

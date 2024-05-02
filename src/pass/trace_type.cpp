@@ -645,7 +645,6 @@ class CUChunkAllocatorWaveTrace : public ChunkAllocatorWaveTrace {
         "s_add_i32 s21, s21, s22\n"
         "s_mul_i32 s20, s20, 28\n"
         "s_add_i32 s20, s21, s20\n"
-        "v_mov_b32_e32 v2, s20\n"
         "s_lshl_b32 s20, s20, 6\n"
         "s_add_u32 s44, s44, s20\n"
         "s_addc_u32 s45, s45, 0\n";
