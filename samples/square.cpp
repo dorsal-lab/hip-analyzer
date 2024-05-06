@@ -56,7 +56,7 @@ std::optional<uint64_t> parse_env(const std::string& env) {
 int main(int argc, char* argv[]) {
     float *A_d, *C_d;
     float *A_h, *C_h;
-    size_t N = parse_env("SQUARE_SIZE").value_or(8182);
+    size_t N = parse_env("SQUARE_VEC_SIZE").value_or(8182);
     size_t Nbytes = N * sizeof(float);
 
     A_h = (float*)malloc(Nbytes);
@@ -73,7 +73,7 @@ int main(int argc, char* argv[]) {
 
     check(hipMemcpy(A_d, A_h, Nbytes, hipMemcpyHostToDevice));
 
-    const unsigned blocks = parse_env("SQUARE_TOTAL_SIZE").value_or(512);
+    const unsigned blocks = parse_env("SQUARE_GRID_SIZE").value_or(512);
     const unsigned threadsPerBlock = parse_env("SQUARE_WG_SIZE").value_or(256);
 
     const auto nb_it = parse_env("SQUARE_NB_IT").value_or(1);
