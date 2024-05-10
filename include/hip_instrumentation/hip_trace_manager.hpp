@@ -40,8 +40,8 @@ class HipTraceManager {
     using EventsQueuePayload = std::tuple<void*, QueueInfo>;
 
     using GlobalMemoryEventsQueuePayload =
-        std::tuple<GlobalMemoryQueueInfo::GlobalMemoryTrace*,
-                   GlobalMemoryQueueInfo>;
+        std::tuple<GlobalMemoryQueueInfo*, uint64_t,
+                   GlobalMemoryQueueInfo::Registry, size_t>;
 
     // <allocator> - <stamp> - <end registry> - <'currend_id' at launch>
     using ChunkAllocatorEventsQueuePayload =
@@ -81,9 +81,9 @@ class HipTraceManager {
 
     void registerQueue(QueueInfo& queue, void* queue_data);
 
-    void registerGlobalMemoryQueue(
-        GlobalMemoryQueueInfo& queue,
-        GlobalMemoryQueueInfo::GlobalMemoryTrace* queue_data);
+    void registerGlobalMemoryQueue(GlobalMemoryQueueInfo* queue, uint64_t stamp,
+                                   GlobalMemoryQueueInfo::Registry queue_data,
+                                   size_t begin_offset);
 
     void registerChunkAllocatorEvents(ChunkAllocator* alloc, uint64_t stamp,
                                       ChunkAllocator::Registry end_registry,

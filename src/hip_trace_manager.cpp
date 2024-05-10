@@ -253,16 +253,16 @@ void HipTraceManager::registerQueue(QueueInfo& queue_info, void* queue_data) {
 }
 
 void HipTraceManager::registerGlobalMemoryQueue(
-    GlobalMemoryQueueInfo& queue_info,
-    GlobalMemoryQueueInfo::GlobalMemoryTrace* queue_data) {
+    GlobalMemoryQueueInfo* queue_info, uint64_t stamp,
+    GlobalMemoryQueueInfo::Registry end_registry, size_t begin_offset) {
     std::lock_guard lock{mutex};
 
     lttng_ust_tracepoint(hip_instrumentation, register_global_memory_queue,
-                         &queue_info, queue_info.cpuTrace().current,
-                         queue_info.getStamp());
+                         queue_info, stamp, begin_offset,
+                         end_registry.current_id);
 
-    queue.push(
-        GlobalMemoryEventsQueuePayload{queue_data, std::move(queue_info)});
+    queue.push(GlobalMemoryEventsQueuePayload{queue_info, stamp, end_registry,
+                                              begin_offset});
 
     cond.notify_one();
 }
@@ -339,11 +339,14 @@ void HipTraceManager::handlePayload(EventsQueuePayload&& payload,
 template <>
 void HipTraceManager::handlePayload(GlobalMemoryEventsQueuePayload&& payload,
                                     std::ofstream& out) {
-    auto& [device_ptr, queue_info] = payload;
+    auto& [queue_info, stamp, registry, begin] = payload;
 
     lttng_ust_tracepoint(hip_instrumentation, collector_dump_queue, &out,
-                         device_ptr, queue_info.getStamp());
-    queue_info.fromDevice(device_ptr);
+                         registry.begin, stamp);
+
+    auto end = registry.current_id;
+
+    auto buf = registry.slice(begin, end);
 
     /*
     std::cerr << "hip::GlobalMemoryQueueInfo : used "
@@ -352,12 +355,12 @@ void HipTraceManager::handlePayload(GlobalMemoryEventsQueuePayload&& payload,
               << '\n';
     */
 
-    dumpEventsBin(out, queue_info.getStamp(), queue_info.buffer(),
-                  queue_info.elemSize(), queue_info.event_desc,
-                  queue_info.event_name);
+    dumpEventsBin(out, stamp, buf, GlobalMemoryQueueInfo::event_desc,
+                  GlobalMemoryQueueInfo::event_name, end - begin,
+                  registry.buffer_size);
 
-    lttng_ust_tracepoint(hip_instrumentation, collector_dump_end, device_ptr,
-                         queue_info.getStamp());
+    lttng_ust_tracepoint(hip_instrumentation, collector_dump_end,
+                         registry.begin, stamp);
 }
 
 template <>

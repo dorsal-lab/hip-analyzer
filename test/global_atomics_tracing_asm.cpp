@@ -14,9 +14,8 @@
 
 #include <iostream>
 
-__global__ void
-create_n_events(hip::GlobalMemoryQueueInfo::GlobalMemoryTrace* buffer,
-                size_t n) {
+__global__ void create_n_events(hip::GlobalMemoryQueueInfo::Registry* buffer,
+                                size_t n) {
     auto tid = threadIdx.x + blockIdx.x * blockDim.x;
 
     auto* trace_pointer = _hip_get_global_memory_trace_ptr(buffer);
@@ -67,13 +66,11 @@ bool test_n_threads(size_t n) {
 
     hip::check(hipDeviceSynchronize());
 
-    queue.fromDevice(device_ptr);
+    auto cpu_queue = queue.copyBuffer();
 
-    const hip::GlobalWaveState* cpu_queue =
-        reinterpret_cast<const hip::GlobalWaveState*>(queue.buffer().data());
-
-    for (auto i = 0; i < queue.queueLength(); ++i) {
-        const hip::GlobalWaveState& e = cpu_queue[i];
+    for (auto i = 0; i < queue.getRegistry().buffer_count; ++i) {
+        auto* ptr = reinterpret_cast<hip::GlobalWaveState*>(cpu_queue.get());
+        const hip::GlobalWaveState& e = ptr[i];
         std::cout << e.producer << " : " << e.bb << '\n';
     }
 

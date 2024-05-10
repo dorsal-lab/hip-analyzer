@@ -89,7 +89,7 @@ void Counter::visitor(
         for (auto subbuffer_id = 0ull; subbuffer_id < reg.buffer_count;
              ++subbuffer_id) {
 
-            auto* ptr = reinterpret_cast<hip::ChunkAllocator::SubBuffer*>(
+            auto* ptr = reinterpret_cast<hip::SubBuffer*>(
                 reinterpret_cast<std::byte*>(reg.begin) +
                 subbuffer_id * reg.buffer_size);
 

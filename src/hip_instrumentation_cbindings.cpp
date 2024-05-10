@@ -375,9 +375,9 @@ hip::GlobalMemoryQueueInfo* newGlobalMemoryQueueInfo(size_t event_size) {
     return ptr;
 }
 
-hip::GlobalMemoryQueueInfo::GlobalMemoryTrace*
+hip::GlobalMemoryQueueInfo::Registry*
 hipGlobalMemQueueInfoToDevice(hip::GlobalMemoryQueueInfo* queue) {
-    hip::GlobalMemoryQueueInfo::GlobalMemoryTrace* device_ptr;
+    hip::GlobalMemoryQueueInfo::Registry* device_ptr;
 
     lttng_ust_tracepoint(hip_instrumentation, queue_compute_begin, queue,
                          queue);
@@ -391,10 +391,10 @@ hipGlobalMemQueueInfoToDevice(hip::GlobalMemoryQueueInfo* queue) {
 
 void hipGlobalMemQueueInfoRecord(
     hip::GlobalMemoryQueueInfo* queue,
-    hip::GlobalMemoryQueueInfo::GlobalMemoryTrace* device_ptr) {
+    hip::GlobalMemoryQueueInfo::Registry* device_ptr) {
 
     lttng_ust_tracepoint(hip_instrumentation, queue_record_begin, queue);
-    queue->record(device_ptr);
+    queue->record(0);
     lttng_ust_tracepoint(hip_instrumentation, queue_record_end, queue);
 }
 

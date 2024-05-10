@@ -20,7 +20,7 @@ __global__ void create_n_events(hip::ChunkAllocator::Registry* buffer,
                                 size_t n) {
     auto tid = threadIdx.x + blockIdx.x * blockDim.x;
 
-    hip::ChunkAllocator::SubBuffer* sb = buffer->alloc(tid);
+    hip::SubBuffer* sb = buffer->alloc(tid);
     size_t offset = 0ull;
 
     for (auto i = 0ul; i < n; ++i) {

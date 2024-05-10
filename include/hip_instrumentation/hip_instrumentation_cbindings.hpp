@@ -95,12 +95,11 @@ void hipQueueInfoRecord(hip::QueueInfo*, void*, void*);
 
 hip::GlobalMemoryQueueInfo* newGlobalMemQueueInfo(size_t event_size);
 
-hip::GlobalMemoryQueueInfo::GlobalMemoryTrace*
+hip::GlobalMemoryQueueInfo::Registry*
 hipGlobalMemQueueInfoToDevice(hip::GlobalMemoryQueueInfo*);
 
-void hipGlobalMemQueueInfoRecord(
-    hip::GlobalMemoryQueueInfo*,
-    hip::GlobalMemoryQueueInfo::GlobalMemoryTrace*);
+void hipGlobalMemQueueInfoRecord(hip::GlobalMemoryQueueInfo*,
+                                 hip::GlobalMemoryQueueInfo::Registry*);
 
 void freeHipGlobalMemoryQueueInfo(hip::GlobalMemoryQueueInfo*);
 

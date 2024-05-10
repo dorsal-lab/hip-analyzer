@@ -16,12 +16,11 @@ struct Event {
     size_t producer;
 };
 
-__global__ void
-create_n_events(hip::GlobalMemoryQueueInfo::GlobalMemoryTrace* buffer,
-                size_t n) {
+__global__ void create_n_events(hip::GlobalMemoryQueueInfo::Registry* buffer,
+                                size_t n) {
     auto tid = threadIdx.x + blockIdx.x * blockDim.x;
 
-    auto* trace_pointer = &buffer->current;
+    auto* trace_pointer = &buffer->current_id;
 
     for (auto i = 0ul; i < n; ++i) {
 
@@ -45,13 +44,11 @@ bool test_n_threads(size_t n) {
 
     hip::check(hipDeviceSynchronize());
 
-    queue.fromDevice(device_ptr);
+    auto cpu_queue = queue.copyBuffer();
 
-    const Event* cpu_queue =
-        reinterpret_cast<const Event*>(queue.buffer().data());
-
-    for (auto i = 0; i < queue.queueLength(); ++i) {
-        const Event& e = cpu_queue[i];
+    for (auto i = 0; i < queue.getRegistry().buffer_count; ++i) {
+        auto* ptr = reinterpret_cast<Event*>(cpu_queue.get());
+        const Event& e = ptr[i];
         std::cout << e.producer << " : " << e.id << '\n';
     }
 

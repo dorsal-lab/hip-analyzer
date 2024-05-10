@@ -436,8 +436,8 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
 
         readFirstLaneI64(builder, storage_ptr, register_ptr.id);
 
-        auto* v_u32_id = builder.CreateCall(utils._hip_wave_id_1d, {});
-        // auto* v_u32_id = builder.getInt32(0);
+        // auto* v_u32_id = builder.CreateCall(utils._hip_wave_id_1d, {});
+        auto* v_u32_id = builder.getInt32(0);
         wave_id = readFirstLane(builder, v_u32_id);
 
         auto trampoline_ty =
@@ -620,8 +620,8 @@ class CUChunkAllocatorWaveTrace : public ChunkAllocatorWaveTrace {
                                  get_registry_asm_constraints, true);
         builder.CreateCall(get_registry, {});
 
-        auto* v_u32_id = builder.CreateCall(utils._hip_wave_id_1d, {});
-        // auto* v_u32_id = builder.getInt32(0);
+        // auto* v_u32_id = builder.CreateCall(utils._hip_wave_id_1d, {});
+        auto* v_u32_id = builder.getInt32(0);
         wave_id = readFirstLane(builder, v_u32_id);
 
         auto trampoline_ty =

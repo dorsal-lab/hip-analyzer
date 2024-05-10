@@ -20,65 +20,19 @@ namespace hip {
 
 GlobalMemoryQueueInfo::GlobalMemoryQueueInfo(size_t elem_size,
                                              size_t buffer_size)
-    : elem_size(elem_size) {
-    // Get the timestamp for unique identification
-    auto now = std::chrono::steady_clock::now();
-    stamp = std::chrono::duration_cast<std::chrono::microseconds>(
-                now.time_since_epoch())
-                .count();
+    : ChunkAllocatorBase(buffer_size, 1, true), elem_size(elem_size) {}
 
-    cpu_queue.resize(buffer_size);
-}
-
-GlobalMemoryQueueInfo::GlobalMemoryTrace* GlobalMemoryQueueInfo::toDevice() {
-    GlobalMemoryTrace* device_ptr;
-    hip::check(hipMalloc(&device_ptr, sizeof(GlobalMemoryTrace)));
-
-    hip::check(hipMalloc(&cpu_trace.current, cpu_queue.size()));
-    cpu_trace.end =
-        reinterpret_cast<std::byte*>(cpu_trace.current) + cpu_queue.size();
-
-    hip::check(hipMemcpy(device_ptr, &cpu_trace, sizeof(GlobalMemoryTrace),
-                         hipMemcpyHostToDevice));
-
-    // std::cerr << "GlobalMemoryQueueInfo : " << device_ptr << ' '
-    //           << cpu_trace.current << '\n';
-
-    return device_ptr;
-}
-
-void GlobalMemoryQueueInfo::fromDevice(
-    GlobalMemoryQueueInfo::GlobalMemoryTrace* device_ptr) {
-    GlobalMemoryTrace gpu_trace;
-
-    hip::check(hipMemcpy(&gpu_trace, device_ptr, sizeof(GlobalMemoryTrace),
-                         hipMemcpyDeviceToHost));
-
-    auto size = reinterpret_cast<std::byte*>(gpu_trace.current) -
-                reinterpret_cast<std::byte*>(cpu_trace.current);
-
-    // std::cerr << "Size : " << size << '\n';
-
-    cpu_queue.resize(size);
-    hip::check(hipMemcpy(cpu_queue.data(), cpu_trace.current, size,
-                         hipMemcpyDeviceToHost));
-
-    cpu_trace.end = gpu_trace.current;
-
-    hip::check(hipFree(device_ptr));
-    hip::check(hipFree(cpu_trace.current));
-}
-
-void GlobalMemoryQueueInfo::record(
-    GlobalMemoryQueueInfo::GlobalMemoryTrace* device_ptr) {
-    hip::HipTraceManager::getInstance().registerGlobalMemoryQueue(*this,
-                                                                  device_ptr);
-}
+// void GlobalMemoryQueueInfo::record(
+//     GlobalMemoryQueueInfo::GlobalMemoryTrace* device_ptr) {
+//     hip::HipTraceManager::getInstance().registerGlobalMemoryQueue(*this,
+//                                                                   device_ptr);
+// }
 
 // ----- ChunkAllocator ----- //
 
-ChunkAllocator::ChunkAllocator(size_t buffer_count, size_t buffer_size,
-                               bool alloc_gpu)
+template <typename T>
+ChunkAllocatorBase<T>::ChunkAllocatorBase(size_t buffer_count,
+                                          size_t buffer_size, bool alloc_gpu)
     : last_registry{buffer_count, buffer_size, nullptr, 0ull} {
 
     if (std::popcount(buffer_count) != 1) {
@@ -99,7 +53,7 @@ ChunkAllocator::ChunkAllocator(size_t buffer_count, size_t buffer_size,
     }
 }
 
-ChunkAllocator::~ChunkAllocator() {
+template <typename T> ChunkAllocatorBase<T>::~ChunkAllocatorBase() {
     while (process_count > 0) {
         std::this_thread::sleep_for(std::chrono::microseconds(1));
     }
@@ -107,7 +61,7 @@ ChunkAllocator::~ChunkAllocator() {
     hip::check(hipFree(buffer_ptr));
 }
 
-void ChunkAllocator::update() {
+template <typename T> void ChunkAllocatorBase<T>::update() {
     Registry old{last_registry};
 
     hip::check(hipMemcpy(&last_registry, device_ptr, sizeof(Registry),
@@ -119,7 +73,7 @@ void ChunkAllocator::update() {
     }
 }
 
-void ChunkAllocator::record(uint64_t stamp) {
+template <> void ChunkAllocatorBase<SubBuffer>::record(uint64_t stamp) {
     hip::check(hipDeviceSynchronize());
 
     size_t begin_id = last_registry.current_id;
@@ -128,10 +82,25 @@ void ChunkAllocator::record(uint64_t stamp) {
 
     ++process_count;
     hip::HipTraceManager::getInstance().registerChunkAllocatorEvents(
-        this, stamp, last_registry, begin_id);
+        reinterpret_cast<ChunkAllocator*>(this), stamp, last_registry,
+        begin_id);
 }
 
-std::unique_ptr<std::byte[]> ChunkAllocator::copyBuffer() {
+template <> void ChunkAllocatorBase<std::byte>::record(uint64_t stamp) {
+    hip::check(hipDeviceSynchronize());
+
+    size_t begin_id = last_registry.current_id;
+
+    update();
+
+    ++process_count;
+    hip::HipTraceManager::getInstance().registerGlobalMemoryQueue(
+        reinterpret_cast<hip::GlobalMemoryQueueInfo*>(this), stamp,
+        last_registry, begin_id);
+}
+
+template <typename T>
+std::unique_ptr<std::byte[]> ChunkAllocatorBase<T>::copyBuffer() {
     update();
     size_t alloc_size = last_registry.buffer_size * last_registry.buffer_count;
     auto buf = std::make_unique<std::byte[]>(alloc_size);
@@ -142,8 +111,9 @@ std::unique_ptr<std::byte[]> ChunkAllocator::copyBuffer() {
     return buf;
 }
 
-size_t ChunkAllocator::Registry::wrappedSize(size_t slice_begin,
-                                             size_t slice_end) {
+template <typename T>
+size_t ChunkAllocatorBase<T>::Registry::wrappedSize(size_t slice_begin,
+                                                    size_t slice_end) {
     slice_begin = slice_begin % buffer_count;
     slice_end = slice_end % buffer_count;
 
@@ -154,16 +124,17 @@ size_t ChunkAllocator::Registry::wrappedSize(size_t slice_begin,
     }
 }
 
-std::unique_ptr<std::byte[]> ChunkAllocator::Registry::slice(size_t slice_begin,
-                                                             size_t slice_end) {
+template <typename T>
+std::unique_ptr<std::byte[]>
+ChunkAllocatorBase<T>::Registry::slice(size_t slice_begin, size_t slice_end) {
     auto data = sliceAsync(slice_begin, slice_end, 0);
     hip::check(hipStreamSynchronize(0));
     return data;
 }
 
-std::unique_ptr<std::byte[]>
-ChunkAllocator::Registry::sliceAsync(size_t slice_begin, size_t slice_end,
-                                     hipStream_t stream) {
+template <typename T>
+std::unique_ptr<std::byte[]> ChunkAllocatorBase<T>::Registry::sliceAsync(
+    size_t slice_begin, size_t slice_end, hipStream_t stream) {
     size_t size = wrappedSize(slice_begin, slice_end);
 
     if (size > buffer_count) {
@@ -199,16 +170,10 @@ ChunkAllocator::Registry::sliceAsync(size_t slice_begin, size_t slice_end,
     return buf;
 }
 
-std::ostream& ChunkAllocator::printBuffer(std::ostream& out) {
-    update();
-    auto contents = copyBuffer();
-
-    return last_registry.printBuffer(
-        out, reinterpret_cast<SubBuffer*>(contents.get()));
-}
-
-std::ostream& ChunkAllocator::Registry::printBuffer(std::ostream& out,
-                                                    SubBuffer* sbs) {
+template <>
+std::ostream&
+ChunkAllocatorBase<SubBuffer>::Registry::printBuffer(std::ostream& out,
+                                                     SubBuffer* sbs) {
     std::cout << "ChunkAllocator " << buffer_count << " SubBuffers of "
               << buffer_size << " bytes\n";
 
@@ -233,9 +198,22 @@ std::ostream& ChunkAllocator::Registry::printBuffer(std::ostream& out,
     return out;
 }
 
+std::ostream& ChunkAllocator::printBuffer(std::ostream& out) {
+    update();
+    auto contents = copyBuffer();
+
+    return last_registry.printBuffer(
+        out, reinterpret_cast<SubBuffer*>(contents.get()));
+}
+
 const std::string& hip::ChunkAllocator::event_desc =
     hip::WaveState::description;
 const std::string& hip::ChunkAllocator::event_name = hip::WaveState::name;
+
+const std::string& GlobalMemoryQueueInfo::event_name =
+    hip::GlobalWaveState::name;
+const std::string& GlobalMemoryQueueInfo::event_desc =
+    hip::GlobalWaveState::description;
 
 ChunkAllocator* ChunkAllocator::getStreamAllocator(hipStream_t stream,
                                                    size_t buffer_count,
@@ -245,6 +223,9 @@ ChunkAllocator* ChunkAllocator::getStreamAllocator(hipStream_t stream,
 
     return &allocators.at(stream);
 }
+
+template class ChunkAllocatorBase<SubBuffer>;
+template class ChunkAllocatorBase<std::byte>;
 
 // ----- CUChunkAllocator ----- //
 
@@ -263,10 +244,9 @@ CUChunkAllocator::CUChunkAllocator(size_t buffer_count, size_t buffer_size,
         hip::check(hipMalloc(&buffer_ptr, alloc_size));
 
         for (auto i = 0u; i < TOTAL_CU_COUNT; ++i) {
-            last_registry[i].reg.begin =
-                reinterpret_cast<ChunkAllocator::SubBuffer*>(
-                    reinterpret_cast<std::byte*>(buffer_ptr) +
-                    i * (buffer_size * buffer_count));
+            last_registry[i].reg.begin = reinterpret_cast<SubBuffer*>(
+                reinterpret_cast<std::byte*>(buffer_ptr) +
+                i * (buffer_size * buffer_count));
         }
 
         hip::check(hipMalloc(&device_ptr,
@@ -292,7 +272,7 @@ CUChunkAllocator::CUChunkAllocator(const std::vector<size_t>& buffer_count,
     }
 
     for (auto i = 0u; i < TOTAL_CU_COUNT; ++i) {
-        auto* buf = reinterpret_cast<ChunkAllocator::SubBuffer*>(
+        auto* buf = reinterpret_cast<SubBuffer*>(
             new std::byte[buffer_count[i] * buffer_size]);
 
         last_registry[i].reg = {buffer_count[i], buffer_size, buf, 0ull};
