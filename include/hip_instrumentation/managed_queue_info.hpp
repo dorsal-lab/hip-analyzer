@@ -9,7 +9,6 @@
 #include "gpu_queue.hpp"
 #include <atomic>
 #include <cstdint>
-#include <map>
 #include <string>
 #include <vector>
 

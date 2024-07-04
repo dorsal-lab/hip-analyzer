@@ -374,7 +374,7 @@ class GlobalWaveState : public WaveTrace {
                                   builder.getInt32(bb), wave_id});
     }
 
-    size_t eventSize() const override { return 32; }
+    size_t eventSize() const override { return 28; }
 
     void finalize(llvm::IRBuilder<>& builder) const override {
         // If a wave writes to scalar cache, it has to be explicitely flushed
@@ -394,19 +394,20 @@ class GlobalWaveState : public WaveTrace {
 
     static constexpr auto* wave_event_ctor_asm =
         // Prepare payload
-        "s_mov_b64 s[22:23], $0\n"
-        "s_atomic_add_x2 s[22:23], s[40:41] glc\n" // Atomically increment the
-                                                   // global trace pointer
-        "s_memrealtime s[24:25]\n"                 // timestamp
-        "s_mov_b64 s[26:27], exec\n"               // exec mask
-        "s_getreg_b32 s28, hwreg(HW_REG_HW_ID)\n"  // hw_id
-        "s_mov_b32 s29, $1\n"                      // bb
-        "s_mov_b32 s30, $2\n" // s31 will be stored as well but that's not an
-                              // issue (just ignore in the trace). Not clobbered
+        "s_mov_b64 s[22:23], $0\n"                     // Event size
+        "s_atomic_add_x2 s[22:23], s[40:41], 24 glc\n" // Atomically increment
+                                                       // the global trace
+                                                       // pointer
+        "s_memrealtime s[24:25]\n"                     // timestamp
+        "s_mov_b64 s[26:27], exec\n"                   // exec mask
+        "s_getreg_b32 s28, hwreg(HW_REG_HW_ID)\n"      // hw_id
+        "s_mov_b32 s29, $1\n"                          // bb
+        "s_mov_b32 s30, $2\n"
         "s_waitcnt lgkmcnt(0)\n"
         // Write to mem
         "s_store_dwordx4 s[24:27], s[22:23], 0\n"
-        "s_store_dwordx4 s[28:31], s[22:23], 16\n"
+        "s_store_dwordx2 s[28:29], s[22:23], 16\n"
+        "s_store_dword s30, s[22:23], 24\n"
         "s_waitcnt lgkmcnt(0)\n";
     static constexpr auto* wave_event_ctor_constraints =
         "i,i,s,"         // u32 Event size, u32 bb, u32 producer

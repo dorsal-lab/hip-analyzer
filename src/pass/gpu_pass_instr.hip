@@ -109,7 +109,7 @@ __device__ void* _hip_get_wave_trace_offset(void* storage, size_t* offsets,
 
 __device__ void* _hip_get_global_memory_trace_ptr(
     hip::GlobalMemoryQueueInfo::Registry* device_ptr) {
-    return &device_ptr->current_id;
+    return device_ptr;
 }
 
 __device__ hip::ChunkAllocator::Registry* _hip_get_cache_aligned_registry(hip::CUChunkAllocator::CacheAlignedRegistry* reg) {

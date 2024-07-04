@@ -277,3 +277,17 @@ add_executable(count_allocations
 )
 
 target_link_libraries(count_allocations hip_instrumentation LLVMSupport)
+
+# ----- event_cost ----- #
+
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/event_cost.o
+    COMMAND ${ROCM_PATH}/bin/hipcc -fPIE -c -I${CMAKE_SOURCE_DIR}/include -O3 ${CMAKE_SOURCE_DIR}/test/event_cost.cpp -std=c++20 -o ${CMAKE_CURRENT_BINARY_DIR}/event_cost.o
+    DEPENDS
+        ${CMAKE_SOURCE_DIR}/test/event_cost.cpp
+    VERBATIM
+)
+
+add_executable(event_cost ${CMAKE_CURRENT_BINARY_DIR}/event_cost.o)
+target_link_libraries(event_cost hip::host)
+set_target_properties(event_cost PROPERTIES LINKER_LANGUAGE CXX)
