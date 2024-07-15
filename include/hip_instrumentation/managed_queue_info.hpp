@@ -157,25 +157,25 @@ class GlobalMemoryQueueInfo : public ChunkAllocatorBase<std::byte> {
     uint64_t stamp;
 };
 
-class CUChunkAllocator {
+template <typename T> class CUChunkAllocatorBase {
   public:
     constexpr static size_t TOTAL_CU_COUNT = 112ull;
     constexpr static size_t CACHE_LINE_SIZE = 64ull;
 
     struct CacheAlignedRegistry {
-        ChunkAllocator::Registry reg;
+        ChunkAllocatorBase<T>::Registry reg;
         std::byte padding[CACHE_LINE_SIZE - sizeof(reg)];
     };
 
     using Registries = std::array<CacheAlignedRegistry, TOTAL_CU_COUNT>;
 
-    CUChunkAllocator(size_t buffer_count, size_t buffer_size,
-                     bool alloc_gpu = true);
+    CUChunkAllocatorBase(size_t buffer_count, size_t buffer_size,
+                         bool alloc_gpu = true);
 
-    CUChunkAllocator(const std::vector<size_t>& buffer_count,
-                     size_t buffer_size);
+    CUChunkAllocatorBase(const std::vector<size_t>& buffer_count,
+                         size_t buffer_size);
 
-    ~CUChunkAllocator();
+    ~CUChunkAllocatorBase();
 
     CacheAlignedRegistry* toDevice() { return device_ptr; }
 
@@ -207,17 +207,7 @@ class CUChunkAllocator {
 
     uint64_t getStamp() const { return stamp; }
 
-    /**
-     *
-     */
-    static CUChunkAllocator* getStreamAllocator(hipStream_t stream,
-                                                size_t buffer_count,
-                                                size_t buffer_size);
-
-    static const std::string& event_desc;
-    static const std::string& event_name;
-
-  private:
+  protected:
     void update();
 
     CacheAlignedRegistry* device_ptr;
@@ -230,6 +220,36 @@ class CUChunkAllocator {
 
     std::atomic<unsigned int> process_count{0u};
     bool loaded = false;
+};
+
+class CUChunkAllocator : public CUChunkAllocatorBase<SubBuffer> {
+  public:
+    CUChunkAllocator(size_t buffer_count, size_t buffer_size,
+                     bool alloc_gpu = true);
+
+    CUChunkAllocator(const std::vector<size_t>& buffer_count,
+                     size_t buffer_size);
+
+    static CUChunkAllocator* getStreamAllocator(hipStream_t stream,
+                                                size_t buffer_count,
+                                                size_t buffer_size);
+
+    static const std::string& event_desc;
+    static const std::string& event_name;
+};
+
+class CUMemoryTrace : public CUChunkAllocatorBase<std::byte> {
+  public:
+    constexpr static size_t DEFAULT_SIZE = 1048576LLU; // 2 Mb
+
+    CUMemoryTrace(size_t elem_size, size_t buffer_size = DEFAULT_SIZE);
+
+    static const std::string& event_name;
+    static const std::string& event_desc;
+
+  private:
+    size_t elem_size;
+    uint64_t stamp;
 };
 
 } // namespace hip

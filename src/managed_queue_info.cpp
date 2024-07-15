@@ -231,8 +231,10 @@ template class ChunkAllocatorBase<std::byte>;
 
 extern void dryRunRegistries(CUChunkAllocator&);
 
-CUChunkAllocator::CUChunkAllocator(size_t buffer_count, size_t buffer_size,
-                                   bool alloc_gpu)
+template <typename T>
+CUChunkAllocatorBase<T>::CUChunkAllocatorBase(size_t buffer_count,
+                                              size_t buffer_size,
+                                              bool alloc_gpu)
     : buffer_count(buffer_count), buffer_size(buffer_size) {
 
     // Initialize all registries
@@ -244,9 +246,9 @@ CUChunkAllocator::CUChunkAllocator(size_t buffer_count, size_t buffer_size,
         hip::check(hipMalloc(&buffer_ptr, alloc_size));
 
         for (auto i = 0u; i < TOTAL_CU_COUNT; ++i) {
-            last_registry[i].reg.begin = reinterpret_cast<SubBuffer*>(
-                reinterpret_cast<std::byte*>(buffer_ptr) +
-                i * (buffer_size * buffer_count));
+            last_registry[i].reg.begin =
+                reinterpret_cast<T*>(reinterpret_cast<std::byte*>(buffer_ptr) +
+                                     i * (buffer_size * buffer_count));
         }
 
         hip::check(hipMalloc(&device_ptr,
@@ -256,12 +258,11 @@ CUChunkAllocator::CUChunkAllocator(size_t buffer_count, size_t buffer_size,
                              sizeof(CacheAlignedRegistry) * TOTAL_CU_COUNT,
                              hipMemcpyHostToDevice));
     }
-
-    dryRunRegistries(*this);
 }
 
-CUChunkAllocator::CUChunkAllocator(const std::vector<size_t>& buffer_count,
-                                   size_t buffer_size)
+template <typename T>
+CUChunkAllocatorBase<T>::CUChunkAllocatorBase(
+    const std::vector<size_t>& buffer_count, size_t buffer_size)
     : buffer_count(-1), buffer_size(buffer_size), loaded(true) {
 
     // Initialize all registries
@@ -272,14 +273,14 @@ CUChunkAllocator::CUChunkAllocator(const std::vector<size_t>& buffer_count,
     }
 
     for (auto i = 0u; i < TOTAL_CU_COUNT; ++i) {
-        auto* buf = reinterpret_cast<SubBuffer*>(
-            new std::byte[buffer_count[i] * buffer_size]);
+        auto* buf =
+            reinterpret_cast<T*>(new std::byte[buffer_count[i] * buffer_size]);
 
         last_registry[i].reg = {buffer_count[i], buffer_size, buf, 0ull};
     }
 }
 
-CUChunkAllocator::~CUChunkAllocator() {
+template <typename T> CUChunkAllocatorBase<T>::~CUChunkAllocatorBase() {
     while (process_count > 0) {
         std::this_thread::sleep_for(std::chrono::microseconds(1));
     }
@@ -295,8 +296,9 @@ CUChunkAllocator::~CUChunkAllocator() {
     }
 }
 
-void CUChunkAllocator::record(uint64_t stamp) {
-    auto begin_registries = std::make_unique<Registries>(last_registry);
+template <typename T> void CUChunkAllocatorBase<T>::record(uint64_t stamp) {
+    auto begin_registries =
+        std::make_unique<CUChunkAllocator::Registries>(last_registry);
 
     hip::check(hipDeviceSynchronize());
 
@@ -304,21 +306,24 @@ void CUChunkAllocator::record(uint64_t stamp) {
                          sizeof(CacheAlignedRegistry) * TOTAL_CU_COUNT,
                          hipMemcpyDeviceToHost));
 
-    auto end_registries = std::make_unique<Registries>(last_registry);
+    auto end_registries =
+        std::make_unique<CUChunkAllocator::Registries>(last_registry);
 
     ++process_count;
 
     hip::HipTraceManager::getInstance().registerCUChunkAllocatorEvents(
-        this, stamp, std::move(begin_registries), std::move(end_registries));
+        reinterpret_cast<CUChunkAllocator*>(this), stamp,
+        std::move(begin_registries), std::move(end_registries));
 }
 
-void CUChunkAllocator::sync() {
+template <typename T> void CUChunkAllocatorBase<T>::sync() {
     while (process_count > 0) {
         std::this_thread::sleep_for(std::chrono::microseconds(1));
     }
 }
 
-void CUChunkAllocator::fetchBuffers(
+template <typename T>
+void CUChunkAllocatorBase<T>::fetchBuffers(
     const Registries& begin_registries, const Registries& end_registries,
     std::array<std::unique_ptr<std::byte[]>, TOTAL_CU_COUNT>& sub_buffers_out,
     std::array<size_t, TOTAL_CU_COUNT>& sizes_out) {
@@ -336,6 +341,18 @@ void CUChunkAllocator::fetchBuffers(
     return;
 }
 
+CUChunkAllocator::CUChunkAllocator(size_t buffer_count, size_t buffer_size,
+                                   bool alloc_gpu)
+    : CUChunkAllocatorBase(buffer_count, buffer_size, alloc_gpu) {
+    dryRunRegistries(*this);
+}
+
+CUChunkAllocator::CUChunkAllocator(const std::vector<size_t>& buffer_count,
+                                   size_t buffer_size)
+    : CUChunkAllocatorBase(buffer_count, buffer_size) {
+    dryRunRegistries(*this);
+}
+
 CUChunkAllocator* CUChunkAllocator::getStreamAllocator(hipStream_t stream,
                                                        size_t buffer_count,
                                                        size_t buffer_size) {
@@ -345,8 +362,17 @@ CUChunkAllocator* CUChunkAllocator::getStreamAllocator(hipStream_t stream,
     return &allocators.at(stream);
 }
 
+CUMemoryTrace::CUMemoryTrace(size_t elem_size, size_t buffer_size)
+    : CUChunkAllocatorBase(buffer_size, 1, true), elem_size(elem_size) {}
+
 const std::string& hip::CUChunkAllocator::event_desc =
     hip::WaveState::description;
 const std::string& hip::CUChunkAllocator::event_name = hip::WaveState::name;
+
+const std::string& hip::CUMemoryTrace::event_desc = hip::WaveState::description;
+const std::string& hip::CUMemoryTrace::event_name = hip::WaveState::name;
+
+template class CUChunkAllocatorBase<SubBuffer>;
+template class CUChunkAllocatorBase<std::byte>;
 
 } // namespace hip
