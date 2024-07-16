@@ -297,8 +297,10 @@ template <typename T> CUChunkAllocatorBase<T>::~CUChunkAllocatorBase() {
 }
 
 template <typename T> void CUChunkAllocatorBase<T>::record(uint64_t stamp) {
-    auto begin_registries =
-        std::make_unique<CUChunkAllocator::Registries>(last_registry);
+    // The reinterpet cast are very ugly but they have the same memory layout
+
+    auto begin_registries = std::make_unique<CUChunkAllocator::Registries>(
+        *reinterpret_cast<CUChunkAllocator::Registries*>(&last_registry));
 
     hip::check(hipDeviceSynchronize());
 
@@ -306,8 +308,8 @@ template <typename T> void CUChunkAllocatorBase<T>::record(uint64_t stamp) {
                          sizeof(CacheAlignedRegistry) * TOTAL_CU_COUNT,
                          hipMemcpyDeviceToHost));
 
-    auto end_registries =
-        std::make_unique<CUChunkAllocator::Registries>(last_registry);
+    auto end_registries = std::make_unique<CUChunkAllocator::Registries>(
+        *reinterpret_cast<CUChunkAllocator::Registries*>(&last_registry));
 
     ++process_count;
 
