@@ -395,7 +395,7 @@ class GlobalWaveState : public WaveTrace {
     static constexpr auto* wave_event_ctor_asm =
         // Prepare payload
         "s_mov_b64 s[22:23], $0\n"                     // Event size
-        "s_atomic_add_x2 s[22:23], s[40:41], 24 glc\n" // Atomically increment
+        "s_atomic_add_x2 s[22:23], s[40:41], 16 glc\n" // Atomically increment
                                                        // the global trace
                                                        // pointer
         "s_memrealtime s[24:25]\n"                     // timestamp
@@ -412,8 +412,8 @@ class GlobalWaveState : public WaveTrace {
     static constexpr auto* wave_event_ctor_constraints =
         "i,i,s,"         // u32 Event size, u32 bb, u32 producer
         "~{s22},~{s23}," // Trace pointer
-        "~{s24},~{s25},~{s26},~{s27},~{s28},~{s29},~{s30}"; // Temp
-                                                            // values
+        "~{s24},~{s25},~{s26},~{s27},~{s28},~{s29},~{s30},~{scc}"; // Temp
+                                                                   // values
 
     static constexpr auto* flush_asm = "s_dcache_wb\n";
 };
