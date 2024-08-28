@@ -35,6 +35,45 @@ uint64_t rocmStamp() {
         .count();
 }
 
+std::optional<uint64_t> parseEnv(const char* env) {
+    auto buffer_size = std::getenv(env);
+    if (buffer_size == nullptr) {
+        return std::nullopt;
+    }
+
+    uint64_t val;
+    std::string str{buffer_size};
+    if (std::from_chars(str.data(), str.data() + str.length(), val).ec !=
+        std::errc()) {
+
+        return std::nullopt;
+    }
+
+    return val;
+}
+
+// ----- Values from env ----- //
+
+static std::optional<uint64_t> hiptrace_buffer_size =
+    []() -> std::optional<uint64_t> {
+    auto buffer_size = parseEnv("HIP_ANALYZER_BUFFER_SIZE");
+
+    if (!buffer_size.has_value()) {
+        const auto* env = std::getenv("HIP_ANALYZER_BUFFER_SIZE");
+        if (env == nullptr) {
+            return buffer_size;
+        }
+
+        std::cerr << "Could not parse u64 token : " << env
+                  << ", using default size "
+                  << hip::GlobalMemoryQueueInfo::DEFAULT_SIZE << '\n';
+    }
+    return buffer_size;
+}();
+
+static std::optional<uint64_t> hiptrace_buffer_count =
+    parseEnv("HIP_ANALYZER_BUFFER_COUNT");
+
 // ----- Instrumenter ----- //
 
 hip::CounterInstrumenter* hipNewInstrumenter(const char* kernel_name,
@@ -342,26 +381,6 @@ void hipQueueInfoRecord(hip::QueueInfo* queue_info, void* events,
 
 void freeHipQueueInfo(hip::QueueInfo* q) { delete q; }
 
-static std::optional<uint64_t> hiptrace_buffer_size =
-    []() -> std::optional<uint64_t> {
-    auto buffer_size = std::getenv("HIPTRACE_BUFFER_SIZE");
-    if (buffer_size == nullptr) {
-        return std::nullopt;
-    }
-
-    uint64_t val;
-    std::string str{buffer_size};
-    if (std::from_chars(str.data(), str.data() + str.length(), val).ec !=
-        std::errc()) {
-        std::cerr << "Could not parse u64 token : " << str
-                  << ", using default size "
-                  << hip::GlobalMemoryQueueInfo::DEFAULT_SIZE << '\n';
-        return std::nullopt;
-    }
-
-    return val;
-}();
-
 hip::GlobalMemoryQueueInfo* newGlobalMemoryQueueInfo(size_t event_size) {
     hip::GlobalMemoryQueueInfo* ptr;
     if (hiptrace_buffer_size.has_value()) {
@@ -415,6 +434,14 @@ hip::ChunkAllocator* newHipChunkAllocator(const char* kernel_name,
         hipSuccess) {
         throw std::runtime_error(
             "hipNewInstrumenter() : Could not pop call configuration");
+    }
+
+    if (hiptrace_buffer_count.has_value()) {
+        buffer_count = hiptrace_buffer_count.value();
+    }
+
+    if (hiptrace_buffer_size.has_value()) {
+        buffer_size = hiptrace_buffer_size.value();
     }
 
     hip::ChunkAllocator* alloc = hip::ChunkAllocator::getStreamAllocator(
