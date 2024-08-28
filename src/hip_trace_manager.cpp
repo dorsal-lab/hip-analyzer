@@ -359,6 +359,8 @@ void HipTraceManager::handlePayload(GlobalMemoryEventsQueuePayload&& payload,
                   GlobalMemoryQueueInfo::event_name, end - begin,
                   registry.buffer_size);
 
+    queue_info->notifyDoneProcessing();
+
     lttng_ust_tracepoint(hip_instrumentation, collector_dump_end,
                          registry.begin, stamp);
 }
