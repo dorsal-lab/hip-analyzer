@@ -103,6 +103,16 @@ void hipGlobalMemQueueInfoRecord(hip::GlobalMemoryQueueInfo*,
 
 void freeHipGlobalMemoryQueueInfo(hip::GlobalMemoryQueueInfo*);
 
+hip::CUMemoryTrace* newCUMemQueueInfo(size_t event_size);
+
+hip::CUMemoryTrace::CacheAlignedRegistry*
+hipCUMemQueueInfoToDevice(hip::CUMemoryTrace*);
+
+void hipCUMemQueueInfoRecord(hip::CUMemoryTrace*,
+                             hip::CUMemoryTrace::CacheAlignedRegistry*);
+
+void freeHipCUMemoryQueueInfo(hip::CUMemoryTrace*);
+
 hip::ChunkAllocator* newHipChunkAllocator(const char* kernel_name,
                                           size_t buffer_count,
                                           size_t buffer_size);
