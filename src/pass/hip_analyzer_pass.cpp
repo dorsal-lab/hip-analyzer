@@ -27,6 +27,7 @@ enum class TracingType {
     LowOverheadTracing,
     CountersReplayer,
     GlobalMemory,
+    CUMemory,
     ChunkAllocator,
     CUChunkAllocator,
     FromEnv
@@ -44,6 +45,8 @@ static llvm::cl::opt<TracingType> hip_analyzer_mode(
                    "Load existing counters trace"),
         clEnumValN(TracingType::GlobalMemory, "hip-global-mem",
                    "Concurrent global memory, atomics based tracing"),
+        clEnumValN(TracingType::CUMemory, "hip-cu-mem",
+                   "Concurrent CU memory, atomics based tracing"),
         clEnumValN(TracingType::ChunkAllocator, "hip-chunk-allocator",
                    "Concurrent buffer based tracing"),
         clEnumValN(
@@ -126,6 +129,9 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
                     break;
                 case TracingType::GlobalMemory:
                     pm.addPass(hip::GlobalMemoryQueueHostPass());
+                    break;
+                case TracingType::CUMemory:
+                    pm.addPass(hip::CUMemoryTraceHostPass());
                     break;
                 case TracingType::ChunkAllocator:
                     pm.addPass(hip::ChunkAllocatorHostPass());

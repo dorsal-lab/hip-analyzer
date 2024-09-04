@@ -836,6 +836,93 @@ llvm::Function* GlobalMemoryQueueHostPass::replaceStubCall(
 }
 
 llvm::SmallVector<llvm::Function*, 8>
+CUMemoryTraceHostPass::createInstrumentationStubs(
+    llvm::Function& original_stub) {
+
+    // Kind of a hack but technically the same kernel signature
+    auto dummy_trace = TraceType::create("trace-cuwavestate");
+    return {
+        addTracingDeviceStub(original_stub, *dummy_trace),
+    };
+}
+
+llvm::Function* CUMemoryTraceHostPass::replaceStubCall(
+    llvm::Function& stub,
+    llvm::ArrayRef<llvm::Function*> instrumentation_stubs) const {
+    auto& mod = *stub.getParent();
+    auto& context = mod.getContext();
+
+    llvm::dbgs() << "HostPass::replaceStubCall() : " << stub << '\n';
+
+    auto fun_type = stub.getFunctionType();
+    InstrumentationFunctions instr_handlers(mod);
+    auto* call_to_launch = firstCallToFunction(stub, "hipLaunchKernel");
+    llvm::dbgs() << "FirstCallToFunction() : " << *call_to_launch << '\n';
+
+    auto* new_stub = dyn_cast<llvm::Function>(
+        mod.getOrInsertFunction(getClonedName(stub, temporary_stub_prefix),
+                                fun_type)
+            .getCallee());
+
+    auto* bb = llvm::BasicBlock::Create(context, "", new_stub);
+
+    auto* tracing_stub = instrumentation_stubs[0];
+
+    llvm::IRBuilder<> builder(bb);
+
+    // Create call to newly created stub
+    llvm::SmallVector<llvm::Value*> args;
+
+    dumpMetadata(&stub);
+
+    auto stub_arg_it = stub.args().begin();
+    for (llvm::Argument& arg : new_stub->args()) {
+        // Save value if vector
+        args.push_back(&arg);
+
+        if (stub_arg_it->hasByValAttr()) {
+            // Necessary to be added to the arguments if they are to be passed
+            // by value and not by address! Otherwise the emitted assembly is
+            // wrong and ends up forwarding bad arguments to the kernel
+            arg.addAttr(stub_arg_it->getAttribute(llvm::Attribute::ByVal));
+        }
+
+        ++stub_arg_it;
+    }
+
+    llvm::Value *queue_info, *events_buffer;
+
+    queue_info = builder.CreateCall(instr_handlers.newCUMemQueueInfo,
+                                    {builder.getInt64(32)});
+
+    events_buffer = builder.CreateCall(instr_handlers.hipCUMemQueueInfoToDevice,
+                                       {queue_info});
+
+    // Launch tracing kernel
+
+    args.push_back(events_buffer);
+    args.push_back(llvm::ConstantPointerNull::get(builder.getPtrTy()));
+
+    builder.CreateCall(tracing_stub, args);
+
+    // Store counters (runtime)
+    builder.CreateCall(instr_handlers.hipCUMemQueueInfoRecord,
+                       {queue_info, events_buffer});
+
+    builder.CreateCall(instr_handlers.freeHipCUMemoryQueueInfo, {queue_info});
+
+    builder.CreateRetVoid();
+
+    // Replace all calls
+
+    stub.replaceAllUsesWith(new_stub);
+
+    llvm::dbgs() << *new_stub;
+
+    return new_stub;
+}
+
+llvm::SmallVector<llvm::Function*, 8>
 ChunkAllocatorHostPass::createInstrumentationStubs(
     llvm::Function& original_stub) {
 

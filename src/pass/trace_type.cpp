@@ -389,9 +389,10 @@ class GlobalWaveState : public WaveTrace {
         builder.CreateCall(flush, {});
     }
 
-  private:
+  protected:
     llvm::Value* wave_id = nullptr;
 
+  private:
     static constexpr auto* wave_event_ctor_asm =
         // Prepare payload
         "s_mov_b64 s[22:23], $0\n"                     // Event size
@@ -416,6 +417,52 @@ class GlobalWaveState : public WaveTrace {
                                                                    // values
 
     static constexpr auto* flush_asm = "s_dcache_wb\n";
+};
+
+class CUMemWaveState : public GlobalWaveState {
+  public:
+    llvm::Value* getThreadStorage(llvm::Module& mod, llvm::IRBuilder<>& builder,
+                                  llvm::Value* storage_ptr,
+                                  llvm::Value* offsets_ptr) override {
+        TracingFunctions utils{mod};
+
+        // The "storage pointer" in this case is the global tracing pointer
+        auto global_trace_pointer = builder.CreateCall(
+            utils._hip_get_global_memory_trace_ptr, {storage_ptr});
+        thread_storage =
+            readFirstLaneI64(builder, global_trace_pointer, index_reg);
+
+        auto get_registry_ty = llvm::FunctionType::get(void_ty, {}, false);
+        auto get_registry =
+            llvm::InlineAsm::get(get_registry_ty, get_registry_asm,
+                                 get_registry_asm_constraints, true);
+        builder.CreateCall(get_registry, {});
+
+        // Compute wave id
+
+        auto* v_u32_id = builder.CreateCall(utils._hip_wave_id_1d, {});
+        wave_id = readFirstLane(builder, v_u32_id);
+
+        return thread_storage;
+    }
+
+  private:
+    static constexpr auto* get_registry_asm =
+        // We assume the base cache-aligned registry is stored in s[44:45]
+        "s_getreg_b32 s20, hwreg(HW_REG_HW_ID)\n"
+        "s_bfe_u32 s22, s20, 0x1000c\n"
+        "s_bfe_u32 s21, s20, 0x40008\n"
+        "s_bfe_u32 s20, s20, 0x2000d\n"
+        "s_mul_i32 s22, s22, 14\n"
+        "s_add_i32 s21, s21, s22\n"
+        "s_mul_i32 s20, s20, 28\n"
+        "s_add_i32 s20, s21, s20\n"
+        "s_lshl_b32 s20, s20, 6\n"
+        "s_add_u32 s44, s44, s20\n"
+        "s_addc_u32 s45, s45, 0\n";
+
+    static constexpr auto* get_registry_asm_constraints =
+        "~{s20},~{s21},~{s22},~{scc}";
 };
 
 class ChunkAllocatorWaveTrace : public WaveTrace {
@@ -555,6 +602,89 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         // Prepare call to alloc
         "0:\n"
         // New allocation (ChunkAllocator::Registry::alloc)
+        //// Atomic add, load values
+        "s_mov_b64 s[40:41], 1\n"
+        "s_atomic_add_x2 s[40:41], s[44:45], 24 glc\n"
+        "s_load_dwordx2 s[22:23], s[44:45], 0\n" // Load buffer_count
+        "s_load_dwordx4 s[24:27], s[44:45], 8\n" // Load buffer_size, begin
+        // Compute return address, s[46:47] holds PC before the substraction
+        "s_add_u32 s28, s28, 16\n"
+        "s_addc_u32 s29, s29, 0\n"
+        // Wait for completion of loads
+        "s_waitcnt lgkmcnt(0)\n"
+        //// Compute new ptr, ptr_end
+        ///// next %= buffer_count. Assume buffer_count is a power of two, so
+        /// just retrieve the `buffer_count` lsb from s[40:41]
+        "s_ff1_i32_b64 s22, s[22:23]\n" // log2(s[40:41])
+        "s_add_u32 s22, s22, 1\n"
+        "s_bfm_b64 s[22:23], s22, 0\n"
+        "s_and_b64 s[40:41], s[40:41], s[22:23]\n"
+
+        ///// next *= buffer_size (multiply s[40:41] * s[24:25], intermediate
+        /// result in s[22:23])
+        "s_mul_hi_u32 s22, s41, s24\n"
+        "s_mul_hi_u32 s23, s40, s25\n"
+        "s_mul_i32 s40, s40, s24\n"
+        "s_add_u32 s41, s22, s23\n"
+        ///// ptr = begin + next
+        "s_add_u32 s40, s26, s40\n"
+        "s_addc_u32 s41, s27, s41\n"
+        "s_sub_u32 s24, s24, $1\n" // Reasonable to expect event_size <<< 2^32,
+                                   // so no carry
+        // Store producer id
+        "s_store_dword $0, s[40:41]\n"
+        "s_add_u32 s42, s40, s24\n"  // ptr_end_lo
+        "s_addc_u32 s43, s41, s25\n" // ptr_end_hi
+        "s_add_u32 s22, s40, 8\n"    // ptr_lo
+        "s_addc_u32 s23, s41, 0\n"   // ptr_hi
+        "s_waitcnt lgkmcnt(0)\n"
+        "s_setpc_b64 s[28:29]\n"
+
+        "1:"
+        "s_mov_b64 s[40:41], s[22:23]\n";
+
+    static constexpr auto* trampoline_constraints =
+        // producer_id, event_size - 1
+        "s,i,~{s22},~{s23},~{s24},~{s25},~{s26},~{s27},~{s28},~{s29},~{s30},"
+        "~{scc}";
+
+    static constexpr auto* flush_asm = "s_dcache_wb\n";
+};
+
+class CUChunkAllocatorWaveTrace : public ChunkAllocatorWaveTrace {
+    llvm::Value* getThreadStorage(llvm::Module& mod, llvm::IRBuilder<>& builder,
+                                  llvm::Value* storage_ptr,
+                                  llvm::Value* offsets_ptr) override {
+        TracingFunctions utils{mod};
+
+        auto* int32_ty = builder.getInt32Ty();
+        auto* void_ty = builder.getVoidTy();
+
+        readFirstLaneI64(builder, storage_ptr, register_ptr.id);
+
+        // auto* v_u32_id = builder.CreateCall(utils._hip_wave_id_1d, {});
+        auto* v_u32_id = builder.getInt32(0);
+        wave_id = readFirstLane(builder, v_u32_id);
+
+        auto trampoline_ty =
+            llvm::FunctionType::get(void_ty, {int32_ty, int32_ty}, false);
+        auto trampoline = llvm::InlineAsm::get(trampoline_ty, trampoline_asm,
+                                               trampoline_constraints, true);
+        builder.CreateCall(trampoline,
+                           {wave_id, builder.getInt32(eventSize() - 1)});
+
+        return storage_ptr;
+    }
+
+  private:
+    static constexpr auto* trampoline_asm =
+        // Always skip this section except if you've jumped to `trampoline`
+        "s_getpc_b64 s[28:29]\n"
+        "s_add_u32 s28, s28, 1f\n"
+        "s_add_u32 s28, s28, -12\n"
+        // Prepare call to alloc
+        "0:\n"
+        // New allocation (ChunkAllocator::Registry::alloc)
         // Compute CU
         "s_getreg_b32 s22, hwreg(HW_REG_HW_ID)\n"
         "s_bfe_u32 s24, s21, 0x1000c\n"
@@ -612,58 +742,6 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         // producer_id, event_size - 1
         "s,i,~{s22},~{s23},~{s24},~{s25},~{s26},~{s27},~{s28},~{s29},~{s30},"
         "~{s31},~{scc}";
-
-    static constexpr auto* flush_asm = "s_dcache_wb\n";
-};
-
-class CUChunkAllocatorWaveTrace : public ChunkAllocatorWaveTrace {
-    llvm::Value* getThreadStorage(llvm::Module& mod, llvm::IRBuilder<>& builder,
-                                  llvm::Value* storage_ptr,
-                                  llvm::Value* offsets_ptr) override {
-        TracingFunctions utils{mod};
-
-        auto* int32_ty = builder.getInt32Ty();
-        auto* void_ty = builder.getVoidTy();
-
-        readFirstLaneI64(builder, storage_ptr, register_ptr.id);
-
-        // auto get_registry_ty = llvm::FunctionType::get(void_ty, {}, false);
-        // auto get_registry =
-        //     llvm::InlineAsm::get(get_registry_ty, get_registry_asm,
-        //                          get_registry_asm_constraints, true);
-        // builder.CreateCall(get_registry, {});
-
-        // auto* v_u32_id = builder.CreateCall(utils._hip_wave_id_1d, {});
-        auto* v_u32_id = builder.getInt32(0);
-        wave_id = readFirstLane(builder, v_u32_id);
-
-        auto trampoline_ty =
-            llvm::FunctionType::get(void_ty, {int32_ty, int32_ty}, false);
-        auto trampoline = llvm::InlineAsm::get(trampoline_ty, trampoline_asm,
-                                               trampoline_constraints, true);
-        builder.CreateCall(trampoline,
-                           {wave_id, builder.getInt32(eventSize() - 1)});
-
-        return storage_ptr;
-    }
-
-  private:
-    static constexpr auto* get_registry_asm =
-        // We assume the base cache-aligned registry is stored in s[44:45]
-        "s_getreg_b32 s20, hwreg(HW_REG_HW_ID)\n"
-        "s_bfe_u32 s22, s20, 0x1000c\n"
-        "s_bfe_u32 s21, s20, 0x40008\n"
-        "s_bfe_u32 s20, s20, 0x2000d\n"
-        "s_mul_i32 s22, s22, 14\n"
-        "s_add_i32 s21, s21, s22\n"
-        "s_mul_i32 s20, s20, 28\n"
-        "s_add_i32 s20, s21, s20\n"
-        "s_lshl_b32 s20, s20, 6\n"
-        "s_add_u32 s44, s44, s20\n"
-        "s_addc_u32 s45, s45, 0\n";
-
-    static constexpr auto* get_registry_asm_constraints =
-        "~{s20},~{s21},~{s22},~{scc}";
 };
 
 } // namespace
@@ -678,6 +756,8 @@ std::unique_ptr<TraceType> TraceType::create(const std::string& trace_type) {
         return std::make_unique<WaveState>();
     } else if (trace_type == "trace-globalwavestate") {
         return std::make_unique<GlobalWaveState>();
+    } else if (trace_type == "trace-cumemwavestate") {
+        return std::make_unique<CUMemWaveState>();
     } else if (trace_type == "trace-wavestate-chunkallocator") {
         return std::make_unique<ChunkAllocatorWaveTrace>();
     } else if (trace_type == "trace-wavestate-cuchunkallocator") {
