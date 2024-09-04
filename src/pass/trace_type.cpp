@@ -545,7 +545,7 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
                  // compiler to extend the lifetime of the values (due to
                  // the jump to 0b)
         "~{s22},~{s23},~{s24},~{s25},~{s26},~{s27},~{s28},~{s29},~{s30},"
-        "~{scc}";
+        "~{s31},~{scc}";
 
     static constexpr auto* trampoline_asm =
         // Always skip this section except if you've jumped to `trampoline`
@@ -555,11 +555,23 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
         // Prepare call to alloc
         "0:\n"
         // New allocation (ChunkAllocator::Registry::alloc)
+        // Compute CU
+        "s_getreg_b32 s22, hwreg(HW_REG_HW_ID)\n"
+        "s_bfe_u32 s24, s21, 0x1000c\n"
+        "s_bfe_u32 s23, s22, 0x40008\n"
+        "s_bfe_u32 s22, s22, 0x2000d\n"
+        "s_mul_i32 s24, s24, 14\n"
+        "s_add_i32 s23, s22, s24\n"
+        "s_mul_i32 s22, s22, 28\n"
+        "s_add_i32 s22, s23, s22\n"
+        "s_lshl_b32 s22, s22, 6\n"
+        "s_add_u32 s30, s44, s22\n"
+        "s_addc_u32 s31, s45, 0\n"
         //// Atomic add, load values
         "s_mov_b64 s[40:41], 1\n"
-        "s_atomic_add_x2 s[40:41], s[44:45], 24 glc\n"
-        "s_load_dwordx2 s[22:23], s[44:45], 0\n" // Load buffer_count
-        "s_load_dwordx4 s[24:27], s[44:45], 8\n" // Load buffer_size, begin
+        "s_atomic_add_x2 s[40:41], s[30:31], 24 glc\n"
+        "s_load_dwordx2 s[22:23], s[30:31], 0\n" // Load buffer_count
+        "s_load_dwordx4 s[24:27], s[30:31], 8\n" // Load buffer_size, begin
         // Compute return address, s[46:47] holds PC before the substraction
         "s_add_u32 s28, s28, 16\n"
         "s_addc_u32 s29, s29, 0\n"
@@ -599,7 +611,7 @@ class ChunkAllocatorWaveTrace : public WaveTrace {
     static constexpr auto* trampoline_constraints =
         // producer_id, event_size - 1
         "s,i,~{s22},~{s23},~{s24},~{s25},~{s26},~{s27},~{s28},~{s29},~{s30},"
-        "~{scc}";
+        "~{s31},~{scc}";
 
     static constexpr auto* flush_asm = "s_dcache_wb\n";
 };
@@ -615,11 +627,11 @@ class CUChunkAllocatorWaveTrace : public ChunkAllocatorWaveTrace {
 
         readFirstLaneI64(builder, storage_ptr, register_ptr.id);
 
-        auto get_registry_ty = llvm::FunctionType::get(void_ty, {}, false);
-        auto get_registry =
-            llvm::InlineAsm::get(get_registry_ty, get_registry_asm,
-                                 get_registry_asm_constraints, true);
-        builder.CreateCall(get_registry, {});
+        // auto get_registry_ty = llvm::FunctionType::get(void_ty, {}, false);
+        // auto get_registry =
+        //     llvm::InlineAsm::get(get_registry_ty, get_registry_asm,
+        //                          get_registry_asm_constraints, true);
+        // builder.CreateCall(get_registry, {});
 
         // auto* v_u32_id = builder.CreateCall(utils._hip_wave_id_1d, {});
         auto* v_u32_id = builder.getInt32(0);
