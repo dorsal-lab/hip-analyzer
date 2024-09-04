@@ -105,6 +105,10 @@ void visitor(
     throw std::runtime_error("Unexpected cu chunk allocator events");
 }
 
+template <> void visitor(hip::HipTraceManager::CUMemoryQueuePayload&& payload) {
+    throw std::runtime_error("Unexpected cu chunk allocator events");
+}
+
 int main(int argc, char** argv) {
     llvm::cl::ParseCommandLineOptions(argc, argv);
 

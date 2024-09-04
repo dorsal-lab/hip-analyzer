@@ -367,12 +367,33 @@ CUChunkAllocator* CUChunkAllocator::getStreamAllocator(hipStream_t stream,
 CUMemoryTrace::CUMemoryTrace(size_t elem_size, size_t buffer_size)
     : CUChunkAllocatorBase(buffer_size, 1, true), elem_size(elem_size) {}
 
+template <> void CUChunkAllocatorBase<std::byte>::record(uint64_t stamp) {
+    auto begin_registries = std::make_unique<CUMemoryTrace::Registries>(
+        *reinterpret_cast<CUMemoryTrace::Registries*>(&last_registry));
+
+    hip::check(hipDeviceSynchronize());
+
+    hip::check(hipMemcpy(last_registry.data(), device_ptr,
+                         sizeof(CacheAlignedRegistry) * TOTAL_CU_COUNT,
+                         hipMemcpyDeviceToHost));
+
+    auto end_registries = std::make_unique<CUMemoryTrace::Registries>(
+        *reinterpret_cast<CUMemoryTrace::Registries*>(&last_registry));
+
+    ++process_count;
+
+    hip::HipTraceManager::getInstance().registerCUMemoryQueue(
+        reinterpret_cast<CUMemoryTrace*>(this), stamp,
+        std::move(begin_registries), std::move(end_registries));
+}
+
 const std::string& hip::CUChunkAllocator::event_desc =
     hip::WaveState::description;
 const std::string& hip::CUChunkAllocator::event_name = hip::WaveState::name;
 
-const std::string& hip::CUMemoryTrace::event_desc = hip::WaveState::description;
-const std::string& hip::CUMemoryTrace::event_name = hip::WaveState::name;
+const std::string& hip::CUMemoryTrace::event_desc =
+    hip::GlobalWaveState::description;
+const std::string& hip::CUMemoryTrace::event_name = hip::GlobalWaveState::name;
 
 template class CUChunkAllocatorBase<SubBuffer>;
 template class CUChunkAllocatorBase<std::byte>;

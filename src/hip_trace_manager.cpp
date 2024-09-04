@@ -267,6 +267,22 @@ void HipTraceManager::registerGlobalMemoryQueue(
     cond.notify_one();
 }
 
+void HipTraceManager::registerCUMemoryQueue(
+    CUMemoryTrace* queue_info, uint64_t stamp,
+    std::unique_ptr<CUMemoryTrace::Registries> begin_registries,
+    std::unique_ptr<CUMemoryTrace::Registries> end_registries) {
+    std::lock_guard lock{mutex};
+
+    lttng_ust_tracepoint(hip_instrumentation, register_cu_memory_queue,
+                         queue_info, stamp);
+
+    queue.push(CUMemoryQueuePayload{queue_info, stamp,
+                                    std::move(begin_registries),
+                                    std::move(end_registries)});
+
+    cond.notify_one();
+}
+
 void HipTraceManager::registerChunkAllocatorEvents(
     ChunkAllocator* alloc, uint64_t stamp,
     ChunkAllocator::Registry end_registry, size_t begin_offset) {
@@ -363,6 +379,19 @@ void HipTraceManager::handlePayload(GlobalMemoryEventsQueuePayload&& payload,
 
     lttng_ust_tracepoint(hip_instrumentation, collector_dump_end,
                          registry.begin, stamp);
+}
+
+template <>
+void HipTraceManager::handlePayload(CUMemoryQueuePayload&& payload,
+                                    std::ofstream& out) {
+    auto& [queue_info, stamp, begin_registries, end_registries] = payload;
+    lttng_ust_tracepoint(hip_instrumentation, collector_dump_queue, &out,
+                         queue_info->toDevice(), stamp);
+    // TODO
+
+    queue_info->notifyDoneProcessing();
+    lttng_ust_tracepoint(hip_instrumentation, collector_dump_end,
+                         queue_info->toDevice(), stamp);
 }
 
 template <>

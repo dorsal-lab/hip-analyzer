@@ -222,6 +222,13 @@ LTTNG_UST_TRACEPOINT_EVENT(
                     lttng_ust_field_integer(uint64_t, end_offset, end_offset)))
 
 LTTNG_UST_TRACEPOINT_EVENT(
+    hip_instrumentation, register_cu_memory_queue,
+    LTTNG_UST_TP_ARGS(const void*, instr, uint64_t, stamp),
+    LTTNG_UST_TP_FIELDS(lttng_ust_field_integer_hex(
+        uintptr_t, instr, reinterpret_cast<uintptr_t>(instr))
+                            lttng_ust_field_integer(uint64_t, stamp, stamp)))
+
+LTTNG_UST_TRACEPOINT_EVENT(
     hip_instrumentation, register_cu_chunk_allocator_events,
     LTTNG_UST_TP_ARGS(const void*, instr, uint64_t, stamp),
     LTTNG_UST_TP_FIELDS(lttng_ust_field_integer_hex(
