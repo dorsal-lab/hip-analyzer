@@ -73,9 +73,13 @@ struct InstrumentationFunctions {
         *hipQueueInfoAllocBuffer, *hipQueueInfoAllocOffsets,
         *hipQueueInfoRecord;
 
-    // hipManagedQueueInfo
+    // hipGlobalQueueInfo
     llvm::Function *newGlobalMemoryQueueInfo, *hipGlobalMemQueueInfoToDevice,
         *hipGlobalMemQueueInfoRecord, *freeHipGlobalMemoryQueueInfo;
+
+    // hipCUMemQueueInfo
+    llvm::Function *newCUMemQueueInfo, *hipCUMemQueueInfoToDevice,
+        *hipCUMemQueueInfoRecord, *freeHipCUMemoryQueueInfo;
 
     // hipChunkAllocator
     llvm::Function *newHipChunkAllocator, *hipChunkAllocatorToDevice,

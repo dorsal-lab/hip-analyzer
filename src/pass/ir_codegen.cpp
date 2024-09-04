@@ -486,6 +486,20 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
     freeHipGlobalMemoryQueueInfo =
         getFunction(mod, "freeHipGlobalMemoryQueueInfo", void_from_ptr_type);
 
+    newCUMemQueueInfo =
+        getFunction(mod, "newCUMemQueueInfo",
+                    llvm::FunctionType::get(ptr_type, {uint64_type}, false));
+
+    hipCUMemQueueInfoToDevice =
+        getFunction(mod, "hipCUMemQueueInfoToDevice", ptr_from_ptr_type);
+
+    hipCUMemQueueInfoRecord = getFunction(
+        mod, "hipCUMemQueueInfoRecord",
+        llvm::FunctionType::get(void_type, {ptr_type, ptr_type}, false));
+
+    freeHipCUMemoryQueueInfo =
+        getFunction(mod, "freeHipCUMemoryQueueInfo", void_from_ptr_type);
+
     newHipChunkAllocator =
         getFunction(mod, "newHipChunkAllocator",
                     llvm::FunctionType::get(

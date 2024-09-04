@@ -421,6 +421,44 @@ void freeHipGlobalMemoryQueueInfo(hip::GlobalMemoryQueueInfo* queue) {
     delete queue;
 }
 
+hip::CUMemoryTrace* newCUMemQueueInfo(size_t event_size) {
+    hip::CUMemoryTrace* ptr;
+    if (hiptrace_buffer_size.has_value()) {
+        ptr = new hip::CUMemoryTrace(event_size, *hiptrace_buffer_size);
+    } else {
+        ptr = new hip::CUMemoryTrace(event_size);
+    }
+
+    lttng_ust_tracepoint(hip_instrumentation, new_global_memory_queue, ptr);
+
+    return ptr;
+}
+
+hip::CUMemoryTrace::CacheAlignedRegistry*
+hipCUMemQueueInfoToDevice(hip::CUMemoryTrace* queue) {
+    hip::CUMemoryTrace::CacheAlignedRegistry* device_ptr;
+
+    lttng_ust_tracepoint(hip_instrumentation, queue_compute_begin, queue,
+                         queue);
+
+    device_ptr = queue->toDevice();
+
+    lttng_ust_tracepoint(hip_instrumentation, queue_compute_end, queue);
+
+    return device_ptr;
+}
+
+void hipCUMemQueueInfoRecord(
+    hip::CUMemoryTrace* queue,
+    hip::CUMemoryTrace::CacheAlignedRegistry* device_ptr) {
+
+    lttng_ust_tracepoint(hip_instrumentation, queue_record_begin, queue);
+    queue->record(0);
+    lttng_ust_tracepoint(hip_instrumentation, queue_record_end, queue);
+}
+
+void freeHipCUMemoryQueueInfo(hip::CUMemoryTrace* queue) { delete queue; }
+
 hip::ChunkAllocator* newHipChunkAllocator(const char* kernel_name,
                                           size_t buffer_count,
                                           size_t buffer_size) {
