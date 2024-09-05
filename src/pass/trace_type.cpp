@@ -425,6 +425,7 @@ class CUMemWaveState : public GlobalWaveState {
                                   llvm::Value* storage_ptr,
                                   llvm::Value* offsets_ptr) override {
         TracingFunctions utils{mod};
+        auto* void_ty = builder.getVoidTy();
 
         // The "storage pointer" in this case is the global tracing pointer
         auto global_trace_pointer = builder.CreateCall(
@@ -458,8 +459,8 @@ class CUMemWaveState : public GlobalWaveState {
         "s_mul_i32 s20, s20, 28\n"
         "s_add_i32 s20, s21, s20\n"
         "s_lshl_b32 s20, s20, 6\n"
-        "s_add_u32 s44, s44, s20\n"
-        "s_addc_u32 s45, s45, 0\n";
+        "s_add_u32 s40, s40, s20\n"
+        "s_addc_u32 s41, s41, 0\n";
 
     static constexpr auto* get_registry_asm_constraints =
         "~{s20},~{s21},~{s22},~{scc}";
@@ -754,9 +755,9 @@ std::unique_ptr<TraceType> TraceType::create(const std::string& trace_type) {
         return std::make_unique<TaggedEvent>();
     } else if (trace_type == "trace-wavestate") {
         return std::make_unique<WaveState>();
-    } else if (trace_type == "trace-globalwavestate") {
+    } else if (trace_type == "trace-wavestate-global") {
         return std::make_unique<GlobalWaveState>();
-    } else if (trace_type == "trace-cumemwavestate") {
+    } else if (trace_type == "trace-wavestate-cumem") {
         return std::make_unique<CUMemWaveState>();
     } else if (trace_type == "trace-wavestate-chunkallocator") {
         return std::make_unique<ChunkAllocatorWaveTrace>();

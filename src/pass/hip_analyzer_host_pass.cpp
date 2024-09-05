@@ -752,7 +752,7 @@ GlobalMemoryQueueHostPass::createInstrumentationStubs(
     llvm::Function& original_stub) {
 
     // Kind of a hack but technically the same kernel signature
-    auto dummy_trace = TraceType::create("trace-globalwavestate");
+    auto dummy_trace = TraceType::create("trace-wavestate-global");
     return {
         addTracingDeviceStub(original_stub, *dummy_trace),
     };
@@ -840,7 +840,7 @@ CUMemoryTraceHostPass::createInstrumentationStubs(
     llvm::Function& original_stub) {
 
     // Kind of a hack but technically the same kernel signature
-    auto dummy_trace = TraceType::create("trace-cuwavestate");
+    auto dummy_trace = TraceType::create("trace-wavestate-cumem");
     return {
         addTracingDeviceStub(original_stub, *dummy_trace),
     };
