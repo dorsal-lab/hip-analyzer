@@ -26,14 +26,7 @@
 
 #include "hip_analyzer_tracepoints.h"
 
-extern "C" {
-
-uint64_t rocmStamp() {
-    auto now = std::chrono::steady_clock::now();
-    return std::chrono::duration_cast<std::chrono::microseconds>(
-               now.time_since_epoch())
-        .count();
-}
+namespace {
 
 std::optional<uint64_t> parseEnv(const char* env) {
     auto buffer_size = std::getenv(env);
@@ -50,6 +43,17 @@ std::optional<uint64_t> parseEnv(const char* env) {
     }
 
     return val;
+}
+
+} // namespace
+
+extern "C" {
+
+uint64_t rocmStamp() {
+    auto now = std::chrono::steady_clock::now();
+    return std::chrono::duration_cast<std::chrono::microseconds>(
+               now.time_since_epoch())
+        .count();
 }
 
 // ----- Values from env ----- //
@@ -537,6 +541,14 @@ hip::CUChunkAllocator* newHipCUChunkAllocator(const char* kernel_name,
         hipSuccess) {
         throw std::runtime_error(
             "hipNewInstrumenter() : Could not pop call configuration");
+    }
+
+    if (hiptrace_buffer_count.has_value()) {
+        buffer_count = hiptrace_buffer_count.value();
+    }
+
+    if (hiptrace_buffer_size.has_value()) {
+        buffer_size = hiptrace_buffer_size.value();
     }
 
     hip::CUChunkAllocator* alloc = hip::CUChunkAllocator::getStreamAllocator(
