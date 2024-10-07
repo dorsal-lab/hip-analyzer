@@ -130,6 +130,7 @@ class HipTraceManager {
     std::queue<Payload> queue;
 
     constexpr static std::string_view HIPTRACE_ENV = "HIPTRACE_OUTPUT";
+    constexpr static std::string_view HIPTRACE_DISCARD = "HIP_ANALYZER_DISCARD";
 };
 
 /** \class HipTraceFile

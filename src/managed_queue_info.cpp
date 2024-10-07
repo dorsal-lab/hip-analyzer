@@ -346,13 +346,13 @@ void CUChunkAllocatorBase<T>::fetchBuffers(
 CUChunkAllocator::CUChunkAllocator(size_t buffer_count, size_t buffer_size,
                                    bool alloc_gpu)
     : CUChunkAllocatorBase(buffer_count, buffer_size, alloc_gpu) {
-    dryRunRegistries(*this);
+    // dryRunRegistries(*this);
 }
 
 CUChunkAllocator::CUChunkAllocator(const std::vector<size_t>& buffer_count,
                                    size_t buffer_size)
     : CUChunkAllocatorBase(buffer_count, buffer_size) {
-    dryRunRegistries(*this);
+    // dryRunRegistries(*this);
 }
 
 CUChunkAllocator* CUChunkAllocator::getStreamAllocator(hipStream_t stream,

@@ -456,12 +456,17 @@ void HipTraceManager::runThread() {
         filename << "hiptrace_" << stamp << ".hiptrace";
     }
 
-    std::ofstream out{filename.str(), std::ostream::binary};
+    std::ofstream out;
+    if (std::getenv(HIPTRACE_DISCARD.data()) == nullptr) {
+        // If HIPTRACE_DISCARD is set, the file will be closed thus no trace
+        // will be output
+        out.open(filename.str(), std::ostream::binary);
 
-    if (!out.is_open()) {
-        throw std::runtime_error(
-            "HipTraceManager::runThread() : Could not open output file " +
-            filename.str());
+        if (!out.is_open()) {
+            throw std::runtime_error(
+                "HipTraceManager::runThread() : Could not open output file " +
+                filename.str());
+        }
     }
 
     // Managed header
