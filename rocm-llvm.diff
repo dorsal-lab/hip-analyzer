@@ -1,0 +1,141 @@
+diff --git a/llvm/lib/OffloadArch/CMakeLists.txt b/llvm/lib/OffloadArch/CMakeLists.txt
+index e30d31ca15b5..d4b5e0c3fadb 100644
+--- a/llvm/lib/OffloadArch/CMakeLists.txt
++++ b/llvm/lib/OffloadArch/CMakeLists.txt
+@@ -29,6 +29,8 @@ add_llvm_component_library(LLVMOffloadArch
+     ProfileData
+     Support
+     InterfaceStub
++  LINK_LIBS
++    dl
+ )
+ 
+ if(NOT WIN32 AND NOT CYGWIN)
+diff --git a/llvm/lib/OffloadArch/offload-arch/CMakeLists.txt b/llvm/lib/OffloadArch/offload-arch/CMakeLists.txt
+index 686d40d07bd9..75cae31cff55 100644
+--- a/llvm/lib/OffloadArch/offload-arch/CMakeLists.txt
++++ b/llvm/lib/OffloadArch/offload-arch/CMakeLists.txt
+@@ -3,7 +3,7 @@ add_llvm_tool(offload-arch
+   ${CMAKE_CURRENT_SOURCE_DIR}/offload-arch.cpp
+   DEPENDS generated-table LLVMOffloadArch
+ )
+-target_link_libraries(offload-arch PRIVATE LLVMOffloadArch)
++target_link_libraries(offload-arch PRIVATE LLVMOffloadArch dl)
+ 
+ if(CMAKE_HOST_UNIX)
+   set(COMPILER_LINK_OR_COPY create_symlink)
+diff --git a/llvm/lib/Target/AMDGPU/AMDGPU.h b/llvm/lib/Target/AMDGPU/AMDGPU.h
+index d24dd0ecc548..3209b1dfc94f 100644
+--- a/llvm/lib/Target/AMDGPU/AMDGPU.h
++++ b/llvm/lib/Target/AMDGPU/AMDGPU.h
+@@ -10,6 +10,7 @@
+ #ifndef LLVM_LIB_TARGET_AMDGPU_AMDGPU_H
+ #define LLVM_LIB_TARGET_AMDGPU_AMDGPU_H
+ 
++#include "llvm/ADT/SmallVector.h"
+ #include "llvm/IR/PassManager.h"
+ #include "llvm/Pass.h"
+ #include "llvm/Support/AMDGPUAddrSpace.h"
+@@ -442,6 +443,8 @@ static inline bool addrspacesMayAlias(unsigned AS1, unsigned AS2) {
+   return ASAliasRules[AS1][AS2];
+ }
+ 
++extern llvm::SmallVector<unsigned int> HipAnalyzerRegs;
++
+ }
+ 
+ } // End namespace llvm
+diff --git a/llvm/lib/Target/AMDGPU/SIFrameLowering.cpp b/llvm/lib/Target/AMDGPU/SIFrameLowering.cpp
+index 2ad980a3bbef..45aff437b30e 100644
+--- a/llvm/lib/Target/AMDGPU/SIFrameLowering.cpp
++++ b/llvm/lib/Target/AMDGPU/SIFrameLowering.cpp
+@@ -903,6 +903,16 @@ void SIFrameLowering::emitEntryFunctionPrologue(MachineFunction &MF,
+                                          PreloadedScratchRsrcReg,
+                                          ScratchRsrcReg, ScratchWaveOffsetReg);
+   }
++  
++  // hip-analyzer reserved regs
++
++  for (MachineBasicBlock &OtherBB : MF) {
++    if (&OtherBB != &MBB) {
++      for(auto hip_analyzer_reg : AMDGPU::HipAnalyzerRegs) {
++        OtherBB.addLiveIn(hip_analyzer_reg);
++      }
++    }
++  }
+ }
+ 
+ // Emit scratch RSRC setup code, assuming `ScratchRsrcReg != AMDGPU::NoReg`
+diff --git a/llvm/lib/Target/AMDGPU/SIRegisterInfo.cpp b/llvm/lib/Target/AMDGPU/SIRegisterInfo.cpp
+index f5b0ebb5026d..b91a8771d558 100644
+--- a/llvm/lib/Target/AMDGPU/SIRegisterInfo.cpp
++++ b/llvm/lib/Target/AMDGPU/SIRegisterInfo.cpp
+@@ -24,6 +24,10 @@
+ #include "llvm/CodeGen/MachineFrameInfo.h"
+ #include "llvm/CodeGen/RegisterScavenging.h"
+ 
++#include <sstream>
++#include <charconv>
++#include <fstream>
++
+ using namespace llvm;
+ 
+ #define GET_REGINFO_TARGET_DESC
+@@ -749,6 +753,12 @@ BitVector SIRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
+   for (MCPhysReg Reg : MFI->getVGPRSpillAGPRs())
+     reserveRegisterTuples(Reserved, Reg);
+ 
++  for(auto hip_analyzer_reg : AMDGPU::HipAnalyzerRegs) {
++    Reserved.set(hip_analyzer_reg);
++    markSuperRegs(Reserved, hip_analyzer_reg);
++  }
++
++
+   return Reserved;
+ }
+ 
+@@ -3443,3 +3453,44 @@ SIRegisterInfo::getSubRegAlignmentNumBits(const TargetRegisterClass *RC,
+   }
+   return 0;
+ }
++
++
++namespace llvm {
++namespace AMDGPU {
++
++llvm::SmallVector<unsigned int> HipAnalyzerRegs = [](){
++  const char* env = std::getenv("HIPCC_RESERVED_REGS");
++
++  llvm::SmallVector<unsigned int> vec;
++  if(env == nullptr) {
++    return vec;
++  }
++
++  std::string token;
++  std::stringstream ss;
++  ss << env;
++
++  std::ofstream out("/tmp/hip_analyzer.txt");
++
++
++  int count = 0;
++
++  while(std::getline(ss, token, ',')) {
++    unsigned int val;
++    if (std::from_chars(token.data(), token.data() + token.length(), val)
++            .ec != std::errc()) {
++      out << "HIPCC_RESERVED_REGS : could not parse " << token << '\n';
++    }
++
++    vec.push_back(AMDGPU::SGPR0 + val);
++    out << "Reserved " << val << " (" << (AMDGPU::SGPR0 + val) << ")\n";
++    ++count;
++  }
++
++  out << "Total reserved SGPRs : " << count << '\n';
++  return vec;
++}();
++
++} // namespace AMDGPU
++} // namespace llvm
++
