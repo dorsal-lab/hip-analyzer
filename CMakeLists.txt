@@ -184,6 +184,56 @@ else()
     )
 endif()
 
+# ----- Backend interception library ----- #
+
+if(NOT DEFINED LLVM_SOURCE)
+    message(WARNING "LLVM_SOURCE not specified, backend intercept might not compile")
+endif()
+
+if(NOT DEFINED LLVM_BUILD)
+    message(WARNING "LLVM_BUILD not specified, backend intercept might not compile")
+endif()
+
+if(DEFINED LLVM_BUILD AND DEFINED LLVM_SOURCE)
+add_library(hip_analyzer_intercept SHARED
+    src/backend/reserve_registers.cpp
+)
+
+target_include_directories(hip_analyzer_intercept PUBLIC
+    ${ROCM_LLVM}/include
+    ${ROCM_LLVM}/lib/Target/AMDGPU
+    ${LLVM_SOURCE}/include/
+    ${LLVM_SOURCE}/lib/Target/AMDGPU
+    ${LLVM_BUILD}/lib/Target/AMDGPU
+)
+
+target_link_libraries(hip_analyzer_intercept
+    LLVMAMDGPUDesc
+    LLVMAMDGPUInfo
+    LLVMAMDGPUUtils
+    LLVMAMDGPUCodeGen
+    LLVMAnalysis
+    LLVMAsmPrinter
+    LLVMBinaryFormat
+    LLVMCodeGen
+    LLVMCodeGenTypes
+    LLVMCore
+    LLVMGlobalISel
+    LLVMHipStdPar
+    LLVMMC
+    LLVMMIRParser
+    LLVMPasses
+    LLVMSelectionDAG
+    LLVMSupport
+    LLVMTarget
+    LLVMTargetParser
+    LLVMTransformUtils
+    LLVMVectorize
+)
+else()
+    message(WARNING "Building hip_analyzer_intercept (backend passes) skipped")
+endif()
+
 # ----- Testing ----- #
 
 add_subdirectory(test)
