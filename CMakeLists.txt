@@ -197,6 +197,8 @@ endif()
 if(DEFINED LLVM_BUILD AND DEFINED LLVM_SOURCE)
 add_library(hip_analyzer_intercept SHARED
     src/backend/reserve_registers.cpp
+    src/backend/wave_basic_block_counters.cpp
+    src/backend/preload_pass_insertion.cpp
 )
 
 target_include_directories(hip_analyzer_intercept PUBLIC
