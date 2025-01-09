@@ -22,13 +22,15 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "wave-basic-block-counter"
+#define DEBUG_TYPE "print-function-test"
 
-char WaveBasicBlockCountersInstr::ID = 0;
+char PrintFunction::ID = 0;
 
-INITIALIZE_PASS(WaveBasicBlockCountersInstr, DEBUG_TYPE,
-                "Wave basic block counters pass", false, false);
+INITIALIZE_PASS(PrintFunction, DEBUG_TYPE, "Print function test pass", false,
+                false);
 
-bool WaveBasicBlockCountersInstr::runOnMachineFunction(MachineFunction& MF) {
-    throw std::runtime_error("Unimplemented");
+bool PrintFunction::runOnMachineFunction(MachineFunction& MF) {
+    MF.dump();
+
+    return false;
 }

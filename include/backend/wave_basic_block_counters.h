@@ -18,7 +18,8 @@
 
 namespace llvm {
 void initializePrintFunctionPass(PassRegistry&);
-}
+void initializeWaveBasicBlockCountersInstrPass(PassRegistry&);
+} // namespace llvm
 
 class PrintFunction : public llvm::MachineFunctionPass {
   public:
@@ -30,5 +31,17 @@ class PrintFunction : public llvm::MachineFunctionPass {
 
     llvm::StringRef getPassName() const override {
         return "Print function test pass";
+    }
+};
+
+class WaveBasicBlockCountersInstr : public llvm::MachineFunctionPass {
+  public:
+    static char ID;
+    WaveBasicBlockCountersInstr() : MachineFunctionPass(ID) {}
+
+    bool runOnMachineFunction(llvm::MachineFunction& MF) override;
+
+    llvm::StringRef getPassName() const override {
+        return "Wavefront basic block counters instrumentation pas";
     }
 };
