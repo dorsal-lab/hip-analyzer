@@ -5,8 +5,11 @@
  */
 
 #include "hip_analyzer_pass.h"
+#include "instrumentation_mode.h"
 
 #include "llvm/Support/CommandLine.h"
+
+using namespace hip::env;
 
 static llvm::cl::opt<bool>
     wave_counters("wave-counters", llvm::cl::desc("Use wavefront counters"),
@@ -22,38 +25,27 @@ static llvm::cl::opt<std::string>
                    }
                }()));
 
-enum class TracingType {
-    CountersOnly,
-    LowOverheadTracing,
-    CountersReplayer,
-    GlobalMemory,
-    CUMemory,
-    ChunkAllocator,
-    CUChunkAllocator,
-    FromEnv
-    // TODO : Add new tracing modes
-};
-
-static llvm::cl::opt<TracingType> hip_analyzer_mode(
+static llvm::cl::opt<HipAnalyzerMode> hip_analyzer_mode(
     llvm::cl::desc("hip-analyzer tracing type"),
     llvm::cl::values(
-        clEnumValN(TracingType::CountersOnly, "hip-counters",
+        clEnumValN(HipAnalyzerMode::CountersOnly, "hip-counters",
                    "Basic blocks counters only"),
-        clEnumValN(TracingType::LowOverheadTracing, "hip-trace",
+        clEnumValN(HipAnalyzerMode::LowOverheadTracing, "hip-trace",
                    "Low-overhead tracing. Separate counters & tracing kernels"),
-        clEnumValN(TracingType::CountersReplayer, "hip-replay",
+        clEnumValN(HipAnalyzerMode::CountersReplayer, "hip-replay",
                    "Load existing counters trace"),
-        clEnumValN(TracingType::GlobalMemory, "hip-global-mem",
+        clEnumValN(HipAnalyzerMode::GlobalMemory, "hip-global-mem",
                    "Concurrent global memory, atomics based tracing"),
-        clEnumValN(TracingType::CUMemory, "hip-cu-mem",
+        clEnumValN(HipAnalyzerMode::CUMemory, "hip-cu-mem",
                    "Concurrent CU memory, atomics based tracing"),
-        clEnumValN(TracingType::ChunkAllocator, "hip-chunk-allocator",
+        clEnumValN(HipAnalyzerMode::ChunkAllocator, "hip-chunk-allocator",
                    "Concurrent buffer based tracing"),
         clEnumValN(
-            TracingType::CUChunkAllocator, "hip-cu-chunk-allocator",
+            HipAnalyzerMode::CUChunkAllocator, "hip-cu-chunk-allocator",
             "Concurrent buffer based tracing, with additional CU locality"),
-        clEnumValN(TracingType::FromEnv, "hip-from-env", "Load mode from env")),
-    llvm::cl::init(TracingType::FromEnv));
+        clEnumValN(HipAnalyzerMode::FromEnv, "hip-from-env",
+                   "Load mode from env")),
+    llvm::cl::init(HipAnalyzerMode::FromEnv));
 
 llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
     return {
@@ -86,7 +78,7 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
                         pm.addPass(hip::ThreadCountersInstrumentationPass());
                     }
 
-                    if (hip_analyzer_mode != TracingType::CountersOnly) {
+                    if (hip_analyzer_mode != HipAnalyzerMode::CountersOnly) {
                         pm.addPass(hip::TracingPass(trace_type.getValue()));
                     }
                 });
@@ -101,45 +93,39 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
                         ? hip::WaveCountersInstrumentationPass::CounterType
                         : hip::ThreadCountersInstrumentationPass::CounterType;
 
-                if (hip_analyzer_mode == TracingType::FromEnv) {
-                    auto* env = std::getenv("HIP_ANALYZER_MODE");
-                    if (env == nullptr) {
-                        throw std::runtime_error(
-                            "Missing environment variable HIP_ANALYZER_MODE");
-                    }
-
-                    if (hip_analyzer_mode.addOccurrence(0, env, env, false)) {
-                        throw std::runtime_error(
-                            "Unsupported hip analyzer_mode");
-                    }
+                if (hip_analyzer_mode == HipAnalyzerMode::FromEnv) {
+                    hip_analyzer_mode = parseTracingType();
                 }
 
                 switch (hip_analyzer_mode) {
-                case TracingType::CountersOnly:
+                case HipAnalyzerMode::CountersOnly:
                     pm.addPass(
                         hip::CounterKernelInstrumentationHostPass(cfg_prefix));
                     break;
-                case TracingType::LowOverheadTracing:
+                case HipAnalyzerMode::LowOverheadTracing:
                     pm.addPass(hip::FullInstrumentationHostPass(
                         cfg_prefix, trace_type.getValue()));
                     break;
-                case TracingType::CountersReplayer:
+                case HipAnalyzerMode::CountersReplayer:
                     pm.addPass(
                         hip::KernelReplayerHostPass(trace_type.getValue()));
                     break;
-                case TracingType::GlobalMemory:
+                case HipAnalyzerMode::GlobalMemory:
                     pm.addPass(hip::GlobalMemoryQueueHostPass());
                     break;
-                case TracingType::CUMemory:
+                case HipAnalyzerMode::CUMemory:
                     pm.addPass(hip::CUMemoryTraceHostPass());
                     break;
-                case TracingType::ChunkAllocator:
+                case HipAnalyzerMode::ChunkAllocator:
                     pm.addPass(hip::ChunkAllocatorHostPass());
                     break;
-                case TracingType::CUChunkAllocator:
+                case HipAnalyzerMode::CUChunkAllocator:
                     pm.addPass(hip::CUChunkAllocatorHostPass());
                     break;
-                case TracingType::FromEnv:
+                case HipAnalyzerMode::None:
+                    throw std::runtime_error(
+                        "Missing environment variable HIP_ANALYZER_MODE");
+                case HipAnalyzerMode::FromEnv:
                     throw std::runtime_error("Unreachable?");
                     break;
                 }
