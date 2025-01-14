@@ -30,5 +30,6 @@ INITIALIZE_PASS(WaveBasicBlockCountersInstr, DEBUG_TYPE,
                 "Wave basic block counters pass", false, false);
 
 bool WaveBasicBlockCountersInstr::runOnMachineFunction(MachineFunction& MF) {
-    throw std::runtime_error("Unimplemented");
+    MF.dump();
+    return false;
 }

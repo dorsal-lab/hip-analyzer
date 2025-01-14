@@ -19,6 +19,7 @@
 namespace llvm {
 void initializePrintFunctionPass(PassRegistry&);
 void initializeWaveBasicBlockCountersInstrPass(PassRegistry&);
+void initializeDuplicateKernelsPass(PassRegistry&);
 } // namespace llvm
 
 class PrintFunction : public llvm::MachineFunctionPass {
@@ -43,5 +44,17 @@ class WaveBasicBlockCountersInstr : public llvm::MachineFunctionPass {
 
     llvm::StringRef getPassName() const override {
         return "Wavefront basic block counters instrumentation pas";
+    }
+};
+
+class DuplicateKernels : public llvm::ModulePass {
+  public:
+    static char ID;
+    DuplicateKernels() : ModulePass(ID) {}
+
+    bool runOnModule(llvm::Module& Mod) override;
+
+    llvm::StringRef getPassName() const override {
+        return "Duplicate AMDGPU kernels for intrumentation";
     }
 };

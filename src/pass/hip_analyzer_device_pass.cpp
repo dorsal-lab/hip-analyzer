@@ -122,17 +122,6 @@ KernelInstrumentationPass::run(llvm::Module& mod,
                     : llvm::PreservedAnalyses::all();
 }
 
-bool KernelInstrumentationPass::isInstrumentableKernel(
-    const llvm::Function& f) const {
-    return !f.isDeclaration() && // Is it a function definition
-           f.getCallingConv() ==
-               llvm::CallingConv::AMDGPU_KERNEL && // Is it a kernel
-           !contains(f.getName().str(),
-                     cloned_suffix) && // Is it not already cloned
-           !contains(f.getName().str(),
-                     dummy_kernel_name); // Is it *not* a dummy kernel
-}
-
 bool KernelInstrumentationPass::addParams(llvm::Function& f,
                                           llvm::Function& original_function) {
 

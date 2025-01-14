@@ -484,7 +484,8 @@ llvm::Function* FullInstrumentationHostPass::replaceStubCall(
     auto stub_arg_it = stub.args().begin();
     for (llvm::Argument& arg : new_stub->args()) {
         // Save value if vector
-        if (arg.getType()->isPointerTy() && !stub_arg_it->hasByValAttr()) {
+        if (arg.getType()->isPointerTy() && !stub_arg_it->hasByValAttr() &&
+            !stub_arg_it->hasAttribute(llvm::Attribute::WriteOnly)) {
             args.push_back(&arg);
 
             tracing_args.push_back(builder.CreateCall(

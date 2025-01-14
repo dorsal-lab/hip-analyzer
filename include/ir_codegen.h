@@ -14,9 +14,9 @@
 #include "llvm/Pass.h"
 #include "llvm/Passes/PassBuilder.h"
 
-#include "hip_instrumentation/basic_block.hpp"
-
 namespace hip {
+
+struct BasicBlock; // Forward declare
 
 /** \brief Different address spaces supported by the backend
  */
@@ -29,14 +29,6 @@ constexpr unsigned int constant = 4u; // Global, but constant
 constexpr unsigned int thread = 5u;   // Thread-private data
 
 } // namespace addrspaces
-
-enum class InstrumentationType { Counters, Tracing };
-
-struct InstrumentationContext {
-    InstrumentationType instrType;
-    llvm::Module& mod;
-    llvm::Function& fn;
-};
 
 struct InstrumentedBlock {
     unsigned int id;
@@ -203,6 +195,11 @@ llvm::BasicBlock::iterator getFirstNonPHIOrDbgOrAlloca(llvm::BasicBlock& bb);
  * instrumented)
  */
 bool isBlockInstrumentable(const llvm::BasicBlock& block);
+
+/** \fn isInstrumentableKernel
+ * \brief Returns whether a function is a kernel meant to be instrumented
+ */
+bool isInstrumentableKernel(const llvm::Function& f);
 
 /** \fn getBlockInfo
  * \brief Extracts information from a basic block and returns a report

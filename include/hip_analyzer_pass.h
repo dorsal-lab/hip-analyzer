@@ -57,12 +57,6 @@ struct KernelInstrumentationPass
     llvm::PreservedAnalyses run(llvm::Module& mod,
                                 llvm::ModuleAnalysisManager& modm);
 
-    /** \fn isInstrumentableKernel
-     * \brief Returns whether a function is a kernel that will be
-     * instrumented (todo?)
-     */
-    virtual bool isInstrumentableKernel(const llvm::Function& f) const;
-
     /** \fn addParams
      * \brief Clone function with new parameters
      */

@@ -15,8 +15,17 @@
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include <string>
 
+#include "hip_analyzer_pass.h"
 #include "ir_codegen.h"
 #include "llvm_instr_counters.h"
+
+enum class InstrumentationType { Counters, Tracing };
+
+struct InstrumentationContext {
+    InstrumentationType instrType;
+    llvm::Module& mod;
+    llvm::Function& fn;
+};
 
 namespace hip {
 
@@ -185,6 +194,16 @@ bool isBlockInstrumentable(const llvm::BasicBlock& block) {
     }
 
     return false;
+}
+
+bool isInstrumentableKernel(const llvm::Function& f) {
+    return !f.isDeclaration() && // Is it a function definition
+           f.getCallingConv() ==
+               llvm::CallingConv::AMDGPU_KERNEL && // Is it a kernel
+           !contains(f.getName().str(),
+                     cloned_suffix) && // Is it not already cloned
+           !contains(f.getName().str(),
+                     dummy_kernel_name); // Is it *not* a dummy kernel
 }
 
 void insertInstrumentationLocals(InstrumentationContext& context) {}

@@ -200,6 +200,9 @@ add_library(hip_analyzer_intercept SHARED
     src/backend/wave_basic_block_counters.cpp
     src/backend/preload_pass_insertion.cpp
     src/backend/print_function_pass.cpp
+    src/backend/duplicate_kernels.cpp
+    src/pass/ir_codegen.cpp
+    src/llvm_instr_counters.cpp
 )
 
 target_include_directories(hip_analyzer_intercept PUBLIC
