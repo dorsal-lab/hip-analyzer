@@ -4,6 +4,10 @@
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */
 
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
+
 #pragma once
 
 namespace hip {
@@ -50,5 +54,10 @@ inline HipAnalyzerMode parseTracingType() {
 }
 
 } // namespace env
+
+struct KernelInstrumentation {
+    std::string prefix;
+    llvm::SmallVector<llvm::Type*> extra_args;
+};
 
 } // namespace hip
