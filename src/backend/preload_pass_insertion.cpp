@@ -4,6 +4,7 @@
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */
 
+#include "backend/ir_passes.h"
 #include "backend/wave_basic_block_counters.h"
 #include "hip_analyzer_pass.h"
 

@@ -17,31 +17,17 @@
 #include "llvm/CodeGen/MachineFunctionPass.h"
 
 namespace llvm {
-void initializePrintFunctionPass(PassRegistry&);
-void initializeWaveBasicBlockCountersInstrPass(PassRegistry&);
+void initializeWavestateTracingInstrPass(PassRegistry&);
 } // namespace llvm
 
-class PrintFunction : public llvm::MachineFunctionPass {
+class WavestateTracingInstr : public llvm::MachineFunctionPass {
   public:
     static char ID;
-
-    PrintFunction() : MachineFunctionPass(ID) {}
+    WavestateTracingInstr() : MachineFunctionPass(ID) {}
 
     bool runOnMachineFunction(llvm::MachineFunction& MF) override;
 
     llvm::StringRef getPassName() const override {
-        return "Print function test pass";
-    }
-};
-
-class WaveBasicBlockCountersInstr : public llvm::MachineFunctionPass {
-  public:
-    static char ID;
-    WaveBasicBlockCountersInstr() : MachineFunctionPass(ID) {}
-
-    bool runOnMachineFunction(llvm::MachineFunction& MF) override;
-
-    llvm::StringRef getPassName() const override {
-        return "Wavefront basic block counters instrumentation pas";
+        return "Wavestate event tracing";
     }
 };

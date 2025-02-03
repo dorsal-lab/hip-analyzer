@@ -2,6 +2,7 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
+#include "backend/ir_passes.h"
 #include "backend/wave_basic_block_counters.h"
 #include "ir_codegen.h"
 
