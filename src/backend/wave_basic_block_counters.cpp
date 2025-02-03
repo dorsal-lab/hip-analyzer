@@ -39,18 +39,26 @@ Register getSubReg(Register& reg, const TargetRegisterClass& SubRc,
     const auto* TII = MF.getSubtarget().getInstrInfo();
     Register dest = MF.getRegInfo().createVirtualRegister(&SubRc);
 
-    unsigned composedId = reinterpret_cast<SIRegisterInfo&>(MF.getRegInfo())
-                              .composeSubRegIndices(reg, subidx);
-
     BuildMI(*insertion_point->getParent(), insertion_point, DebugLoc(),
             TII->get(AMDGPU::COPY), dest)
-        .addReg(reg, 0, composedId);
+        .addReg(reg, 0, subidx);
+
     return dest;
 }
 
 Register getFlatBlockId(MachineFunction& MF, MachineInstr* insertion_point) {
     SIMachineFunctionInfo* Info = MF.getInfo<SIMachineFunctionInfo>();
     const auto* TII = MF.getSubtarget().getInstrInfo();
+    const auto& ST = static_cast<const GCNSubtarget&>(MF.getSubtarget());
+
+    uint64_t implicit_arg_offset =
+        ST.getTargetLowering()->getImplicitParameterOffset(
+            MF, AMDGPUTargetLowering::FIRST_IMPLICIT);
+
+    Register kernarg_ptr =
+        std::get<0>(
+            Info->getPreloadedValue(AMDGPUFunctionArgInfo::KERNARG_SEGMENT_PTR))
+            ->getRegister();
 
     auto dim = 0;
     if (Info->hasWorkGroupIDX()) {
@@ -76,20 +84,13 @@ Register getFlatBlockId(MachineFunction& MF, MachineInstr* insertion_point) {
 
     if (dim > 1) {
         // Get gridDim.x, blockDim.x from implicit arg pointer
-        const auto* implicitArgArgInfo = std::get<0>(
-            Info->getPreloadedValue(AMDGPUFunctionArgInfo::IMPLICIT_ARG_PTR));
+        const AMDGPULegalizerInfo* LI = static_cast<const AMDGPULegalizerInfo*>(
+            MF.getSubtarget().getLegalizerInfo());
 
-        std::cerr << implicitArgArgInfo << '\n';
+        std::cerr << "83" << '\n';
 
-        Register implicit_arg = implicitArgArgInfo->getRegister();
-
-        std::cerr << "84" << '\n';
-
-        Register grid_dim_xy =
-            MF.getRegInfo().createVirtualRegister(&AMDGPU::SReg_64RegClass);
-
-        Register block_dim_xy =
-            MF.getRegInfo().createVirtualRegister(&AMDGPU::SReg_32RegClass);
+        Register grid_dim_xy = MF.getRegInfo().createVirtualRegister(
+            &AMDGPU::SReg_64_XEXECRegClass);
 
         auto* MMO = MF.getMachineMemOperand(
             MachinePointerInfo(AMDGPUAS::CONSTANT_ADDRESS),
@@ -98,19 +99,30 @@ Register getFlatBlockId(MachineFunction& MF, MachineInstr* insertion_point) {
             8, Align(4));
 
         unsigned grid_dim_offset = AMDGPU::convertSMRDOffsetUnits(
-            MF.getSubtarget(), 0); // offset in implicit arg
+            MF.getSubtarget(),
+            implicit_arg_offset + 0); // offset in implicit arg
 
         unsigned block_dim_offset = AMDGPU::convertSMRDOffsetUnits(
-            MF.getSubtarget(), 12); // offset in implicit arg
+            MF.getSubtarget(),
+            implicit_arg_offset + 12); // offset in implicit arg
 
         BuildMI(MF.front(), insertion_point, DebugLoc(),
                 TII->get(AMDGPU::S_LOAD_DWORDX2_IMM), grid_dim_xy)
-            .addReg(implicit_arg)
+            .addReg(kernarg_ptr)
             .addImm(grid_dim_offset)
             .addImm(0)
             .addMemOperand(MMO);
 
-        std::cerr << "112" << '\n';
+        // Register block_dim_xy =
+        //     MF.getRegInfo().createVirtualRegister(&AMDGPU::SReg_32RegClass);
+        // BuildMI(MF.front(), insertion_point, DebugLoc(),
+        //         TII->get(AMDGPU::S_LOAD_DWORDX2_IMM), block_dim_xy)
+        //     .addReg(kernarg_ptr)
+        //     .addImm(block_dim_offset)
+        //     .addImm(0)
+        //     .addMemOperand(MMO);
+
+        std::cerr << "112 " << grid_dim_xy << '\n';
 
         Register grid_dim_x = getSubReg(grid_dim_xy, AMDGPU::SReg_32RegClass,
                                         AMDGPU::sub0, MF, insertion_point);
@@ -118,21 +130,26 @@ Register getFlatBlockId(MachineFunction& MF, MachineInstr* insertion_point) {
         Register grid_dim_y = getSubReg(grid_dim_xy, AMDGPU::SReg_32RegClass,
                                         AMDGPU::sub1, MF, insertion_point);
 
-        Register block_dim_x =
-            MF.getRegInfo().createVirtualRegister(&AMDGPU::SReg_32RegClass);
+        // Register block_dim_x =
+        //     MF.getRegInfo().createVirtualRegister(&AMDGPU::SReg_32RegClass);
 
-        BuildMI(MF.front(), insertion_point, DebugLoc(), TII->get(AMDGPU::COPY),
-                block_dim_x)
-            .addReg(block_dim_xy);
+        // BuildMI(MF.front(), insertion_point, DebugLoc(),
+        // TII->get(AMDGPU::COPY),
+        //         block_dim_x)
+        //     .addReg(block_dim_xy);
 
-        BuildMI(MF.front(), insertion_point, DebugLoc(),
-                TII->get(AMDGPU::S_AND_B32), block_dim_x)
-            .addReg(block_dim_x)
-            .addImm(0xFFFF);
+        // BuildMI(MF.front(), insertion_point, DebugLoc(),
+        //         TII->get(AMDGPU::S_AND_B32), block_dim_x)
+        //     .addReg(block_dim_x)
+        //     .addImm(0xFFFF);
+
+        std::cerr << "142" << '\n';
 
         // Now, we have loaded everything we need
 
         Register sgpr_y = Info->getWorkGroupIDSGPR(1);
+
+        std::cerr << "148" << '\n';
 
         // Mul sgpr_y * sgpr_dx
         Register sgpr_y_dx =
@@ -147,6 +164,8 @@ Register getFlatBlockId(MachineFunction& MF, MachineInstr* insertion_point) {
                 TII->get(AMDGPU::S_ADD_U32), block_id)
             .addReg(block_id)
             .addReg(sgpr_y_dx);
+
+        std::cerr << "162" << '\n';
 
         if (dim > 2) {
             Register sgpr_z = Info->getWorkGroupIDSGPR(2);
@@ -186,7 +205,8 @@ bool WaveBasicBlockCountersInstr::runOnMachineFunction(MachineFunction& MF) {
 
     getFlatBlockId(MF, &*MF.front().begin());
 
-    auto counter_reg = MRI.createVirtualRegister(&AMDGPU::SReg_32RegClass);
+    auto counter_reg =
+        MRI.createVirtualRegister(&AMDGPU::SReg_32_XM0_XEXECRegClass);
     Register counter_address;
 
     for (auto mbb = MF.begin(); mbb != MF.end(); ++mbb) {
