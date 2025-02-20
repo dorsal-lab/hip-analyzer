@@ -4,6 +4,7 @@
  * \author Sébastien Darche <sebastien.darche@polymtl.ca>
  */
 
+#include "backend/export_cfg.h"
 #include "backend/ir_passes.h"
 #include "backend/wave_basic_block_counters.h"
 #include "backend/wavestate_tracing.h"
@@ -36,6 +37,7 @@ void amdgcn_hooks_optimized_reg_alloc(llvm::TargetPassConfig* pass_config) {
     initializeWaveBasicBlockCountersInstrPass(*PR);
     initializeWavestateTracingInstrPass(*PR);
     initializeDuplicateKernelsPass(*PR);
+    initializeExportCFGPass(*PR);
 
     pass_config->insertPass(&llvm::SILowerControlFlowID,
                             &WaveBasicBlockCountersInstr::ID);
