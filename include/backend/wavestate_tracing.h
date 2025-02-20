@@ -25,9 +25,22 @@ class WavestateTracingInstr : public llvm::MachineFunctionPass {
     static char ID;
     WavestateTracingInstr() : MachineFunctionPass(ID) {}
 
+    llvm::Register initTracePointer(llvm::MachineFunction& MF,
+                                    llvm::MachineInstr* insertion_point);
+
+    void insertTracepoint(llvm::MachineFunction& MF,
+                          llvm::MachineInstr* insertion_point,
+                          uint32_t block_id);
+
     bool runOnMachineFunction(llvm::MachineFunction& MF) override;
 
     llvm::StringRef getPassName() const override {
         return "Wavestate event tracing";
     }
+
+    unsigned int getEventSize() const { return 32u; }
+
+  protected:
+    llvm::Register trace_pointer;
+    llvm::Register producer_id;
 };

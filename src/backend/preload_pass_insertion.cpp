@@ -6,6 +6,7 @@
 
 #include "backend/ir_passes.h"
 #include "backend/wave_basic_block_counters.h"
+#include "backend/wavestate_tracing.h"
 #include "hip_analyzer_pass.h"
 
 #include "llvm/CodeGen/TargetPassConfig.h"
@@ -33,6 +34,7 @@ void amdgcn_hooks_optimized_reg_alloc(llvm::TargetPassConfig* pass_config) {
 
     initializePrintFunctionPass(*PR);
     initializeWaveBasicBlockCountersInstrPass(*PR);
+    initializeWavestateTracingInstrPass(*PR);
     initializeDuplicateKernelsPass(*PR);
 
     pass_config->insertPass(&llvm::SILowerControlFlowID,

@@ -12,6 +12,12 @@
 
 using namespace llvm;
 
+namespace utils {
+
+bool isInstrumentableFunction(MachineFunction& MF) {
+    return MF.getName().contains("__hip_instr_dup");
+}
+
 Register getSubReg(Register& reg, const TargetRegisterClass& SubRc,
                    unsigned subidx, MachineFunction& MF,
                    MachineInstr* insertion_point) {
@@ -170,3 +176,22 @@ Register getFlatBlockId(MachineFunction& MF, MachineInstr* insertion_point) {
 
     return block_id;
 }
+
+Register increment64Register(MachineFunction& MF, MachineInstr* insertion_point,
+                             Register reg, unsigned int increment) {
+    const auto* TII = MF.getSubtarget().getInstrInfo();
+
+    // Register lo = getSubReg(reg, AMDGPU::SReg_32RegClass, AMDGPU::sub0, MF,
+    //                         insertion_point);
+    // Register hi = getSubReg(reg, AMDGPU::SReg_32RegClass, AMDGPU::sub1, MF,
+    //                         insertion_point);
+
+    BuildMI(insertion_point->getParent(), insertion_point, DebugLoc(),
+            TII->get(AMDGPU::S_ADD_U64_PSEUDO), reg)
+        .addReg(reg)
+        .addImm(increment);
+
+    return Register;
+}
+
+} // namespace utils

@@ -14,6 +14,10 @@
 #include "AMDGPUSubtarget.h"
 #include "AMDGPUTargetMachine.h"
 
+namespace utils {
+
+bool isInstrumentableFunction(llvm::MachineFunction& MF);
+
 /** \fn getSubReg
  * \brief
  */
@@ -27,3 +31,12 @@ llvm::Register getSubReg(llvm::Register& reg,
  */
 llvm::Register getFlatBlockId(llvm::MachineFunction& MF,
                               llvm::MachineInstr* insertion_point);
+
+/** \fn increment64Register
+ * \brief Increment register in place
+ */
+llvm::Register increment64Register(llvm::MachineFunction& MF,
+                                   llvm::MachineInstr* insertion_point,
+                                   llvm::Register reg, unsigned int increment);
+
+} // namespace utils

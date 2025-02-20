@@ -30,10 +30,6 @@ char WaveBasicBlockCountersInstr::ID = 0;
 INITIALIZE_PASS(WaveBasicBlockCountersInstr, DEBUG_TYPE,
                 "Wave basic block counters pass", false, false);
 
-bool isInstrumentableFunction(MachineFunction& MF) {
-    return MF.getName().contains("__hip_instr_dup");
-}
-
 bool WaveBasicBlockCountersInstr::runOnMachineFunction(MachineFunction& MF) {
     MF.dump();
     MF.getFunction().dump();

@@ -202,6 +202,7 @@ add_library(hip_analyzer_intercept SHARED
     src/backend/print_function_pass.cpp
     src/backend/duplicate_kernels.cpp
     src/backend/backend_utils.cpp
+    src/backend/wavestate_tracing.cpp
     src/pass/ir_codegen.cpp
     src/llvm_instr_counters.cpp
 )
