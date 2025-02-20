@@ -186,12 +186,12 @@ Register increment64Register(MachineFunction& MF, MachineInstr* insertion_point,
     // Register hi = getSubReg(reg, AMDGPU::SReg_32RegClass, AMDGPU::sub1, MF,
     //                         insertion_point);
 
-    BuildMI(insertion_point->getParent(), insertion_point, DebugLoc(),
+    BuildMI(*insertion_point->getParent(), insertion_point, DebugLoc(),
             TII->get(AMDGPU::S_ADD_U64_PSEUDO), reg)
         .addReg(reg)
         .addImm(increment);
 
-    return Register;
+    return reg;
 }
 
 } // namespace utils

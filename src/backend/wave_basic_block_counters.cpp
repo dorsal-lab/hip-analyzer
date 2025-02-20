@@ -34,7 +34,7 @@ bool WaveBasicBlockCountersInstr::runOnMachineFunction(MachineFunction& MF) {
     MF.dump();
     MF.getFunction().dump();
 
-    if (!isInstrumentableFunction(MF)) {
+    if (!utils::isInstrumentableFunction(MF)) {
         return false;
     }
 
@@ -68,7 +68,7 @@ bool WaveBasicBlockCountersInstr::runOnMachineFunction(MachineFunction& MF) {
                 }
 
                 counter_address = instr.getOperand(3).getReg();
-                getFlatBlockId(MF, &instr);
+                utils::getFlatBlockId(MF, &instr);
 
                 auto builder =
                     BuildMI(*mbb, instr, DebugLoc(),
