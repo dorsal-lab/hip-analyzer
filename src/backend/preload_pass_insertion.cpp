@@ -39,8 +39,7 @@ void amdgcn_hooks_optimized_reg_alloc(llvm::TargetPassConfig* pass_config) {
     initializeDuplicateKernelsPass(*PR);
     initializeExportCFGPass(*PR);
 
-    pass_config->insertPass(&llvm::SILowerControlFlowID,
-                            &WaveBasicBlockCountersInstr::ID);
+    pass_config->insertPass(&llvm::SILowerControlFlowID, &ExportCFG::ID);
     pass_config->insertPass(&llvm::SILowerControlFlowID, &PrintFunction::ID);
 }
 

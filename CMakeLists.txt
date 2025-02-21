@@ -203,6 +203,7 @@ add_library(hip_analyzer_intercept SHARED
     src/backend/duplicate_kernels.cpp
     src/backend/backend_utils.cpp
     src/backend/wavestate_tracing.cpp
+    src/backend/export_cfg.cpp
     src/pass/ir_codegen.cpp
     src/llvm_instr_counters.cpp
 )
@@ -238,6 +239,44 @@ target_link_libraries(hip_analyzer_intercept
     LLVMTransformUtils
     LLVMVectorize
 )
+
+add_library(preload_export_cfg SHARED
+    src/backend/export_cfg.cpp
+    src/backend/preload_export_cfg.cpp
+)
+
+target_include_directories(preload_export_cfg PUBLIC
+    ${ROCM_LLVM}/include
+    ${ROCM_LLVM}/lib/Target/AMDGPU
+    ${LLVM_SOURCE}/include/
+    ${LLVM_SOURCE}/lib/Target/AMDGPU
+    ${LLVM_BUILD}/lib/Target/AMDGPU
+)
+
+target_link_libraries(preload_export_cfg
+    LLVMAMDGPUDesc
+    LLVMAMDGPUInfo
+    LLVMAMDGPUUtils
+    LLVMAMDGPUCodeGen
+    LLVMAnalysis
+    LLVMAsmPrinter
+    LLVMBinaryFormat
+    LLVMCodeGen
+    LLVMCodeGenTypes
+    LLVMCore
+    LLVMGlobalISel
+    LLVMHipStdPar
+    LLVMMC
+    LLVMMIRParser
+    LLVMPasses
+    LLVMSelectionDAG
+    LLVMSupport
+    LLVMTarget
+    LLVMTargetParser
+    LLVMTransformUtils
+    LLVMVectorize
+)
+
 else()
     message(WARNING "Building hip_analyzer_intercept (backend passes) skipped")
 endif()
