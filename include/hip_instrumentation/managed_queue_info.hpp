@@ -149,12 +149,20 @@ class GlobalMemoryQueueInfo : public ChunkAllocatorBase<std::byte> {
 
     GlobalMemoryQueueInfo(size_t elem_size, size_t buffer_size = DEFAULT_SIZE);
 
+    Registry* toDevice() {
+        begin_ptr = last_registry.begin;
+        return device_ptr;
+    }
+
+    void record(uint64_t stamp);
+
     static const std::string& event_name;
     static const std::string& event_desc;
 
   private:
     size_t elem_size;
     uint64_t stamp;
+    void* begin_ptr;
 };
 
 template <typename T> class CUChunkAllocatorBase {

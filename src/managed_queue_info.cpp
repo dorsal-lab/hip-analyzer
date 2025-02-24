@@ -86,17 +86,23 @@ template <> void ChunkAllocatorBase<SubBuffer>::record(uint64_t stamp) {
         begin_id);
 }
 
-template <> void ChunkAllocatorBase<std::byte>::record(uint64_t stamp) {
+void GlobalMemoryQueueInfo::record(uint64_t stamp) {
     hip::check(hipDeviceSynchronize());
 
-    size_t begin_id = last_registry.current_id;
+    // Create a fake registry, because we're actually incrementing the begin
+    // address. GlobalMemoryQueueInfo are single use, so this doesnt cause
+    // issues.
 
-    update();
+    Registry fake_last_registry = last_registry;
+
+    update(); // Update last_registry
+
+    fake_last_registry.current_id =
+        last_registry.begin - fake_last_registry.begin;
 
     ++process_count;
     hip::HipTraceManager::getInstance().registerGlobalMemoryQueue(
-        reinterpret_cast<hip::GlobalMemoryQueueInfo*>(this), stamp,
-        last_registry, begin_id);
+        this, stamp, fake_last_registry, 0);
 }
 
 template <typename T>

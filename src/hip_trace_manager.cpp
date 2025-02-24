@@ -158,7 +158,7 @@ std::ofstream& dumpEventsBin(std::ofstream& out, uint64_t stamp,
                              size_t buffer_size) {
     out << hiptrace_chunk_events_name << ',' << stamp << ',' << buffer_count
         << ',' << buffer_size << ',' << event_name << ','
-        << hiptrace_event_fields << event_desc << '\n';
+        << hiptrace_event_fields << ',' << event_desc << '\n';
 
     out.write(reinterpret_cast<const char*>(queue_data.get()),
               buffer_count * buffer_size);
