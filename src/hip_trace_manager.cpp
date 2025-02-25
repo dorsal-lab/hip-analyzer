@@ -155,9 +155,10 @@ std::ofstream& dumpEventsBin(std::ofstream& out, uint64_t stamp,
                              const std::unique_ptr<std::byte[]>& queue_data,
                              std::string_view event_desc,
                              std::string_view event_name, size_t buffer_count,
-                             size_t buffer_size) {
-    out << hiptrace_chunk_events_name << ',' << stamp << ',' << buffer_count
-        << ',' << buffer_size << ',' << event_name << ','
+                             size_t buffer_size,
+                             const char* kernel_name = "chunk_alloc") {
+    out << hiptrace_chunk_events_name << ',' << kernel_name << ',' << stamp
+        << ',' << buffer_count << ',' << buffer_size << ',' << event_name << ','
         << hiptrace_event_fields << ',' << event_desc << '\n';
 
     out.write(reinterpret_cast<const char*>(queue_data.get()),
@@ -254,7 +255,8 @@ void HipTraceManager::registerQueue(QueueInfo& queue_info, void* queue_data) {
 
 void HipTraceManager::registerGlobalMemoryQueue(
     GlobalMemoryQueueInfo* queue_info, uint64_t stamp,
-    GlobalMemoryQueueInfo::Registry end_registry, size_t begin_offset) {
+    GlobalMemoryQueueInfo::Registry end_registry, size_t begin_offset,
+    const char* kernel_name) {
     std::lock_guard lock{mutex};
 
     lttng_ust_tracepoint(hip_instrumentation, register_global_memory_queue,
@@ -262,7 +264,7 @@ void HipTraceManager::registerGlobalMemoryQueue(
                          end_registry.current_id);
 
     queue.push(GlobalMemoryEventsQueuePayload{queue_info, stamp, end_registry,
-                                              begin_offset});
+                                              begin_offset, kernel_name});
 
     cond.notify_one();
 }
@@ -355,7 +357,7 @@ void HipTraceManager::handlePayload(EventsQueuePayload&& payload,
 template <>
 void HipTraceManager::handlePayload(GlobalMemoryEventsQueuePayload&& payload,
                                     std::ofstream& out) {
-    auto& [queue_info, stamp, registry, begin] = payload;
+    auto& [queue_info, stamp, registry, begin, kernel_name] = payload;
 
     lttng_ust_tracepoint(hip_instrumentation, collector_dump_queue, &out,
                          registry.begin, stamp);
@@ -373,7 +375,7 @@ void HipTraceManager::handlePayload(GlobalMemoryEventsQueuePayload&& payload,
 
     dumpEventsBin(out, stamp, buf, GlobalMemoryQueueInfo::event_desc,
                   GlobalMemoryQueueInfo::event_name, end - begin,
-                  registry.buffer_size);
+                  registry.buffer_size, kernel_name);
 
     queue_info->notifyDoneProcessing();
 

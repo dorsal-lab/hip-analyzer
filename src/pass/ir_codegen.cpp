@@ -498,9 +498,10 @@ InstrumentationFunctions::InstrumentationFunctions(llvm::Module& mod) {
     hipGlobalMemQueueInfoToDevice =
         getFunction(mod, "hipGlobalMemQueueInfoToDevice", ptr_from_ptr_type);
 
-    hipGlobalMemQueueInfoRecord = getFunction(
-        mod, "hipGlobalMemQueueInfoRecord",
-        llvm::FunctionType::get(void_type, {ptr_type, ptr_type}, false));
+    hipGlobalMemQueueInfoRecord =
+        getFunction(mod, "hipGlobalMemQueueInfoRecord",
+                    llvm::FunctionType::get(
+                        void_type, {ptr_type, ptr_type, ptr_type}, false));
 
     freeHipGlobalMemoryQueueInfo =
         getFunction(mod, "freeHipGlobalMemoryQueueInfo", void_from_ptr_type);

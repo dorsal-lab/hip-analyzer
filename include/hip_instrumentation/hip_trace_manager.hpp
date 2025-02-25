@@ -41,7 +41,7 @@ class HipTraceManager {
 
     using GlobalMemoryEventsQueuePayload =
         std::tuple<GlobalMemoryQueueInfo*, uint64_t,
-                   GlobalMemoryQueueInfo::Registry, size_t>;
+                   GlobalMemoryQueueInfo::Registry, size_t, const char*>;
 
     using CUMemoryQueuePayload =
         std::tuple<CUMemoryTrace*, uint64_t,
@@ -88,7 +88,8 @@ class HipTraceManager {
 
     void registerGlobalMemoryQueue(GlobalMemoryQueueInfo* queue, uint64_t stamp,
                                    GlobalMemoryQueueInfo::Registry queue_data,
-                                   size_t begin_offset);
+                                   size_t begin_offset,
+                                   const char* kernel_name);
 
     void registerCUMemoryQueue(
         CUMemoryTrace* queue, uint64_t stamp,

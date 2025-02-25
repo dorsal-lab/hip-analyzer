@@ -86,7 +86,7 @@ template <> void ChunkAllocatorBase<SubBuffer>::record(uint64_t stamp) {
         begin_id);
 }
 
-void GlobalMemoryQueueInfo::record(uint64_t stamp) {
+void GlobalMemoryQueueInfo::record(uint64_t stamp, const char* kernel_name) {
     hip::check(hipDeviceSynchronize());
 
     // Create a fake registry, because we're actually incrementing the begin
@@ -102,7 +102,7 @@ void GlobalMemoryQueueInfo::record(uint64_t stamp) {
 
     ++process_count;
     hip::HipTraceManager::getInstance().registerGlobalMemoryQueue(
-        this, stamp, fake_last_registry, 0);
+        this, stamp, fake_last_registry, 0, kernel_name);
 }
 
 template <typename T>

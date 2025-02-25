@@ -99,7 +99,8 @@ hip::GlobalMemoryQueueInfo::Registry*
 hipGlobalMemQueueInfoToDevice(hip::GlobalMemoryQueueInfo*);
 
 void hipGlobalMemQueueInfoRecord(hip::GlobalMemoryQueueInfo*,
-                                 hip::GlobalMemoryQueueInfo::Registry*);
+                                 hip::GlobalMemoryQueueInfo::Registry*,
+                                 const char*);
 
 void freeHipGlobalMemoryQueueInfo(hip::GlobalMemoryQueueInfo*);
 

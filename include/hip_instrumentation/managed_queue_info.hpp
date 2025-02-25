@@ -154,7 +154,7 @@ class GlobalMemoryQueueInfo : public ChunkAllocatorBase<std::byte> {
         return device_ptr;
     }
 
-    void record(uint64_t stamp);
+    void record(uint64_t stamp, const char* kernel_name);
 
     static const std::string& event_name;
     static const std::string& event_desc;

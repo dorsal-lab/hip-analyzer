@@ -820,7 +820,9 @@ llvm::Function* GlobalMemoryQueueHostPass::replaceStubCall(
 
     // Store counters (runtime)
     builder.CreateCall(instr_handlers.hipGlobalMemQueueInfoRecord,
-                       {queue_info, events_buffer});
+                       {queue_info, events_buffer,
+                        builder.CreateGlobalStringPtr(
+                            call_to_launch->getArgOperand(0)->getName())});
 
     builder.CreateCall(instr_handlers.freeHipGlobalMemoryQueueInfo,
                        {queue_info});

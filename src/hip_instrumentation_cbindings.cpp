@@ -380,6 +380,7 @@ void hipQueueInfoRecord(hip::QueueInfo* queue_info, void* events,
     lttng_ust_tracepoint(hip_instrumentation, queue_record_begin, queue_info);
     queue_info->record(events);
     hip::check(hipFree(offsets));
+    hip::HipTraceManager::getInstance().flush();
     lttng_ust_tracepoint(hip_instrumentation, queue_record_end, queue_info);
 }
 
@@ -414,11 +415,14 @@ hipGlobalMemQueueInfoToDevice(hip::GlobalMemoryQueueInfo* queue) {
 
 void hipGlobalMemQueueInfoRecord(
     hip::GlobalMemoryQueueInfo* queue,
-    hip::GlobalMemoryQueueInfo::Registry* device_ptr) {
+    hip::GlobalMemoryQueueInfo::Registry* device_ptr, const char* kernel_name) {
 
     lttng_ust_tracepoint(hip_instrumentation, queue_record_begin, queue);
-    queue->record(0);
+    // TODO Get packet stamp
+    queue->record(0, kernel_name);
     lttng_ust_tracepoint(hip_instrumentation, queue_record_end, queue);
+
+    hip::HipTraceManager::getInstance().flush();
 }
 
 void freeHipGlobalMemoryQueueInfo(hip::GlobalMemoryQueueInfo* queue) {
@@ -459,6 +463,8 @@ void hipCUMemQueueInfoRecord(
     lttng_ust_tracepoint(hip_instrumentation, queue_record_begin, queue);
     queue->record(0);
     lttng_ust_tracepoint(hip_instrumentation, queue_record_end, queue);
+
+    hip::HipTraceManager::getInstance().flush();
 }
 
 void freeHipCUMemoryQueueInfo(hip::CUMemoryTrace* queue) { delete queue; }
