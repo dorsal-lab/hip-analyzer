@@ -9,6 +9,7 @@
 #include "llvm/Pass.h"
 
 #include <set>
+#include <unordered_set>
 
 namespace hip {
 
@@ -34,8 +35,9 @@ class OptimalTracingPass : llvm::FunctionPass {
     TracingSet analysis_result;
     const llvm::BasicBlock* exit_block;
 
-    TracingSet dfs(const llvm::BasicBlock* bb,
-                   std::set<const llvm::BasicBlock*> explored_vertices = {});
+    TracingSet
+    dfs(const llvm::BasicBlock* bb,
+        std::unordered_set<const llvm::BasicBlock*> explored_vertices = {});
 };
 
 } // namespace hip
