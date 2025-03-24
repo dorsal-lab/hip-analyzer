@@ -107,6 +107,7 @@ add_library(
     src/pass/hip_analyzer_host_pass.cpp
     src/pass/ir_codegen.cpp
     src/pass/trace_type.cpp
+    src/pass/optimal_tracing_pass.cpp
     src/llvm_instr_counters.cpp
     src/basic_block.cpp
 )
@@ -242,6 +243,7 @@ target_link_libraries(hip_analyzer_intercept
 
 add_library(preload_export_cfg SHARED
     src/backend/export_cfg.cpp
+    src/backend/extract_bb_id.cpp
     src/backend/preload_export_cfg.cpp
 )
 
@@ -254,6 +256,42 @@ target_include_directories(preload_export_cfg PUBLIC
 )
 
 target_link_libraries(preload_export_cfg
+    LLVMAMDGPUDesc
+    LLVMAMDGPUInfo
+    LLVMAMDGPUUtils
+    LLVMAMDGPUCodeGen
+    LLVMAnalysis
+    LLVMAsmPrinter
+    LLVMBinaryFormat
+    LLVMCodeGen
+    LLVMCodeGenTypes
+    LLVMCore
+    LLVMGlobalISel
+    LLVMHipStdPar
+    LLVMMC
+    LLVMMIRParser
+    LLVMPasses
+    LLVMSelectionDAG
+    LLVMSupport
+    LLVMTarget
+    LLVMTargetParser
+    LLVMTransformUtils
+    LLVMVectorize
+)
+
+add_library(reserve_registers SHARED
+    src/backend/reserve_registers.cpp
+)
+
+target_include_directories(reserve_registers PUBLIC
+    ${ROCM_LLVM}/include
+    ${ROCM_LLVM}/lib/Target/AMDGPU
+    ${LLVM_SOURCE}/include/
+    ${LLVM_SOURCE}/lib/Target/AMDGPU
+    ${LLVM_BUILD}/lib/Target/AMDGPU
+)
+
+target_link_libraries(reserve_registers
     LLVMAMDGPUDesc
     LLVMAMDGPUInfo
     LLVMAMDGPUUtils
