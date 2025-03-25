@@ -21,6 +21,7 @@
 #include <sstream>
 
 #include "ir_codegen.h"
+#include "optimal_tracing_pass.h"
 
 namespace hip {
 
@@ -95,6 +96,8 @@ KernelInstrumentationPass::run(llvm::Module& mod,
 
         auto& fm = modm.getResult<llvm::FunctionAnalysisManagerModuleProxy>(mod)
                        .getManager();
+
+        auto& optimal_tracing = fm.getResult<OptimalTracingPass>(f_original);
 
         optimizeFunction(f_original, fm);
 

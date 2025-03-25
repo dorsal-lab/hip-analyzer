@@ -26,7 +26,7 @@ template <typename T> T s_union(const T& a, const T& b) {
 
 namespace hip {
 
-OptimalTracingPass::TracingSet OptimalTracingPass::dfs(
+OptimalTracingPassBase::TracingSet OptimalTracingPassBase::dfs(
     const BasicBlock* bb,
     std::unordered_set<const BasicBlock*> explored_vertices) {
 
@@ -49,7 +49,7 @@ OptimalTracingPass::TracingSet OptimalTracingPass::dfs(
     return set;
 }
 
-bool OptimalTracingPass::runOnFunction(Function& F) {
+bool OptimalTracingPassBase::run(Function& F) {
     analysis_result.clear();
 
     std::unordered_set<const BasicBlock*> work_set;
@@ -119,19 +119,22 @@ bool OptimalTracingPass::runOnFunction(Function& F) {
         }
     }
 
+    print(llvm::errs(), F.getParent());
     return false;
 }
 
-void OptimalTracingPass::getAnalysisUsage(AnalysisUsage& Info) const {
+void OptimalTracingPassLegacy::getAnalysisUsage(AnalysisUsage& Info) const {
     // Info.addRequired<UnifyFunctionExitNodesPass>();
     Info.setPreservesAll();
 }
 
-void OptimalTracingPass::print(raw_ostream& O, Module const*) const {
+void OptimalTracingPassBase::print(raw_ostream& O, Module const*) const {
     O << "OptimalTracingPass\n";
     for (auto& [in, out] : analysis_result) {
         O << in->getName() << " -> " << out->getName() << '\n';
     }
 }
+
+llvm::AnalysisKey OptimalTracingPass::Key;
 
 } // namespace hip
