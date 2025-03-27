@@ -22,6 +22,24 @@ template <typename T> T s_union(const T& a, const T& b) {
     c.insert(b.begin(), b.end());
     return c;
 }
+
+void print_bbs(const std::unordered_set<const BasicBlock*>& set) {
+    llvm::dbgs() << '{';
+    for (const auto& bb : set) {
+        llvm::dbgs() << bb->getName() << ',';
+    }
+    llvm::dbgs() << "}\n";
+}
+
+void print_edges(const hip::OptimalTracingPassBase::TracingSet& set) {
+    llvm::dbgs() << '{';
+    for (const auto& [in, out] : set) {
+        llvm::dbgs() << '(' << in->getName() << " -> " << out->getName()
+                     << "),";
+    }
+    llvm::dbgs() << "}\n";
+}
+
 } // namespace
 
 namespace hip {
@@ -30,37 +48,75 @@ OptimalTracingPassBase::TracingSet OptimalTracingPassBase::dfs(
     const BasicBlock* bb,
     std::unordered_set<const BasicBlock*> explored_vertices) {
 
+    llvm::dbgs() << "DFS : " << bb->getName() << '\n';
+
+    if (isa<ReturnInst>(bb->getTerminator())) {
+        exit_block = bb;
+        llvm::dbgs() << "\tTerminator\n";
+        return {};
+    }
+
+    explored_vertices.insert(bb);
+
     TracingSet set;
 
     for (const auto& succ : successors(bb)) {
-        if (explored_vertices.contains(bb)) {
+        if (explored_vertices.contains(succ)) {
             // If it is a back edge, add it to the tracing set
             set.insert({bb, succ});
+            llvm::dbgs() << "\tSucc: " << succ->getName() << '\n';
+        } // Do not explore a back edge
+        else {
+            // Maybe merge to avoid unnecessary copies & assignments?
+
+            // Recursive call
+            set = s_union(dfs(succ, explored_vertices), set);
         }
     }
 
-    // Recursive call
-
-    for (const auto& succ : successors(bb)) {
-        // Maybe merge to avoid unnecessary copies & assignments?
-        set = s_union(dfs(succ, s_union(explored_vertices, {bb})), set);
-    }
+    llvm::dbgs() << "\tSuccs ";
+    print_edges(set);
 
     return set;
+}
+
+template <typename F>
+std::vector<const BasicBlock*>
+exclude_edges(F f, const BasicBlock* bb,
+              const OptimalTracingPassBase::TracingSet& exclude_edges) {
+    std::vector<const BasicBlock*> succs;
+    for (const auto& succ : f(bb)) {
+        bool may_be_added = true;
+        for (const auto& [in, out] : exclude_edges) {
+            if (in == bb && out == succ) {
+                may_be_added = false;
+                break;
+            }
+        }
+
+        if (may_be_added) {
+            succs.push_back(succ);
+        }
+    }
+
+    return succs;
 }
 
 bool OptimalTracingPassBase::run(Function& F) {
     analysis_result.clear();
 
-    std::unordered_set<const BasicBlock*> work_set;
-    std::unordered_set<const BasicBlock*> processed;
+    F.dump();
 
     auto* entry = &F.getEntryBlock();
+    std::unordered_set<const BasicBlock*> work_set({entry});
+    std::unordered_set<const BasicBlock*> processed;
 
-    analysis_result = dfs(entry);
+    auto back_edges = dfs(entry);
+    print_edges(back_edges);
 
     std::unordered_set<const BasicBlock*> end_cond = {exit_block};
     while (work_set != end_cond) {
+        print_bbs(work_set);
         // Select a bb that isn't exit
         const llvm::BasicBlock* bb = nullptr;
         for (auto it = work_set.begin(); it != work_set.end(); ++it) {
@@ -96,15 +152,22 @@ bool OptimalTracingPassBase::run(Function& F) {
             odd_one_out = *successors(bb).begin();
         }
 
+        processed.insert(bb);
+
         // Add successors to working set
-        for (const auto& succ : successors(bb)) {
+        for (const auto& succ : exclude_edges(
+                 [](auto* bb) { return successors(bb); }, bb, back_edges)) {
             if (succ != odd_one_out) {
                 // Mark edges as instrumented
                 analysis_result.insert({bb, succ});
             }
 
+            // Iterate over all its parents, if they have been processed then it
+            // can be added in the work set
             bool may_be_processed = true;
-            for (const auto& pred : predecessors(succ)) {
+            for (const auto& pred :
+                 exclude_edges([](auto* bb) { return predecessors(bb); }, succ,
+                               back_edges)) {
                 if (!processed.contains(pred)) {
                     may_be_processed = false;
                     break;

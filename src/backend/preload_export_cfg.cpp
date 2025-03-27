@@ -19,7 +19,9 @@ void amdgcn_hooks_optimized_reg_alloc(llvm::TargetPassConfig* pass_config) {
     llvm::PassRegistry* PR = llvm::PassRegistry::getPassRegistry();
 
     initializeExportCFGPass(*PR);
+    initializeExtractBBIdPass(*PR);
 
-    pass_config->insertPass(&llvm::SILowerControlFlowID, &ExportCFG::ID);
+    // pass_config->insertPass(&llvm::PHIEliminationID, &ExportCFG::ID);
+    pass_config->insertPass(&llvm::PHIEliminationID, &ExtractBBId::ID);
 }
 }

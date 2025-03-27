@@ -18,6 +18,7 @@
 
 namespace llvm {
 void initializeExportCFGPass(PassRegistry&);
+void initializeExtractBBIdPass(PassRegistry&);
 } // namespace llvm
 
 class ExportCFG : public llvm::MachineFunctionPass {
@@ -28,4 +29,16 @@ class ExportCFG : public llvm::MachineFunctionPass {
     bool runOnMachineFunction(llvm::MachineFunction& MF) override;
 
     llvm::StringRef getPassName() const override { return "Export CFG Pass"; }
+};
+
+class ExtractBBId : public llvm::MachineFunctionPass {
+  public:
+    static char ID;
+    ExtractBBId() : MachineFunctionPass(ID) {}
+
+    bool runOnMachineFunction(llvm::MachineFunction& MF) override;
+
+    llvm::StringRef getPassName() const override {
+        return "Extract Basic Block ID from CFG";
+    }
 };

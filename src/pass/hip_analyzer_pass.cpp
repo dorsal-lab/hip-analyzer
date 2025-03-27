@@ -6,6 +6,7 @@
 
 #include "hip_analyzer_pass.h"
 #include "instrumentation_mode.h"
+#include "optimal_tracing_pass.h"
 
 #include "llvm/Support/CommandLine.h"
 
@@ -134,6 +135,7 @@ llvm::PassPluginLibraryInfo getHipAnalyzerPluginInfo() {
             pb.registerAnalysisRegistrationCallback(
                 [](llvm::FunctionAnalysisManager& fam) {
                     fam.registerPass([&] { return hip::AnalysisPass(); });
+                    fam.registerPass([&] { return hip::OptimalTracingPass(); });
                 });
         }};
 }
