@@ -24,6 +24,7 @@ class OptimalTracingPassBase {
 
     bool run(llvm::Function&);
     const TracingSet& getTracingSet() const { return analysis_result; }
+    std::set<const llvm::BasicBlock*> getVertexTracingSet() const;
 
     void print(llvm::raw_ostream& O, llvm::Module const*) const;
 

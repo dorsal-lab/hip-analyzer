@@ -35,12 +35,25 @@ AnalysisPass::Result AnalysisPass::run(llvm::Function& fn,
 
     std::vector<hip::BasicBlock> blocks_legacy;
 
+    auto& optimal_tracing = fam.getResult<OptimalTracingPass>(fn);
+    std::set<const llvm::BasicBlock*> instr_blocks;
+    for (const auto& [in, out] : optimal_tracing) {
+        instr_blocks.insert(out);
+    }
+
     auto i = 0u;
     for (auto& bb : fn) {
-        if (isBlockInstrumentable(bb)) {
-            blocks.emplace_back(getBlockInfo(bb, i));
-            blocks_legacy.push_back(blocks.back().toBasicBlock());
+        if (!isBlockInstrumentable(bb)) {
+            ++i;
+            continue;
         }
+
+        auto hbb = getBlockInfo(bb, i);
+        if (instr_blocks.contains(&bb)) {
+            llvm::dbgs() << "Instrumenting " << bb.getName() << '\n';
+            blocks.emplace_back(hbb);
+        }
+        blocks_legacy.push_back(hbb.toBasicBlock());
 
         ++i;
     }
@@ -96,8 +109,6 @@ KernelInstrumentationPass::run(llvm::Module& mod,
 
         auto& fm = modm.getResult<llvm::FunctionAnalysisManagerModuleProxy>(mod)
                        .getManager();
-
-        auto& optimal_tracing = fm.getResult<OptimalTracingPass>(f_original);
 
         optimizeFunction(f_original, fm);
 

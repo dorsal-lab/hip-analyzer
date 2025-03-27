@@ -192,6 +192,15 @@ bool OptimalTracingPassBase::run(Function& F) {
     return false;
 }
 
+std::set<const llvm::BasicBlock*>
+OptimalTracingPassBase::getVertexTracingSet() const {
+    std::set<const llvm::BasicBlock*> set;
+    for (const auto& [in, out] : analysis_result) {
+        set.insert(out);
+    }
+    return set;
+}
+
 void OptimalTracingPassLegacy::getAnalysisUsage(AnalysisUsage& Info) const {
     // Info.addRequired<UnifyFunctionExitNodesPass>();
     Info.setPreservesAll();
