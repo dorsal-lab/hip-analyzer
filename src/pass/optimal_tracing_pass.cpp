@@ -114,6 +114,9 @@ bool OptimalTracingPassBase::run(Function& F) {
     auto back_edges = dfs(entry);
     print_edges(back_edges);
 
+    // Init : Instrument all back edges
+    analysis_result = back_edges;
+
     std::unordered_set<const BasicBlock*> end_cond = {exit_block};
     while (work_set != end_cond) {
         print_bbs(work_set);
@@ -131,7 +134,8 @@ bool OptimalTracingPassBase::run(Function& F) {
         // Select edges. We need to extract an odd one out. First go through
         // successors, and identify if they may already be instrumented.
         const BasicBlock* odd_one_out = nullptr;
-        for (const auto& succ : successors(bb)) {
+        for (const auto& succ : exclude_edges(
+                 [](auto* bb) { return successors(bb); }, bb, back_edges)) {
             bool may_be_candidate = true;
             for (auto& [in, out] : analysis_result) {
                 if (out == succ) {
@@ -160,6 +164,8 @@ bool OptimalTracingPassBase::run(Function& F) {
             if (succ != odd_one_out) {
                 // Mark edges as instrumented
                 analysis_result.insert({bb, succ});
+                llvm::dbgs() << "\tInstr " << bb->getName() << ' '
+                             << succ->getName() << '\n';
             }
 
             // Iterate over all its parents, if they have been processed then it
