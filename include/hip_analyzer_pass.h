@@ -41,7 +41,7 @@ constexpr std::string_view dummy_kernel_name =
  */
 class AnalysisPass : public llvm::AnalysisInfoMixin<AnalysisPass> {
   public:
-    using Result = std::vector<hip::InstrumentedBlock>;
+    using Result = std::unordered_map<const llvm::BasicBlock*, hip::BasicBlock>;
 
     AnalysisPass() {}
 

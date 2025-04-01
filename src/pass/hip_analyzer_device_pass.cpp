@@ -33,7 +33,7 @@ AnalysisPass::Result AnalysisPass::run(llvm::Function& fn,
                                        llvm::FunctionAnalysisManager& fam) {
     Result blocks;
 
-    std::vector<hip::BasicBlock> blocks_legacy;
+    std::vector<hip::BasicBlock> blocks_db;
 
     auto& optimal_tracing = fam.getResult<OptimalTracingPass>(fn);
     std::set<const llvm::BasicBlock*> instr_blocks;
@@ -43,19 +43,19 @@ AnalysisPass::Result AnalysisPass::run(llvm::Function& fn,
 
     auto i = 0u;
     for (auto& bb : fn) {
+        auto hbb = getBlockInfo(bb, i).toBasicBlock();
+        blocks_db.push_back(hbb);
+
+        ++i;
+
         if (!isBlockInstrumentable(bb)) {
-            ++i;
             continue;
         }
 
-        auto hbb = getBlockInfo(bb, i);
         if (instr_blocks.contains(&bb)) {
             llvm::dbgs() << "Instrumenting " << bb.getName() << '\n';
-            blocks.emplace_back(hbb);
+            blocks.insert({const_cast<const llvm::BasicBlock*>(&bb), hbb});
         }
-        blocks_legacy.push_back(hbb.toBasicBlock());
-
-        ++i;
     }
 
     Json::Value root{Json::objectValue};
@@ -64,7 +64,7 @@ AnalysisPass::Result AnalysisPass::run(llvm::Function& fn,
         in >> root;
     }
 
-    auto report = BasicBlock::jsonArray(blocks_legacy);
+    auto report = BasicBlock::jsonArray(blocks_db);
     std::stringstream ss;
     ss << report;
 
@@ -229,24 +229,21 @@ bool ThreadCountersInstrumentationPass::instrumentFunction(
 
     // Instrument each basic block
 
-    auto curr_bb = f.begin();
-    auto index = 0u;
-
-    for (auto& bb_instr : blocks) {
-        while (index < bb_instr.id) {
-            ++index;
-            ++curr_bb;
+    for (auto& curr_bb : f) {
+        auto hbb = blocks.find(&curr_bb);
+        if (hbb == blocks.end()) {
+            continue;
         }
 
-        if (!curr_bb->isEntryBlock()) {
+        if (!curr_bb.isEntryBlock()) {
             // First block is already at the right position
-            builder.SetInsertPoint(&(*curr_bb),
-                                   getFirstNonPHIOrDbgOrAlloca(*curr_bb));
+            builder.SetInsertPoint(&curr_bb,
+                                   getFirstNonPHIOrDbgOrAlloca(curr_bb));
         }
 
         auto* counter_ptr = builder.CreateInBoundsGEP(
             array_type, counters,
-            {builder.getInt32(0), builder.getInt32(bb_instr.id)});
+            {builder.getInt32(0), builder.getInt32(hbb->second.id)});
 
         auto* curr_ptr = builder.CreateLoad(counter_type, counter_ptr);
 
@@ -423,29 +420,24 @@ bool TracingPass::instrumentFunction(llvm::Function& f,
         event->finalize(builder);
     }
 
-    auto curr_bb = ++f.begin();
-    auto index = 1u;
-
-    for (auto& bb_instr : blocks) {
-        if (bb_instr.id == 0) {
-            // Already instrumented above
+    for (auto& curr_bb : f) {
+        auto hbb = blocks.find(&curr_bb);
+        if (hbb == blocks.end() || curr_bb.isEntryBlock()) {
+            // block is not instrumented, or is entry (instrumented above)
+            llvm::dbgs() << "Skipping block " << curr_bb.getName() << '\n';
             continue;
         }
-        while (index < bb_instr.id) {
-            ++index;
-            ++curr_bb;
-        }
 
-        builder.SetInsertPoint(&(*curr_bb),
-                               getFirstNonPHIOrDbgOrAlloca(*curr_bb));
+        builder.SetInsertPoint(&curr_bb, getFirstNonPHIOrDbgOrAlloca(curr_bb));
 
-        auto* counter = event->traceIdxAtBlock(*curr_bb);
+        auto* counter = event->traceIdxAtBlock(curr_bb);
 
         // Create an event
-        event->createEvent(mod, builder, thread_storage, counter, bb_instr.id);
+        event->createEvent(mod, builder, thread_storage, counter,
+                           hbb->second.id);
 
         // For all terminating blocks, may need to add instructions to flush
-        auto* terminator = curr_bb->getTerminator();
+        auto* terminator = curr_bb.getTerminator();
         if (llvm::isa<llvm::ReturnInst>(terminator)) {
             builder.SetInsertPoint(terminator);
             event->finalize(builder);
