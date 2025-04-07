@@ -48,11 +48,8 @@ OptimalTracingPassBase::TracingSet OptimalTracingPassBase::dfs(
     const BasicBlock* bb,
     std::unordered_set<const BasicBlock*> explored_vertices) {
 
-    llvm::dbgs() << "DFS : " << bb->getName() << '\n';
-
     if (isa<ReturnInst>(bb->getTerminator())) {
         exit_block = bb;
-        llvm::dbgs() << "\tTerminator\n";
         return {};
     }
 
@@ -64,7 +61,6 @@ OptimalTracingPassBase::TracingSet OptimalTracingPassBase::dfs(
         if (explored_vertices.contains(succ)) {
             // If it is a back edge, add it to the tracing set
             set.insert({bb, succ});
-            llvm::dbgs() << "\tSucc: " << succ->getName() << '\n';
         } // Do not explore a back edge
         else {
             // Maybe merge to avoid unnecessary copies & assignments?
@@ -73,9 +69,6 @@ OptimalTracingPassBase::TracingSet OptimalTracingPassBase::dfs(
             set = s_union(dfs(succ, explored_vertices), set);
         }
     }
-
-    llvm::dbgs() << "\tSuccs ";
-    print_edges(set);
 
     return set;
 }
@@ -89,6 +82,29 @@ exclude_edges(F f, const BasicBlock* bb,
         bool may_be_added = true;
         for (const auto& [in, out] : exclude_edges) {
             if (in == bb && out == succ) {
+                may_be_added = false;
+                break;
+            }
+        }
+
+        if (may_be_added) {
+            succs.push_back(succ);
+        }
+    }
+
+    return succs;
+}
+
+// same function as before, but only exclude edge if it targets bb
+template <typename F>
+std::vector<const BasicBlock*> exclude_parents(
+    F f, const BasicBlock* bb,
+    const OptimalTracingPassBase::TracingSet& exclude_incoming_edges) {
+    std::vector<const BasicBlock*> succs;
+    for (const auto& succ : f(bb)) {
+        bool may_be_added = true;
+        for (const auto& [in, out] : exclude_incoming_edges) {
+            if (out == bb) {
                 may_be_added = false;
                 break;
             }
@@ -158,7 +174,7 @@ bool OptimalTracingPassBase::run(Function& F) {
 
         processed.insert(bb);
 
-        // Add successors to working set
+        // Add successors to working set.
         for (const auto& succ : exclude_edges(
                  [](auto* bb) { return successors(bb); }, bb, back_edges)) {
             if (succ != odd_one_out) {
@@ -172,12 +188,16 @@ bool OptimalTracingPassBase::run(Function& F) {
             // can be added in the work set
             bool may_be_processed = true;
             for (const auto& pred :
-                 exclude_edges([](auto* bb) { return predecessors(bb); }, succ,
-                               back_edges)) {
+                 exclude_parents([](auto* bb) { return predecessors(bb); },
+                                 succ, back_edges)) {
                 if (!processed.contains(pred)) {
                     may_be_processed = false;
                     break;
                 }
+            }
+
+            if (isa<llvm::UnreachableInst>(succ->getTerminator())) {
+                may_be_processed = false;
             }
 
             // All predecessors have been processed. So the successor can be
