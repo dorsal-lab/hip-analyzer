@@ -688,11 +688,11 @@ class CUChunkAllocatorWaveTrace : public ChunkAllocatorWaveTrace {
         // New allocation (ChunkAllocator::Registry::alloc)
         // Compute CU
         "s_getreg_b32 s22, hwreg(HW_REG_HW_ID)\n"
-        "s_bfe_u32 s24, s21, 0x1000c\n"
-        "s_bfe_u32 s23, s22, 0x40008\n"
-        "s_bfe_u32 s22, s22, 0x2000d\n"
+        "s_bfe_u32 s24, s21, 0x1000c\n" // Shader array
+        "s_bfe_u32 s23, s22, 0x40008\n" // CU
+        "s_bfe_u32 s22, s22, 0x2000d\n" // Shader engine
         "s_mul_i32 s24, s24, 14\n"
-        "s_add_i32 s23, s22, s24\n"
+        "s_add_i32 s23, s23, s24\n"
         "s_mul_i32 s22, s22, 28\n"
         "s_add_i32 s22, s23, s22\n"
         "s_lshl_b32 s22, s22, 6\n"
