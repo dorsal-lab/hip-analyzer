@@ -291,3 +291,11 @@ add_custom_command(
 add_executable(event_cost ${CMAKE_CURRENT_BINARY_DIR}/event_cost.o)
 target_link_libraries(event_cost hip::host)
 set_target_properties(event_cost PROPERTIES LINKER_LANGUAGE CXX)
+
+# ----- extract_exec ----- #
+
+add_executable(extract_exec
+    extract_exec.cpp
+)
+
+target_link_libraries(extract_exec hip_instrumentation LLVMSupport)
